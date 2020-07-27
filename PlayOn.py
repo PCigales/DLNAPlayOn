@@ -2989,6 +2989,11 @@ class DLNAWebInterfaceServer(threading.Thread):
   '            duration = parseInt(event.data.substring(9));\r\n' \
   '            let seekduration_d = new Date(duration*1000);\r\n' \
   '            document.getElementById("seekduration").innerHTML = seekduration_d.toISOString().substr(12, 7);\r\n' \
+  '            if (document.getElementById("position").innerHTML !="-") {\r\n' \
+  '              let cur_pos = document.getElementById("position").innerHTML.split(":");\r\n' \
+  '              seekbar.value = Math.floor((parseInt(cur_pos[0])*3600 + parseInt(cur_pos[1])*60 + parseInt(cur_pos[2])) / duration * 10000);\r\n' \
+  '              seekposition.innerHTML = document.getElementById("position").innerHTML;\r\n' \
+  '            }\r\n' \
   '            seekbar.style.display = "inline-block";\r\n' \
   '            seektarget.style.display = "block";\r\n' \
   '          } else if (event.data != "close") {\r\n' \
@@ -3004,6 +3009,8 @@ class DLNAWebInterfaceServer(threading.Thread):
   '          new_socket();\r\n' \
   '        }\r\n' \
   '      }\r\n' \
+  '      duration = 0;\r\n' \
+  '      seekongoing = false;\r\n' \
   '      new_socket();\r\n' \
   '      window.onbeforeunload = function () {\r\n' \
   '        socket.onclose = function(event) {};\r\n' \
@@ -3016,8 +3023,6 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        conf = window.confirm("Arrêter la lecture ?");\r\n' \
   '        if (conf) {socket.send(\'Arrêt\');}\r\n' \
   '      }\r\n' \
-  '      duration = 0;\r\n' \
-  '      seekongoing = false;\r\n' \
   '    </script>\r\n' \
   '  </head>\r\n' \
   '  <body style="background-color:rgb(40,45,50);color:rgb(225,225,225);font-size:32px;">\r\n' \
