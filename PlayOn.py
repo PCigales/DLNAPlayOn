@@ -2197,7 +2197,7 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
       
   def get_data(self, frame):
     if not frame:
-      return None
+      return None, None
     try:
       if frame[0] == 0x81:
         if frame[1] >> 7 == 1:
@@ -2205,15 +2205,17 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
           if payload_len <= 125:
             mask = frame[2:6]
             data = frame[6:6+payload_len]
-            return WebSocketRequestHandler.XOR32_decode(mask, data).decode('utf-8')
+            return WebSocketRequestHandler.XOR32_decode(mask, data).decode('utf-8'), frame[6+payload_len:]
           elif frame[1] & 0x7f == 126:
             payload_extlen = frame[2] * 256 + frame [3]
             mask = frame[4:8]
             data = frame[8:8+payload_extlen]
-            return WebSocketRequestHandler.XOR32_decode(mask, data).decode('utf-8')
-      return None
+            return WebSocketRequestHandler.XOR32_decode(mask, data).decode('utf-8'), frame[8+payload_extlen:]
+        else:
+          return None, None
+      return None, None
     except:
-      return None
+      return None, None
 
   def handle_out(self, s_lock, closed):
     self.outgoing_store = []
@@ -2332,15 +2334,18 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
             s_lock.acquire()
             try:
               frame = self.request.recv(50000)
-              if frame:
+              while frame:
                 if self.check_close(frame):
                   self.server.logger.log('WebSocket serveur %s:%s -> avis de fin de connexion du WebSocket %s:%s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
                   closed[0] = True
+                  frame = None
                 else:
-                  incoming = self.get_data(frame)
+                  incoming, frame = self.get_data(frame)
                   if incoming:
                     self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> réception de la donnée %s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1], incoming), 2)
                     self.server.DataStore.add_incoming(incoming)
+                  else:
+                    frame = None
             except:
               pass
             finally:
@@ -3017,7 +3022,10 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        socket.close();\r\n' \
   '      }\r\n' \
   '      function play_pause_button() {\r\n' \
-  '        if (document.getElementById("status").innerHTML != "initialisation") {socket.send(document.getElementById(\'play-pause\').innerHTML);}\r\n' \
+  '        if (document.getElementById("status").innerHTML != "initialisation") {\r\n' \
+  '          if (document.getElementById("status").innerHTML == "arrêt" && duration != 0) {socket.send("Seek:" + seekposition.innerHTML);}\r\n' \
+  '          socket.send(document.getElementById(\'play-pause\').innerHTML);\r\n' \
+  '        }\r\n' \
   '      }\r\n' \
   '      function stop_button() {\r\n' \
   '        conf = window.confirm("Arrêter la lecture ?");\r\n' \
