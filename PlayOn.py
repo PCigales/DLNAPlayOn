@@ -874,7 +874,10 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
         if self.server.__dict__['_BaseServer__shutdown_request'] or self.server.__dict__['_BaseServer__is_shut_down'].is_set():
           break
         if ready:
-          self.handle_one_request()
+          try:
+            self.handle_one_request()
+          except:
+            pass
           closed = self.close_connection
 
 
@@ -1094,7 +1097,10 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         if self.server.__dict__['_BaseServer__shutdown_request'] or self.server.__dict__['_BaseServer__is_shut_down'].is_set():
           break
         if ready:
-          self.handle_one_request()
+          try:
+            self.handle_one_request()
+          except:
+            pass
           closed = self.close_connection
 
 
@@ -1593,6 +1599,7 @@ class DLNARendererControler:
     sock.sendto(msg.encode("ISO-8859-1"), ('239.255.255.250', 1900))
     loca_time=[]
     stopped = False
+    time_req = time.localtime()
     try:
       with selectors.DefaultSelector() as selector:
         selector.register(sock, selectors.EVENT_READ)
@@ -1614,17 +1621,16 @@ class DLNARendererControler:
     except:
       pass
     sock.close()
-    time_resp = time.localtime()
     for desc_url, time_resp in loca_time:
       self._update_renderers(desc_url, time_resp)
     for rend in self.Renderers:
       if rend.StatusAlive:
         if not uuid:
-          if time.mktime(time_resp) - time.mktime(rend.StatusAliveLastTime) > alive_persistence:
+          if time.mktime(time_req) - time.mktime(rend.StatusAliveLastTime) > alive_persistence:
             rend.StatusAlive = False
             rend.StatusTime = time_resp
         elif rend.UDN == 'uuid:' + uuid:
-          if time.mktime(time_resp) - time.mktime(rend.StatusAliveLastTime) > alive_persistence:
+          if time.mktime(time_req) - time.mktime(rend.StatusAliveLastTime) > alive_persistence:
             rend.StatusAlive = False
             rend.StatusTime = time_resp
       
@@ -2752,11 +2758,10 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        socket.onclose = function(event) {\r\n' \
   '          new_socket();\r\n' \
   '        }\r\n' \
-  '      }\r\n' \
-  '      new_socket();\r\n' \
-  '      window.onbeforeunload = function () {\r\n' \
-  '        socket.onclose = function(event) {};\r\n' \
-  '        socket.close();\r\n' \
+  '        window.onbeforeunload = function () {\r\n' \
+  '          socket.onclose = function(event) {};\r\n' \
+  '          socket.close();\r\n' \
+  '        }\r\n' \
   '      }\r\n' \
   '      function select_renderer(renderer) {\r\n' \
   '        if (selected != "") {document.getElementById("renderer_" + selected).style.color="rgb(225,225,225)";}\r\n' \
@@ -2925,6 +2930,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      <input type="hidden" id="Renderer" name="RendererInd" value="" required>\r\n' \
   '    </form>\r\n' \
   '    <script>\r\n' \
+  '      new_socket();\r\n' \
   '      URL_set = document.getElementById("URL-").value;\r\n' \
   '      StartFrom_set = document.getElementById("StartFrom").value;\r\n' \
   '    </script>\r\n' \
@@ -3013,14 +3019,13 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        socket.onclose = function(event) {\r\n' \
   '          new_socket();\r\n' \
   '        }\r\n' \
+  '        window.onbeforeunload = function () {\r\n' \
+  '          socket.onclose = function(event) {};\r\n' \
+  '          socket.close();\r\n' \
+  '        }\r\n' \
   '      }\r\n' \
   '      duration = 0;\r\n' \
   '      seekongoing = false;\r\n' \
-  '      new_socket();\r\n' \
-  '      window.onbeforeunload = function () {\r\n' \
-  '        socket.onclose = function(event) {};\r\n' \
-  '        socket.close();\r\n' \
-  '      }\r\n' \
   '      function play_pause_button() {\r\n' \
   '        if (document.getElementById("status").innerHTML != "initialisation") {\r\n' \
   '          if (document.getElementById("status").innerHTML == "arrêt" && duration != 0) {socket.send("Seek:" + seekposition.innerHTML);}\r\n' \
@@ -3050,6 +3055,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '    <input type="range" min="0" max="10000" value="0" id="seekbar" style="margin-left:50px;margin-right:50px;width:80%;cursor:pointer;display:none;">\r\n' \
   '    <p id="seektarget" style="margin-left:50px;font-size:75%;display:none;"> Position cible: <span id="seekposition">0:00:00</span> / <span id="seekduration">0:00:00</span></p>\r\n' \
   '    <script>\r\n' \
+  '      new_socket();\r\n' \
   '      seekbar = document.getElementById("seekbar");\r\n' \
   '      seekposition = document.getElementById("seekposition");\r\n' \
   '      seekbar.onmousedown = function() {seekongoing = true;};\r\n' \
@@ -3220,7 +3226,7 @@ class DLNAWebInterfaceServer(threading.Thread):
         if self.MediaServerInstance.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
           prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5), 'Média', kind=media_kind)
         elif self.MediaServerInstance.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL:
-          prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, {'!MP4':'.mp4','!MPEGTS':'.ts'}.get(self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer,'') if self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer else ''), 'Média', kind=media_kind)
+          prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, {'MP4':'.mp4','MPEGTS':'.ts'}.get(self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer,'') if self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer and self.MediaServerInstance.MediaProviderInstance.MediaMuxAlways else ''), 'Média', kind=media_kind)
         else:
           prep_success = False
     if not prep_success or self.ControlDataStore.Command == 'Arrêt':
