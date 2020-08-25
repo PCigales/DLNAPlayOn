@@ -490,6 +490,9 @@ class MediaProvider(threading.Thread):
             self.MediaFeedExt = ''
         else:
           self.MediaFeedExt = ''
+        if not self.MediaFeedExt and self.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
+          if 'mp4' in self.MediaFeed.lower():
+            self.MediaFeedExt = '.mp4'
         self.logger.log('Extension de "%s" retenue comme "%s"' % (self.MediaSrc, self.MediaFeedExt), 2)
         if self.MediaSubSrc:
           if self.MediaSubSrcType.lower() == 'ContentPath'.lower():
