@@ -178,6 +178,7 @@ class MediaProvider(threading.Thread):
     self.Persistent = None
     self.AcceptRanges = None
     self.MediaFeed = None
+    self.MediaFeedExt = None
     self.MediaSize = None
     self.Status = None
     self.shutdown_requested = False
@@ -245,7 +246,7 @@ class MediaProvider(threading.Thread):
       else:
         self.MediaSrcType = 'ContentPath'
     if self.MediaSubSrc and not self.MediaSubSrcType:
-      sub_ext = (''.join(self.MediaSubSrc.rstrip().rpartition('.')[-2:])).lower()
+      sub_ext = (''.join(self.MediaSubSrc.rstrip().rpartition('.')[-2:])).lower() if '.' in self.MediaSubSrc else ''
       if r'://' in self.MediaSubSrc:
         if '?' in sub_ext:
           sub_ext = sub_ext.rpartition('?')[0]
@@ -267,13 +268,13 @@ class MediaProvider(threading.Thread):
       MediaSubBuffer = None
       if self.MediaSubSrcType.lower() == 'ContentPath'.lower():
         try:
-          sub_ext = (''.join(self.MediaSubSrc.rstrip().rpartition('.')[-2:])).lower()
+          sub_ext = (''.join(self.MediaSubSrc.rstrip().rpartition('.')[-2:])).lower() if '.' in self.MediaSubSrc else ''
         except:
           pass
       elif self.MediaSubSrcType.lower() == 'ContentURL'.lower():
         try:
           MediaSubFeed = MediaProvider.open_url(self.MediaSubSrc)
-          sub_ext = (''.join(MediaSubFeed.url.rstrip().rpartition('.')[-2:])).lower()
+          sub_ext = (''.join(MediaSubFeed.url.rstrip().rpartition('.')[-2:])).lower() if '.' in MediaSubFeed.url else ''
           if '?' in sub_ext:
             sub_ext = sub_ext.rpartition('?')[0]
         except:
@@ -350,7 +351,7 @@ class MediaProvider(threading.Thread):
         if sub_url and not self.shutdown_requested:
           try:
             MediaSubFeed = MediaProvider.open_url(sub_url)
-            sub_ext = (''.join(MediaSubFeed.url.rstrip().rpartition('.')[-2:])).lower()
+            sub_ext = (''.join(MediaSubFeed.url.rstrip().rpartition('.')[-2:])).lower() if '.' in MediaSubFeed.url else ''
             if '?' in sub_ext:
               sub_ext = sub_ext.rpartition('?')[0]
           except:
@@ -376,12 +377,15 @@ class MediaProvider(threading.Thread):
           if self.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL:
             if self.MediaMuxContainer and (self.MediaMuxAlways or self.MediaStartFrom):
               self.MediaFeed = self._open_FFmpeg(vid=self.MediaSrc)
+              self.MediaFeedExt = {'MP4':'.mp4','MPEGTS':'.ts'}.get(self.MediaMuxContainer,'')
             else:
               self.MediaFeed = open(self.MediaSrc, "rb")
+              self.MediaFeedExt = (''.join(self.MediaSrc.rstrip().rpartition('.')[-2:])).lower() if '.' in self.MediaSrc else ''
               self.MediaStartFrom = ''
           else:
             self.ServerMode = MediaProvider.SERVER_MODE_RANDOM
             self.MediaFeed = self.MediaSrc
+            self.MediaFeedExt = (''.join(self.MediaSrc.rstrip().rpartition('.')[-2:])).lower() if '.' in self.MediaSrc else ''
             self.MediaSize = os.path.getsize(self.MediaSrc)
             self.AcceptRanges = True
         except:
@@ -401,20 +405,27 @@ class MediaProvider(threading.Thread):
           if self.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
             if self.MediaSize:
               self.MediaFeed = rep.url
+              self.MediaFeedExt = (''.join(rep.url.rstrip().rpartition('.')[-2:])).lower() if '.' in rep.url else ''
             if not self.AcceptRanges:
               self.MediaStartFrom = ''
           elif self.MediaSize and self.AcceptRanges:
             self.ServerMode = MediaProvider.SERVER_MODE_RANDOM
             self.MediaFeed = rep.url
+            self.MediaFeedExt = (''.join(rep.url.rstrip().rpartition('.')[-2:])).lower() if '.' in rep.url else ''
           else:
             self.ServerMode = MediaProvider.SERVER_MODE_SEQUENTIAL
           rep.close()
         if self.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL:
           if self.MediaMuxContainer and (self.MediaMuxAlways or self.MediaStartFrom):
             self.MediaFeed = self._open_FFmpeg(vid=self.MediaSrc)
+            self.MediaFeedExt = {'MP4':'.mp4','MPEGTS':'.ts'}.get(self.MediaMuxContainer,'')
           else:
             self.MediaFeed = MediaProvider.open_url(self.MediaSrc)
+            self.MediaFeedExt = (''.join(self.MediaFeed.url.rstrip().rpartition('.')[-2:])).lower() if '.' in self.MediaFeed.url else ''
             self.MediaStartFrom = ''
+        if self.MediaFeedExt:
+          if '?' in self.MediaFeedExt:
+            self.MediaFeedExt = self.MediaFeedExt.rpartition('?')[0]
       except:
         pass
     elif self.MediaSrcType.lower() == 'WebPageURL'.lower():
@@ -424,6 +435,7 @@ class MediaProvider(threading.Thread):
           process_output = process_result.stdout.splitlines()
           if (self.MediaMuxAlways or self.ServerMode == MediaProvider.SERVER_MODE_AUTO) and len(process_output) == 2:
             self.MediaFeed = self._open_FFmpeg(vid=process_output[0].decode('utf-8'), aud=process_output[1].decode('utf-8'))
+            self.MediaFeedExt = {'MP4':'.mp4','MPEGTS':'.ts'}.get(self.MediaMuxContainer,'')
             self.ServerMode = MediaProvider.SERVER_MODE_SEQUENTIAL
           elif len(process_output) >= 1:
             if self.ServerMode == MediaProvider.SERVER_MODE_AUTO and self.MediaMuxContainer and b'.m3u8' in process_output[-1]:
@@ -441,11 +453,13 @@ class MediaProvider(threading.Thread):
               if self.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
                 if self.MediaSize:
                   self.MediaFeed = rep.url
+                  self.MediaFeedExt = (''.join(rep.url.rstrip().rpartition('.')[-2:])).lower() if '.' in rep.url else ''
                   if not self.AcceptRanges:
                     self.MediaStartFrom = ''
               elif self.MediaSize and self.AcceptRanges:
                 self.ServerMode = MediaProvider.SERVER_MODE_RANDOM
                 self.MediaFeed = rep.url
+                self.MediaFeedExt = (''.join(rep.url.rstrip().rpartition('.')[-2:])).lower() if '.' in rep.url else ''
               else:
                 self.ServerMode = MediaProvider.SERVER_MODE_SEQUENTIAL
               if not self.AcceptRanges:
@@ -454,14 +468,29 @@ class MediaProvider(threading.Thread):
             if self.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL:
               if self.MediaMuxContainer and (self.MediaMuxAlways or self.MediaStartFrom or b'.m3u8' in process_output[-1]):
                 self.MediaFeed = self._open_FFmpeg(vid=process_output[-1].decode('utf-8'))
+                self.MediaFeedExt = {'MP4':'.mp4','MPEGTS':'.ts'}.get(self.MediaMuxContainer,'')
               else:
                 self.MediaFeed = MediaProvider.open_url(process_output[-1].decode('utf-8'))
-                self.MediaStartFrom = ''  
+                self.MediaFeedExt = (''.join(self.MediaFeed.url.rstrip().rpartition('.')[-2:])).lower() if '.' in self.MediaSubFeed.url else ''
+                self.MediaStartFrom = ''
+          if self.MediaFeedExt:
+            if '?' in self.MediaFeedExt:
+              self.MediaFeedExt = self.MediaFeedExt.rpartition('?')[0]
       except:
         pass
     if not self.shutdown_requested:
       if self.MediaFeed:
         self.logger.log('Ouverture de "%s" reconnu comme "%s" en mode "%s"' % (self.MediaSrc, self.MediaSrcType, MediaProvider.SERVER_MODES[self.ServerMode]), 1)
+        if self.MediaFeedExt:
+          media_mime = mimetypes.guess_type('f' + self.MediaFeedExt)[0]
+          if media_mime:
+            if not media_mime[0:5] in ('video', 'audio', 'image'):
+              self.MediaFeedExt = ''
+          else:
+            self.MediaFeedExt = ''
+        else:
+          self.MediaFeedExt = ''
+        self.logger.log('Extension de "%s" retenue comme "%s"' % (self.MediaSrc, self.MediaFeedExt), 2)
         if self.MediaSubSrc:
           if self.MediaSubSrcType.lower() == 'ContentPath'.lower():
             try:
@@ -495,6 +524,7 @@ class MediaProvider(threading.Thread):
               pass
           if self.MediaSubBuffer[0]:
             self.logger.log('Ouverture des sous-titres "%s" reconnus comme "%s"' % (self.MediaSubSrc, self.MediaSubSrcType), 1)
+            self.logger.log('Extension des sous_titres retenue comme "%s"' % self.MediaSubBuffer[1], 2)
           else:
             self.logger.log('Échec de l\'ouverture des sous-titres "%s" en tant que "%s"' % (self.MediaSubSrc, self.MediaSubSrcType), 0)
         return True
@@ -741,12 +771,13 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
 
   protocol_version = "HTTP/1.1"
 
-  def __init__(self, *args, MediaBuffer, MediaSubBuffer, **kwargs):
+  def __init__(self, *args, MediaBuffer, MediaSubBuffer, MediaExt, **kwargs):
     self.MediaBuffer = MediaBuffer
     if MediaSubBuffer:
       self.MediaSubBuffer = MediaSubBuffer
     else:
       self.MediaSubBuffer = None
+    self.MediaExt = MediaExt
     super().__init__(*args, **kwargs)
 
   
@@ -759,7 +790,11 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
         except:
           pass
         return False
-    if self.path.lower() in ('/media', '/media.mp4', '/media.ts'):
+    alt_sub = ''
+    if self.MediaSubBuffer:
+      if self.MediaSubBuffer[1]:
+        alt_sub = '/media' + self.MediaSubBuffer[1]
+    if self.path.lower() in ('/media', '/media' + self.MediaExt):
       self.MediaBufferSize = len(self.MediaBuffer.content)
       self.MediaBuffer.create_lock.acquire()
       self.MediaBufferId = len(self.MediaBuffer.r_indexes)
@@ -778,7 +813,7 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
         self.close_connection = True
         return False
       return 'media'
-    elif self.path.lower().rsplit(".", 1)[0] == '/mediasub' and self.MediaSubBuffer:
+    elif (self.path.lower().rsplit(".", 1)[0] == '/mediasub' or self.path.lower() == alt_sub) and self.MediaSubBuffer:
       if not self.MediaSubBuffer[0]:
         self.close_connection = True
         try:
@@ -885,7 +920,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
 
   protocol_version = "HTTP/1.1"
   
-  def __init__(self, *args, MediaBuffer, MediaSubBuffer, MediaSrc, MediaSrcType, MediaSize, AcceptRanges, **kwargs):
+  def __init__(self, *args, MediaBuffer, MediaSubBuffer, MediaSrc, MediaSrcType, MediaExt, MediaSize, AcceptRanges, **kwargs):
     self.MediaBuffer = MediaBuffer
     if MediaSubBuffer:
       self.MediaSubBuffer = MediaSubBuffer
@@ -893,6 +928,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
       self.MediaSubBuffer = None
     self.MediaSrc = MediaSrc
     self.MediaSrcType = MediaSrcType
+    self.MediaExt = MediaExt
     self.MediaSize = MediaSize
     self.AcceptRanges = AcceptRanges
     super().__init__(*args, **kwargs)
@@ -906,7 +942,11 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         except:
           pass
         return None, None
-    if self.path.lower() == '/media':
+    alt_sub = ''
+    if self.MediaSubBuffer:
+      if self.MediaSubBuffer[1]:
+        alt_sub = '/media' + self.MediaSubBuffer[1]
+    if self.path.lower() in ('/media', '/media' + self.MediaExt):
       req_range = self.headers.get('Range',"")
       if req_range:
         try:
@@ -941,7 +981,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         if self.MediaSubBuffer[0]:
           self.send_header("CaptionInfo.sec", r"http://%s:%s/mediasub%s" % (*self.server.server_address[:2], self.MediaSubBuffer[1]))
       return 'media', req_start
-    elif self.path.lower().rsplit(".", 1)[0] == '/mediasub' and self.MediaSubBuffer:
+    elif (self.path.lower().rsplit(".", 1)[0] == '/mediasub' or self.path.lower() == alt_sub) and self.MediaSubBuffer:
       sub_size = len(self.MediaSubBuffer[0])
       if sub_size == 0:
         self.close_connection = True
@@ -1146,9 +1186,9 @@ class MediaServer(threading.Thread):
         self.MediaProviderInstance.BuildFinishedEvent.wait()
         if self.is_running and self.MediaProviderInstance.Status in (MediaProvider.STATUS_RUNNING, MediaProvider.STATUS_COMPLETED):
           if self.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL:
-            self.MediaRequestBoundHandler = partial(MediaRequestHandlerS, MediaBuffer=self.MediaBufferInstance, MediaSubBuffer=self.MediaSubBufferInstance)
+            self.MediaRequestBoundHandler = partial(MediaRequestHandlerS, MediaBuffer=self.MediaBufferInstance, MediaSubBuffer=self.MediaSubBufferInstance, MediaExt=self.MediaProviderInstance.MediaFeedExt)
           elif self.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
-            self.MediaRequestBoundHandler = partial(MediaRequestHandlerR, MediaBuffer=self.MediaBufferInstance, MediaSrc=self.MediaProviderInstance.MediaSrc, MediaSrcType=self.MediaProviderInstance.MediaSrcType, MediaSize=self.MediaProviderInstance.MediaSize, AcceptRanges=self.MediaProviderInstance.AcceptRanges, MediaSubBuffer=self.MediaSubBufferInstance)
+            self.MediaRequestBoundHandler = partial(MediaRequestHandlerR, MediaBuffer=self.MediaBufferInstance, MediaSubBuffer=self.MediaSubBufferInstance, MediaSrc=self.MediaProviderInstance.MediaSrc, MediaSrcType=self.MediaProviderInstance.MediaSrcType, MediaExt=self.MediaProviderInstance.MediaFeedExt, MediaSize=self.MediaProviderInstance.MediaSize, AcceptRanges=self.MediaProviderInstance.AcceptRanges)
           else:
             self.is_running = None
             try:
@@ -3224,9 +3264,9 @@ class DLNAWebInterfaceServer(threading.Thread):
         prep_success = False
       if prep_success and not self.shutdown_requested:
         if self.MediaServerInstance.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
-          prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5), 'Média', kind=media_kind)
+          prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), 'Média', kind=media_kind)
         elif self.MediaServerInstance.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL:
-          prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, {'MP4':'.mp4','MPEGTS':'.ts'}.get(self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer,'') if self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer and self.MediaServerInstance.MediaProviderInstance.MediaMuxAlways else ''), 'Média', kind=media_kind)
+          prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), 'Média', kind=media_kind)
         else:
           prep_success = False
     if not prep_success or self.ControlDataStore.Command == 'Arrêt':
@@ -3252,8 +3292,8 @@ class DLNAWebInterfaceServer(threading.Thread):
     renderer_position = '0:00:00'
     max_renderer_position = '0:00:00'
     renderer_stopped_position = self.MediaServerInstance.MediaProviderInstance.MediaStartFrom
-    if not renderer_stopped_position:
-      renderer_stopped_position = '0:00:00'
+    if not renderer_stopped_position or renderer_stopped_position == '0:00:00':
+      renderer_stopped_position = None
     self.ControlDataStore.Position = self.MediaPosition
     if self.MediaServerInstance.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
       if self.MediaServerInstance.MediaProviderInstance.AcceptRanges:
