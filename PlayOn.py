@@ -725,6 +725,7 @@ class MediaProvider(threading.Thread):
       self.logger.log('Fin du chargement dans le tampon du contenu', 1)
     else:
       self.logger.log('Interruption du chargement dans le tampon du contenu', 1)
+    self.MediaBuffer.t_index = -1
     self.MediaBuffer.w_condition.acquire()
     self.MediaBuffer.w_condition.notify_all()
     self.MediaBuffer.w_condition.release()
@@ -793,7 +794,7 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
         except:
           pass
         return False
-    alt_sub = ''
+    alt_sub = '/mediasub'
     if self.MediaSubBuffer:
       if self.MediaSubBuffer[1]:
         alt_sub = '/media' + self.MediaSubBuffer[1]
@@ -945,7 +946,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         except:
           pass
         return None, None
-    alt_sub = ''
+    alt_sub = '/mediasub'
     if self.MediaSubBuffer:
       if self.MediaSubBuffer[1]:
         alt_sub = '/media' + self.MediaSubBuffer[1]
@@ -1065,9 +1066,12 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         self.server.logger.log('Connexion %d -> début de la distribution du contenu à %s:%s' % (self.MediaBufferId + 1, self.client_address[0], self.client_address[1]), 1)
         while not self.server.__dict__['_BaseServer__is_shut_down'].is_set():
           self.MediaBuffer.w_condition.acquire()
-          while r_index < self.MediaBuffer.w_index or r_index >= self.MediaBuffer.w_index + self.MediaBuffer.len - (1 if first_loop and r_index * self.MediaBuffer.bloc_size < self.MediaSize else 0) :
-            if self.MediaBufferId < (self.MediaBuffer.t_index if self.MediaBuffer.t_index !=None else 0)  and r_index != self.MediaBuffer.w_index + self.MediaBuffer.len:
+          while r_index < self.MediaBuffer.w_index or r_index >= self.MediaBuffer.w_index + self.MediaBuffer.len - (1 if first_loop and r_index * self.MediaBuffer.bloc_size < self.MediaSize else 0):
+            if self.MediaBufferId < (self.MediaBuffer.t_index if self.MediaBuffer.t_index !=None else 0) and r_index != self.MediaBuffer.w_index + self.MediaBuffer.len:
               self.server.logger.log('Connexion %d -> segment %d -> expulsion du tampon' % (self.MediaBufferId + 1, r_index), 2)  
+              r_index = 0
+              break
+            if self.MediaBuffer.t_index == -1:
               r_index = 0
               break
             if self.server.__dict__['_BaseServer__is_shut_down'].is_set():
@@ -1097,9 +1101,8 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
           if (r_index - 1) * self.MediaBuffer.bloc_size >= self.MediaSize:
             break
         if r_index == 0:
-          self.MediaBuffer.r_event.set()
-          self.close_connection = True
           self.server.logger.log('Connexion %d -> segment %d -> échec de distribution du contenu' % (self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId]), 1)
+          self.close_connection = True
           if first_loop and not self.server.__dict__['_BaseServer__is_shut_down']:
             try:
               self.send_error(HTTPStatus.NOT_FOUND, "Content not found")
@@ -1108,6 +1111,8 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         else:
           r_index = 0
           self.server.logger.log('Connexion %d -> fin de la distribution du contenu' % (self.MediaBufferId + 1), 1)
+        self.MediaBuffer.r_indexes[self.MediaBufferId] = 0
+        self.MediaBuffer.r_event.set()
     elif source == 'mediasub':
       try:
         self.end_headers()
