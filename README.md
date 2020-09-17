@@ -9,7 +9,7 @@ The usable media sources are:
 - remote files from the local network or from internet
 - content from a webpage as long as its address can be extracted by youtube-dl; they can be in a single stream or in separate video and audio streams (such as Youtube high resolution contents)
 
-The application runs a server that can operate in two modes:
+The application runs a server that can operate in two modes (except if 'typeserver' is set as 'n': the URI will directly be sent to the renderer):
 - a random mode, where the content is loaded into a buffer to be distributed to the renderer, and time seeking is allowed during playing from the renderer or from the web interface (provided the source can be accessed in random mode)
 - a sequential mode, where the content can be muxed/remuxed in live time with ffmpeg to be delivered, and no time seeking is possible, but a start position can be defined: HLS and video+audio contents can this way be sent to the renderer, which must be able to play either fMp4 or MpegTS streams
 
@@ -27,22 +27,22 @@ The play session can be controlled from any device on the same network by openin
 To launch the application with more options (PlayOn -h to display the complete syntax of command line and abbreviated commands):
 - to only diplay the available renderers: PlayOn.py display_renderers [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--verbosity VERBOSE]
 - to open the web launch page to select the renderer, enter the content address and start playing: PlayOn.py start [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--mediasrc MEDIA_ADDRESS] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--verbosity VERBOSE]
-- to directly start playing a content and open the web control page: PlayOn.py control [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--verbosity VERBOSE] MEDIA_ADDRESS
-where:
-  --ip SERVER_IP_ADDRESS, -i SERVER_IP_ADDRESS            IP address to be used for the web server [default: computer address on the network]
-  --port SERVER_TCP_PORT, -p SERVER_TCP_PORT              TCP port to be used for the web server [default: 8000]
-  --typeserver TYPE_SERVER, -t TYPE_SERVER                server type (a:auto, s:sequential, r:random) [default: a]
-  --buffersize BUFFER_SIZE, -b BUFFER_SIZE                buffer size in MB [default: 75]
-  --bufferahead BUFFER_AHEAD, -a BUFFER_AHEAD             load ahead buffer size in MB [default: 25]
-  --muxcontainer MUX_CONTAINER, -m MUX_CONTAINER          remux container type, preceded by ! for systematic remux [default: MP4]
-  --uuid RENDERER_UUID, -u RENDERER_UUID                  uuid of the renderer [default: first renderer found]
-  --name RENDERER_NAME, -n RENDERER_NAME                  renderer name [default: first renderer found]
-  --mediasrc MEDIA_ADDRESS, -c MEDIA_ADDRESS              optional content address [default: none]
-  MEDIA_ADDRESS                                           required content address
-  --mediasubsrc MEDIA_SUBADDRESS, -s MEDIA_SUBADDRESS     subtitle content address [default: none]
-  --mediasublang MEDIA_SUBLANG, -l MEDIA_SUBLANG          subtitle prefered language, . for no selection [default: fr,fre,fra]
-  --mediastartfrom MEDIA_START_FROM, -f MEDIA_START_FROM  time position to strat from in format H:MM:SS [default: beginning]
-  --verbosity VERBOSE, -v VERBOSE                         verbosity level from 0 to 2 [default: 2]
+- to directly start playing a content and open the web control page: PlayOn.py control [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--verbosity VERBOSE] MEDIA_ADDRESS  
+where:  
+  --ip SERVER_IP_ADDRESS, -i SERVER_IP_ADDRESS            IP address to be used for the web server [default: computer address on the network]  
+  --port SERVER_TCP_PORT, -p SERVER_TCP_PORT              TCP port to be used for the web server [default: 8000]  
+  --typeserver TYPE_SERVER, -t TYPE_SERVER                server type (a:auto, s:sequential, r:random, n:none) [default: a]  
+  --buffersize BUFFER_SIZE, -b BUFFER_SIZE                buffer size in MB [default: 75]  
+  --bufferahead BUFFER_AHEAD, -a BUFFER_AHEAD             load ahead buffer size in MB [default: 25]  
+  --muxcontainer MUX_CONTAINER, -m MUX_CONTAINER          remux container type, preceded by ! for systematic remux [default: MP4]  
+  --uuid RENDERER_UUID, -u RENDERER_UUID                  uuid of the renderer [default: first renderer found]  
+  --name RENDERER_NAME, -n RENDERER_NAME                  renderer name [default: first renderer found]  
+  --mediasrc MEDIA_ADDRESS, -c MEDIA_ADDRESS              optional content address [default: none]  
+  MEDIA_ADDRESS                                           required content address  
+  --mediasubsrc MEDIA_SUBADDRESS, -s MEDIA_SUBADDRESS     subtitle content address [default: none]  
+  --mediasublang MEDIA_SUBLANG, -l MEDIA_SUBLANG          subtitle prefered language, . for no selection [default: fr,fre,fra]  
+  --mediastartfrom MEDIA_START_FROM, -f MEDIA_START_FROM  time position to strat from in format H:MM:SS [default: beginning]  
+  --verbosity VERBOSE, -v VERBOSE                         verbosity level from 0 to 2 [default: 2]  
   
 Exemples (let's suppose the IP address of the computer is 192.168.1.10):
 - PlayOn s -p 9000 -t s -m mpegts: will start PlayOn in "start" mode, with the server in "sequential" mode, the mux optional in mpegts, and the web interface can be reached on http://192.168.1.10:9000
