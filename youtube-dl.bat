@@ -1,4 +1,4 @@
-@set "youtube-dl_path="C:\Program Files\youtube-dl\youtube-dl.exe""
+@set "youtube-dl_path="C:\Program Files\SMPlayer\mpv\youtube-dl.exe""
 
 @setlocal enabledelayedexpansion
 
@@ -19,10 +19,10 @@ if "!mediabuilder_lang!" == "" (@set "youtube-dl_spref=--sub-format srt/ass/ssa/
 @set "youtube-dl_vpref=bestvideo[vcodec*=?avc][width<=?1920][height<=?1080]"
 @set "youtube-dl_apref=bestaudio[acodec*=?mp4]")
 
-@if "%1" == "nomux" @%youtube-dl_path% --no-playlist --youtube-skip-dash-manifest -g -f "%youtube-dl_pref%" !mediabuilder_url!
+@if "%1" == "nomux" @%youtube-dl_path% --no-playlist --youtube-skip-dash-manifest --encoding utf-8 -e --get-filename -o  ###PlayOn_Separator### -g -f "%youtube-dl_pref%" !mediabuilder_url!
 
-@if "%1" == "mux" @%youtube-dl_path% --no-playlist --youtube-skip-dash-manifest -g -f "%youtube-dl_vpref%+%youtube-dl_apref%/%youtube-dl_pref%" !mediabuilder_url!
+@if "%1" == "mux" @%youtube-dl_path% --no-playlist --youtube-skip-dash-manifest --encoding utf-8 -e --get-filename -o  ###PlayOn_Separator### -g -f "%youtube-dl_vpref%+%youtube-dl_apref%/%youtube-dl_pref%" !mediabuilder_url!
 
-@if "%1" == "sub" @%youtube-dl_path% --no-playlist --youtube-skip-dash-manifest -j --write-sub %youtube-dl_spref% !mediabuilder_url!
+@if "%1" == "sub" @%youtube-dl_path% --no-playlist --youtube-skip-dash-manifest --encoding utf-8 -j --write-sub %youtube-dl_spref% !mediabuilder_url!
 
 @endlocal
