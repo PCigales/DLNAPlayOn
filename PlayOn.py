@@ -3890,7 +3890,7 @@ class DLNAWebInterfaceServer(threading.Thread):
         self.ControlDataStore.Status = 'initialisation'
         self.ControlDataStore.Position = '0:00:00'
         self.ControlDataStore.Duration = '0'
-        self.ControlDataStore.URL = media_src + ('<br>' + media_sub_src if media_sub_src else '')
+        self.ControlDataStore.URL = media_src + ('\r\n' + media_sub_src if media_sub_src else '')
         self.ControlDataStore.Current = ind
         self.ControlDataStore.incoming = []
         media_start_from = '0:00:00' if not restart_from else restart_from
