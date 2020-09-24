@@ -25,4 +25,6 @@ if "!mediabuilder_lang!" == "" (@set "youtube-dl_spref=--sub-format srt/ass/ssa/
 
 @if "%1" == "sub" @%youtube-dl_path% --no-playlist --youtube-skip-dash-manifest --encoding utf-8 -j --write-sub %youtube-dl_spref% !mediabuilder_url!
 
+@if "%1" == "playlist" @%youtube-dl_path% --flat-playlist --encoding utf-8 -j !mediabuilder_url!
+
 @endlocal
