@@ -3860,7 +3860,6 @@ class DLNAWebInterfaceServer(threading.Thread):
       if playlist:
         self.logger.log('Liste de lecture générée depuis l\'adresse %s: %s contenus média' % (self.MediaSrc, len(playlist)), 0)
         self.ControlDataStore.Playlist = titles
-        time.sleep(2)
       if self.MediaPosition == '0:00:00' and self.SlideshowDuration:
         self.MediaPosition = self.SlideshowDuration
       else:
