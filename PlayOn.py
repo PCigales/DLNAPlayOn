@@ -1058,8 +1058,6 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
           req_end = req_range.split("=")[-1].split("-")[1].split(",")[0].strip()
           if not req_start:
             req_start = self.MediaSize - int(req_end)
-            if req_start < 0:
-              pass
             req_end = self.MediaSize
           else:
             req_start = int(req_start)
@@ -1168,8 +1166,6 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
             if index < req_end:
               bloc = None
               bloc = f.read(min(self.MediaBuffer.bloc_size, req_end - index))
-              if not bloc:
-                pass
               outputfile.write(bloc)
               self.server.logger.log('Connexion %d -> segment %d- -> distribution' % (self.MediaBufferId + 1, index), 2)
               index = index + min(self.MediaBuffer.bloc_size, req_end - index)
