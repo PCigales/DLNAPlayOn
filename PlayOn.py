@@ -303,7 +303,7 @@ class MediaProvider(threading.Thread):
     elif '.' in src[-5:] and src.rsplit('.',1)[-1].lower() in ('m3u8', 'm3u'):
       try:
         f = open(src, 'rt', encoding='utf-8' if src.rsplit('.',1)[-1].lower() == 'm3u8' else None)
-        p_t = list(zip(*(MediaProvider.parse_playlist(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(src)), e[:-1])) if not '://' in e else e[:-1], False, stop) for e in f.readlines() if not is_stop() and e[:1] != '#' and e[:-1])))
+        p_t = list(zip(*(MediaProvider.parse_playlist(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(src)), e.rstrip('\r\n'))) if not '://' in e else e.rstrip('\r\n'), False, stop) for e in f.readlines() if not is_stop() and e[:1] != '#' and e.rstrip('\r\n'))))
         if not is_stop():
           playlist = list(e for p in p_t[0] for e in p)
           titles = list(e for p in p_t[1] for e in p)
@@ -3000,8 +3000,8 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @property
   def Current(self):
-    if self.outgoing[5][8:].isnumeric():
-      return int(float(self.outgoing[5][8:])) - 1
+    if self.outgoing[5][8:].lstrip().isdecimal():
+      return int(self.outgoing[5][8:]) - 1
     else:
       return -1
 
@@ -3990,8 +3990,8 @@ class DLNAWebInterfaceServer(threading.Thread):
         if playlist:
           playlist_stop = True
       elif (wi_cmd or '')[:4] == 'Jump' and playlist:
-        if wi_cmd[5:].isnumeric():
-          jump_ind = int(float(wi_cmd[5:])) - 1
+        if wi_cmd[5:].isdecimal():
+          jump_ind = int(wi_cmd[5:]) - 1
         prep_success = False
       self.ControlDataStore.Current = ind
       if not prep_success:
@@ -4219,11 +4219,11 @@ class DLNAWebInterfaceServer(threading.Thread):
           elif wi_cmd == 'Fin':
             self.DLNARendererControlerInstance.send_Stop(renderer)
           elif (wi_cmd or '')[:4] == 'Jump':
-            if wi_cmd[5:].isnumeric():
+            if wi_cmd[5:].isdecimal():
               if media_kind != 'image':
                 self.DLNARendererControlerInstance.send_Stop(renderer)
               new_value = 'STOPPED'
-              jump_ind = int(float(wi_cmd[5:])) - 1
+              jump_ind = int(wi_cmd[5:]) - 1
               if restart_from != None:
                 self.ControlDataStore.ShowStartFrom = False
           elif server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and wi_cmd:
