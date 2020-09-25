@@ -341,11 +341,18 @@ class MediaProvider(threading.Thread):
         else:
           self.MediaSubSrcType = 'WebPageURL'
       else:
+        if os.path.isdir(self.MediaSubSrc):
+          for sub_ext in ('.ttxt', '.txt', '.smi', '.srt', '.sub', '.ssa', '.ass', '.vtt'):
+            if os.path.exists(os.path.join(self.MediaSubSrc, os.path.splitext(os.path.basename(self.MediaSrc))[0]) + sub_ext):
+              self.MediaSubSrc = os.path.join(self.MediaSubSrc, os.path.splitext(os.path.basename(self.MediaSrc))[0]) + sub_ext
+              break
+          if os.path.isdir(self.MediaSubSrc) and os.path.exists(os.path.join(self.MediaSubSrc, os.path.basename(self.MediaSrc))):
+            self.MediaSubSrc = os.path.join(self.MediaSubSrc, os.path.basename(self.MediaSrc))    
         self.MediaSubSrcType = 'ContentPath'
     if self.MediaSrcType.lower() == 'ContentPath'.lower() and not self.MediaMuxAlways and self.ServerMode != MediaProvider.SERVER_MODE_SEQUENTIAL and self.MediaSubSrc == None and self.MediaSubBuffer:
-      for sub_ext in ('.ttxt', '.txt', '.smi', '.srt', '.sub', '.ssa', '.ass'):
-        if os.path.exists(self.MediaSrc.rsplit(".", 1)[0] + sub_ext):
-          self.MediaSubSrc = self.MediaSrc.rsplit(".", 1)[0] + sub_ext
+      for sub_ext in ('.ttxt', '.txt', '.smi', '.srt', '.sub', '.ssa', '.ass', '.vtt'):
+        if os.path.exists(os.path.splitext(self.MediaSrc)[0] + sub_ext):
+          self.MediaSubSrc = os.path.splitext(self.MediaSrc)[0] + sub_ext
           self.MediaSubSrcType = 'ContentPath'
           break
     if self.MediaSubSrc:
@@ -593,7 +600,9 @@ class MediaProvider(threading.Thread):
         if self.MediaSubSrc:
           if self.MediaSubSrcType.lower() == 'ContentPath'.lower():
             try:
-              if not sub_ext in ('.ttxt', '.txt', '.smi', '.srt', '.sub', '.ssa', '.ass') or (self.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL and (self.MediaStartFrom or self.MediaMuxAlways)):
+              if os.path.isdir(self.MediaSubSrc):
+                self.MediaSubBuffer[0] = b''
+              elif not sub_ext in ('.ttxt', '.txt', '.smi', '.srt', '.sub', '.ssa', '.ass') or (self.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL and (self.MediaStartFrom or self.MediaMuxAlways)):
                 self._open_FFmpeg(sub=self.MediaSubSrc, in_sub_buffer=None, out_sub_buffer=self.MediaSubBuffer)
               else:
                 MediaSubFeed = open(self.MediaSubSrc, "rb")
@@ -3885,7 +3894,13 @@ class DLNAWebInterfaceServer(threading.Thread):
       if playlist:
         if playlist_stop:
           break
-        media_sub_src = media_src if self.MediaSubSrc == self.MediaSrc else ''
+        if self.MediaSubSrc and os.path.isdir(self.MediaSrc):
+          if os.path.isdir(self.MediaSubSrc):
+            media_sub_src = os.path.dirname(os.path.join(self.MediaSubSrc, os.path.normpath(media_src)[len(os.path.normpath(self.MediaSrc)) + 1:]))
+          else:
+            media_sub_src = ''
+        else:
+          media_sub_src = media_src if self.MediaSubSrc == self.MediaSrc else ''
         self.ControlDataStore.Status = 'initialisation'
         self.ControlDataStore.Position = '0:00:00'
         self.ControlDataStore.Duration = '0'
@@ -4018,7 +4033,7 @@ class DLNAWebInterfaceServer(threading.Thread):
       new_duration = None
       transport_status = ''
       stop_reason = ''
-      renderer_position = media_start_from
+      renderer_position = '0:00:00'
       max_renderer_position = '0:00:00'
       if server_mode != DLNAWebInterfaceServer.SERVER_MODE_NONE:
         renderer_stopped_position = self.MediaServerInstance.MediaProviderInstance.MediaStartFrom
@@ -4366,7 +4381,7 @@ if __name__ == '__main__':
   if args.command in ('display_renderers', 'r'):
     DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS, verbosity=args.verbosity)
   elif args.command in ('start', 's'):
-    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_START, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None) , MediaSrc=os.path.abspath(args.mediasrc) if not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if args.mediasublang != '.' else '', verbosity=args.verbosity)
+    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_START, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None) , MediaSrc=os.path.abspath(args.mediasrc) if args.mediasrc and not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if args.mediasublang != '.' else '', verbosity=args.verbosity)
   elif args.command in ('control', 'c'):
     DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None), MediaSrc=os.path.abspath(args.mediasrc) if not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if args.mediasublang != '.' else '', SlideshowDuration=args.slideshowduration, verbosity=args.verbosity)
 
