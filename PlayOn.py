@@ -3007,7 +3007,10 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @Current.setter
   def Current(self, value):
-    self.set_outgoing(5, 'Current:\r\n' + str(value + 1))
+    if self.outgoing[5] != 'Current:' + str(value + 1):
+      self.set_outgoing(5, 'Current:' + str(value + 1))
+    else:
+      self.set_outgoing(5, 'Current: ' + str(value + 1))
 
   @property
   def ShowStartFrom(self):
@@ -3274,7 +3277,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      selected_set = "";\r\n' \
   '      function new_socket() {\r\n' \
   '        try {\r\n' \
-  '          socket = new WebSocket("ws://" + location.hostname + ":" + String(parseInt(location.port)+2) + "/websocket");\r\n' \
+  '          socket = new WebSocket("ws://" + location.hostname + ":" + String(parseInt(location.port,10)+2) + "/websocket");\r\n' \
   '        } catch(exception) {\r\n' \
   '          window.alert("Échec de l\'établissement de la connexion WebSocket");\r\n' \
   '        }\r\n' \
@@ -3534,7 +3537,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '    <script>\r\n' \
   '      function new_socket() {\r\n' \
   '        try {\r\n' \
-  '          socket = new WebSocket("ws://" + location.hostname + ":" + String(parseInt(location.port)+1) + "/websocket");\r\n' \
+  '          socket = new WebSocket("ws://" + location.hostname + ":" + String(parseInt(location.port,10)+1) + "/websocket");\r\n' \
   '        } catch(exception) {\r\n' \
   '          window.alert("Échec de l\'établissement de la connexion WebSocket");\r\n' \
   '        }\r\n' \
@@ -3583,13 +3586,13 @@ class DLNAWebInterfaceServer(threading.Thread):
   '            document.getElementById("status").innerHTML = "arrêt";\r\n' \
   '            document.getElementById("play-pause").innerHTML = "Lecture";\r\n' \
   '          } else if (event.data.substring(0,8) == "Duration") {\r\n' \
-  '            duration = parseInt(event.data.substring(9));\r\n' \
+  '            duration = parseInt(event.data.substring(9),10);\r\n' \
   '            let seekduration_d = new Date(duration*1000);\r\n' \
   '            document.getElementById("seekduration").innerHTML = seekduration_d.toISOString().substr(12, 7);\r\n' \
   '            if (duration != 0) {\r\n' \
   '              if (document.getElementById("position").innerHTML !="-") {\r\n' \
   '                let cur_pos = document.getElementById("position").innerHTML.split(":");\r\n' \
-  '                seekbar.value = Math.floor((parseInt(cur_pos[0])*3600 + parseInt(cur_pos[1])*60 + parseInt(cur_pos[2])) / duration * 10000);\r\n' \
+  '                seekbar.value = Math.floor((parseInt(cur_pos[0],10)*3600 + parseInt(cur_pos[1],10)*60 + parseInt(cur_pos[2],10)) / duration * 10000);\r\n' \
   '                seekposition.innerHTML = document.getElementById("position").innerHTML;\r\n' \
   '              }\r\n' \
   '              seekbar.style.display = "inline-block";\r\n' \
@@ -3618,12 +3621,12 @@ class DLNAWebInterfaceServer(threading.Thread):
   '              }\r\n' \
   '            }\r\n' \
   '          } else if (event.data.substring(0,7) == "Current") {\r\n' \
-  '            playlist.selectedIndex = parseInt(event.data.substring(8));\r\n' \
+  '            playlist.selectedIndex = parseInt(event.data.substring(8),10);\r\n' \
   '          } else if (event.data != "close") {\r\n' \
   '            document.getElementById("position").innerHTML = event.data;\r\n' \
   '            if (duration != 0 && !seekongoing ) {\r\n' \
   '              let cur_pos = event.data.split(":");\r\n' \
-  '              seekbar.value = Math.floor((parseInt(cur_pos[0])*3600 + parseInt(cur_pos[1])*60 + parseInt(cur_pos[2])) / duration * 10000);\r\n' \
+  '              seekbar.value = Math.floor((parseInt(cur_pos[0],10)*3600 + parseInt(cur_pos[1],10)*60 + parseInt(cur_pos[2],10)) / duration * 10000);\r\n' \
   '              seekposition.innerHTML = event.data;\r\n' \
   '            }\r\n' \
   '          }\r\n' \
@@ -3990,6 +3993,7 @@ class DLNAWebInterfaceServer(threading.Thread):
         if wi_cmd[5:].isnumeric():
           jump_ind = int(float(wi_cmd[5:])) - 1
         prep_success = False
+      self.ControlDataStore.Current = ind
       if not prep_success:
         if self.MediaServerInstance:
           try:
@@ -4214,7 +4218,7 @@ class DLNAWebInterfaceServer(threading.Thread):
               pass
           elif wi_cmd == 'Fin':
             self.DLNARendererControlerInstance.send_Stop(renderer)
-          elif (wi_cmd or '')[:4] == 'Jump' and (playlist or True):
+          elif (wi_cmd or '')[:4] == 'Jump':
             if wi_cmd[5:].isnumeric():
               if media_kind != 'image':
                 self.DLNARendererControlerInstance.send_Stop(renderer)
