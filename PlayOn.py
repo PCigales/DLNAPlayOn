@@ -220,6 +220,13 @@ class MediaProvider(threading.Thread):
       else:
         if self.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
           ffmpeg_env['mediabuilder_start'] = ''
+        sub_charenc = False
+        if in_sub_buffer:
+          try:
+            in_sub_buffer.decode('utf-8')
+          except:
+            sub_charenc = True
+        ffmpeg_env['mediabuilder_subcharenc'] = 'sub_charenc' if sub_charenc else ''
         self.FFmpeg_sub_process = subprocess.Popen(r'"%s\%s"' % (MediaProvider.SCRIPT_PATH, 'ffmpeg.bat'), env={**os.environ,**ffmpeg_env}, stdin=None if not in_sub_buffer else subprocess.PIPE, stdout=subprocess.PIPE, creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=subprocess.STARTUPINFO(dwFlags=subprocess.STARTF_USESHOWWINDOW, wShowWindow=6))
         out_sub_buffer[0] = self.FFmpeg_sub_process.communicate(input=None if not in_sub_buffer else in_sub_buffer, timeout=30)[0]
         if out_sub_buffer[0]:
@@ -315,6 +322,109 @@ class MediaProvider(threading.Thread):
       return playlist, titles
     else:
       return (False, False) if check else ([src], [sh_str(src)])
+
+  @classmethod
+  def convert_to_smi(cls, MediaSubBuffer):
+    if not MediaSubBuffer[0]:
+      return None
+    ffmpeg_env = {'mediabuilder_address': '-', 'mediabuilder_start': '', 'mediabuilder_mux': 'SRT', 'mediabuilder_profile': ''}
+    ffmpeg_env['mediabuilder_sub'] = '-'
+    ffmpeg_env['mediabuilder_lang'] = ''
+    sub_charenc = False
+    try:
+      MediaSubBuffer[0].decode('utf-8')
+    except:
+      sub_charenc = True
+    try:
+      ffmpeg_env['mediabuilder_subcharenc'] = 'sub_charenc' if sub_charenc else ''
+      FFmpeg_sub_process = subprocess.Popen(r'"%s\%s"' % (MediaProvider.SCRIPT_PATH, 'ffmpeg.bat'), env={**os.environ,**ffmpeg_env}, stdin=subprocess.PIPE, stdout=subprocess.PIPE, creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=subprocess.STARTUPINFO(dwFlags=subprocess.STARTF_USESHOWWINDOW, wShowWindow=6))
+      srt_sub_buffer = FFmpeg_sub_process.communicate(input=MediaSubBuffer[0], timeout=30)[0].decode('utf-8')
+      if not srt_sub_buffer:
+        return None
+    except:
+      return None
+    smi_sub_buffer = \
+    '<SAMI>\r\n' \
+    '<HEAD>\r\n' \
+    '  <STYLE TYPE="text/css">\r\n' \
+    '    <!--\r\n' \
+    '    P {\r\n' \
+    '      background-color: black;\r\n' \
+    '      color: white;\r\n' \
+    '      margin-left: 1pt;\r\n' \
+    '      margin-right: 1pt;\r\n' \
+    '      margin-bottom: 2pt;\r\n' \
+    '      margin-top: 2pt;\r\n' \
+    '      text-align: center;\r\n' \
+    '      font-size: 16pt;\r\n' \
+    '      font-family: arial;\r\n' \
+    '      font-weight: bold;\r\n' \
+    '    }\r\n' \
+    '    .CC {Name:default; lang: default;}\r\n' \
+    '    -->\r\n' \
+    '  </STYLE>\r\n' \
+    '</HEAD>\r\n' \
+    '<BODY>\r\n'
+    bloc_ln = 0
+    was_bl = True
+    d_ms = 0
+    f_ms = 0
+    try:
+      for ln in srt_sub_buffer.splitlines():
+        l = ln.rstrip('\r\n')
+        if l == '':
+          was_bl = True
+          if bloc_ln >= 2:
+            smi_sub_buffer = smi_sub_buffer + '<br>'
+          continue
+        if bloc_ln == 0:
+          if not l.strip().isdecimal():
+            return None
+          bloc_ln += 1
+          was_bl = False
+        elif was_bl and l.strip().isdecimal() and bloc_ln >= 2:
+          bloc_ln = 1
+          was_bl = False
+          while smi_sub_buffer[-4:] == '<br>':
+            smi_sub_buffer = smi_sub_buffer[:-4]
+          smi_sub_buffer = smi_sub_buffer + '</SYNC>\r\n'
+          smi_sub_buffer = smi_sub_buffer + '<SYNC start="%d"><P Class="CC"> </SYNC>\r\n' % f_ms
+        elif bloc_ln == 1:
+          d, f = l.split('-->')
+          d = d.strip()
+          f = f.strip()
+          if ',' in d:
+            d, d_ms = d.rsplit(',')
+            d_ms = int(d_ms)
+          else:
+            d_ms = 0
+          if ',' in f:
+            f, f_ms = f.rsplit(',')
+            f_ms = int(f_ms)
+          else:
+            f_ms = 0
+          d_ms += sum(int(t[0])*t[1] for t in zip(reversed(d.split(':')), [1,60,3600])) * 1000
+          f_ms += sum(int(t[0])*t[1] for t in zip(reversed(f.split(':')), [1,60,3600])) * 1000
+          if d_ms > 0 and smi_sub_buffer[-8:-2] == '<BODY>':
+            smi_sub_buffer = smi_sub_buffer + '<SYNC start="0"><P Class="CC"> </SYNC>\r\n'
+          smi_sub_buffer = smi_sub_buffer + '<SYNC start="%d"><P Class="CC">' % d_ms
+          bloc_ln += 1
+          was_bl = False
+        elif bloc_ln >= 2:
+          smi_sub_buffer = smi_sub_buffer + l + '<br>'
+          bloc_ln += 1
+          was_bl = False
+      while smi_sub_buffer[-4:] == '<br>':
+        smi_sub_buffer = smi_sub_buffer[:-4]
+      if '<SYNC' in smi_sub_buffer:
+        smi_sub_buffer = smi_sub_buffer + '</SYNC>\r\n'
+        smi_sub_buffer = smi_sub_buffer + '<SYNC start="%d"><P Class="CC"> </SYNC>\r\n' % f_ms
+      smi_sub_buffer = smi_sub_buffer + '</BODY>\r\n</SAMI>'
+    except:
+      return None
+    MediaSubBuffer[0] = smi_sub_buffer.encode('ansi')
+    MediaSubBuffer[1] = '.smi'
+    return True
 
   def MediaBuilder(self):
     if not self.MediaBuffer and self.ServerMode in (MediaProvider.SERVER_MODE_AUTO, MediaProvider.SERVER_MODE_SEQUENTIAL):
@@ -600,10 +710,19 @@ class MediaProvider(threading.Thread):
         if self.MediaSubSrc:
           if self.MediaSubSrcType.lower() == 'ContentPath'.lower():
             try:
-              if os.path.isdir(self.MediaSubSrc):
-                self.MediaSubBuffer[0] = b''
+              if not os.path.isfile(self.MediaSubSrc):
+                pass
               elif not sub_ext in ('.ttxt', '.txt', '.smi', '.srt', '.sub', '.ssa', '.ass') or (self.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL and (self.MediaStartFrom or self.MediaMuxAlways)):
-                self._open_FFmpeg(sub=self.MediaSubSrc, in_sub_buffer=None, out_sub_buffer=self.MediaSubBuffer)
+                if sub_ext in ('.ttxt', '.txt', '.smi', '.srt', '.sub', '.ssa', '.ass', '.vtt'):
+                  MediaSubFeed = open(self.MediaSubSrc, "rb")
+                  MediaSubBuffer = MediaSubFeed.read(1000000)
+                  MediaSubFeed.close()
+                  if len(MediaSubBuffer) == 1000000:
+                    MediaSubBuffer = b'' 
+                  if MediaSubBuffer:
+                    self._open_FFmpeg(sub='-', in_sub_buffer=MediaSubBuffer, out_sub_buffer=self.MediaSubBuffer)
+                else:
+                  self._open_FFmpeg(sub=self.MediaSubSrc, in_sub_buffer=None, out_sub_buffer=self.MediaSubBuffer)
               else:
                 MediaSubFeed = open(self.MediaSubSrc, "rb")
                 try:
@@ -902,6 +1021,8 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
         except:
           pass
         return False
+    if self.path.lower() == '/media.smi' and self.MediaSubBuffer:
+      MediaProvider.convert_to_smi(self.MediaSubBuffer)
     alt_sub = '/mediasub'
     if self.MediaSubBuffer:
       if self.MediaSubBuffer[1]:
@@ -1054,6 +1175,8 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         except:
           pass
         return None, None, None
+    if self.path.lower() == '/media.smi' and self.MediaSubBuffer:
+      MediaProvider.convert_to_smi(self.MediaSubBuffer)
     alt_sub = '/mediasub'
     if self.MediaSubBuffer:
       if self.MediaSubBuffer[1]:
@@ -2412,6 +2535,7 @@ class WebSocketDataStore:
 
   def __init__(self, IncomingEvent=None):
     self.outgoing = []
+    self.outgoing_seq = []
     self.incoming = []
     self.incoming_text_only = False
     self.before_shutdown = None
@@ -2421,16 +2545,23 @@ class WebSocketDataStore:
     else:
       self.IncomingEvent = threading.Event()
 
-  def set_outgoing(self, ind, value):
+  def set_outgoing(self, ind, value, if_different = False):
     if ind >= len(self.outgoing):
       self.outgoing = self.outgoing + [None]*(ind - len(self.outgoing) + 1)
-    self.outgoing[ind] = str(value)
-    self.o_condition.acquire()
-    self.o_condition.notify_all()
-    self.o_condition.release()
+      self.outgoing_seq = self.outgoing_seq + [None]*(ind - len(self.outgoing_seq) + 1)
+    if not if_different or str(value) != self.outgoing[ind]:
+      self.outgoing[ind] = str(value)
+      if self.outgoing_seq[ind] == None:
+        self.outgoing_seq[ind] = 0
+      else:
+        self.outgoing_seq[ind] += 1
+      self.o_condition.acquire()
+      self.o_condition.notify_all()
+      self.o_condition.release()
 
   def add_outgoing(self, value):
     self.outgoing.append(str(value))
+    self.outgoing_seq.append(0)
     self.o_condition.acquire()
     self.o_condition.notify_all()
     self.o_condition.release()
@@ -2460,6 +2591,7 @@ class WebSocketDataStore:
 
   def reinit(self):
     self.outgoing = []
+    self.outgoing_seq = []
     self.incoming = []
     self.before_shutdown = None
     try:
@@ -2498,7 +2630,7 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
     self.LastReceptionTime = None
     self.PendingPings = 0
     self.PingTime = None
-    self.OutgoingStore = []
+    self.OutgoingSeq = []
     super().__init__(*args, **kwargs)
 
   @classmethod
@@ -2544,7 +2676,7 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
   def watch_datastore(self):
     while not self.ClientClosing and not self.ServerClosing and not self.Closed:
       self.server.DataStore.o_condition.acquire()
-      while self.server.DataStore.outgoing == self.OutgoingStore:
+      while self.server.DataStore.outgoing_seq == self.OutgoingSeq:
         self.server.DataStore.o_condition.wait(0.5)
         if self.ClientClosing or self.ServerClosing or self.Closed:
           break
@@ -2718,18 +2850,19 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
             self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de l\'avis de fin de connexion' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
           self.CloseMessageTime = time.time()
           break
-      if not self.ServerClosing and self.server.DataStore.outgoing != self.OutgoingStore:
-        nb_values = len(self.server.DataStore.outgoing)
+      if not self.ServerClosing and self.server.DataStore.outgoing_seq != self.OutgoingSeq:
+        nb_values = len(self.server.DataStore.outgoing_seq)
         for i in range(nb_values):
           if self.ClientClosing or self.ServerClosing:
             break
-          if i == len(self.OutgoingStore):
-            self.OutgoingStore.append(None)
+          if i == len(self.OutgoingSeq):
+            self.OutgoingSeq.append(None)
           try:
+            seq_value = self.server.DataStore.outgoing_seq[i]
             data_value = self.server.DataStore.outgoing[i]
           except:
             break
-          if data_value != self.OutgoingStore[i]:
+          if seq_value != self.OutgoingSeq[i]:
             if data_value != None:
               if self.send_data(data_value):
                 self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> envoi de la donnée %s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1], data_value), 2)
@@ -2737,7 +2870,7 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
                 self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de la donnée %s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1], data_value), 2)
                 self.Error = 1002
                 continue
-            self.OutgoingStore[i] = data_value
+            self.OutgoingSeq[i] = seq_value
       if not self.ServerClosing:
         cur_time = time.time()
         if (cur_time - self.LastReceptionTime > WebSocketRequestHandler.MAX_INACTIVE_TIME / 3 and self.PendingPings == 0) or (cur_time - self.LastReceptionTime > 2 * WebSocketRequestHandler.MAX_INACTIVE_TIME / 3 and self.PendingPings <= 1):
@@ -2947,12 +3080,14 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
   def __init__(self, IncomingEvent=None):
     super().__init__(IncomingEvent)
     self.outgoing = [None, None, None, None, None, None, None]
+    self.outgoing_seq = [None, None, None, None, None, None, None]
     self.incoming_text_only = True
     self.set_before_shutdown('close')
 
   def reinit(self):
     super().reinit()
     self.outgoing = [None, None, None, None, None, None, None]
+    self.outgoing_seq = [None, None, None, None, None, None, None]
     self.set_before_shutdown('close')
 
   @property
@@ -2961,7 +3096,7 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @Status.setter
   def Status(self, value):
-    self.set_outgoing(0, value)
+    self.set_outgoing(0, value, True)
 
   @property
   def Position(self):
@@ -2969,7 +3104,7 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @Position.setter
   def Position(self, value):
-    self.set_outgoing(1, value)
+    self.set_outgoing(1, value, True)
 
   @property
   def Duration(self):
@@ -2977,7 +3112,7 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @Duration.setter
   def Duration(self, value):
-    self.set_outgoing(2, 'Duration:' + value)
+    self.set_outgoing(2, 'Duration:' + value, True)
 
   @property
   def URL(self):
@@ -2988,7 +3123,7 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @URL.setter
   def URL(self, value):
-    self.set_outgoing(3, 'URL:' + html.escape(value))
+    self.set_outgoing(3, 'URL:' + html.escape(value), True)
 
   @property
   def Playlist(self):
@@ -2996,7 +3131,7 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @Playlist.setter
   def Playlist(self, value):
-    self.set_outgoing(4, 'Playlist:\r\n' + '\r\n'.join(value))
+    self.set_outgoing(4, 'Playlist:\r\n' + '\r\n'.join(value), True)
 
   @property
   def Current(self):
@@ -3007,10 +3142,7 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @Current.setter
   def Current(self, value):
-    if self.outgoing[5] != 'Current:' + str(value + 1):
-      self.set_outgoing(5, 'Current:' + str(value + 1))
-    else:
-      self.set_outgoing(5, 'Current: ' + str(value + 1))
+    self.set_outgoing(5, 'Current:' + str(value + 1), False)
 
   @property
   def ShowStartFrom(self):
@@ -3018,7 +3150,7 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @ShowStartFrom.setter
   def ShowStartFrom(self, value):
-    self.set_outgoing(6, 'Showstartfrom:' + ('true' if value else 'false'))
+    self.set_outgoing(6, 'Showstartfrom:' + ('true' if value else 'false'), True)
 
   @property
   def Command(self):
@@ -3993,7 +4125,8 @@ class DLNAWebInterfaceServer(threading.Thread):
         if wi_cmd[5:].isdecimal():
           jump_ind = int(wi_cmd[5:]) - 1
         prep_success = False
-      self.ControlDataStore.Current = ind
+      if playlist:
+        self.ControlDataStore.Current = ind
       if not prep_success:
         if self.MediaServerInstance:
           try:
@@ -4130,7 +4263,7 @@ class DLNAWebInterfaceServer(threading.Thread):
               image_duration = max(0, image_duration - (time.time() - image_start))
               image_start = None
           self.ControlDataStore.Status = status_dict[new_value.upper()]
-          if server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL and new_value == 'PAUSED_PLAYBACK' and (playlist or True) and media_kind != 'image':
+          if server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL and new_value == 'PAUSED_PLAYBACK' and media_kind != 'image':
             restart_from = ''
             self.ControlDataStore.ShowStartFrom = True
           old_value = new_value
