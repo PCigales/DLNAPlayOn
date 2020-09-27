@@ -1,4 +1,4 @@
-@set "ffmpeg_path="C:\Program Files\FFmpeg\bin\FFmpeg.exe""
+@set "ffmpeg_path="C:\Program Files\FFmpeg\Media Autobuild Suite\bin\ffmpeg.exe""
 
 @setlocal enabledelayedexpansion
 
@@ -16,7 +16,8 @@
 @if "!mediabuilder_sub!" == "" (
 @set "ffmpeg_sub= "
 @set "ffmpeg_lang= ") else (
-@set "ffmpeg_sub=%ffmpeg_st% -i !mediabuilder_sub! %ffmpeg_st-%"
+@if "!mediabuilder_subcharenc!" == "" (@set "ffmpeg_subcharenc= ") else (@set "ffmpeg_subcharenc=-sub_charenc cp1252")
+@set "ffmpeg_sub=%ffmpeg_st% !ffmpeg_subcharenc! -i !mediabuilder_sub! %ffmpeg_st-%"
 @if "!mediabuilder_lang!" == "" (@set "ffmpeg_lang=-map 0:s:0") else (@set "ffmpeg_lang=-map 0:s:m:language:!mediabuilder_lang:,=? -map 0:s:m:language:!?")
 )
 
