@@ -156,7 +156,7 @@ class MediaProvider(threading.Thread):
     self.FFmpeg_process = None
     if MediaSubBuffer:
       self.MediaSubBuffer = MediaSubBuffer
-      if (not MediaSubBuffer[1] if len(MediaSubBuffer) == 2 else True):
+      if (not MediaSubBuffer[1] if len(MediaSubBuffer) >= 2 else True):
         if MediaSubSrc:
           self.MediaSubSrc = MediaSubSrc
           self.MediaSubSrcType = MediaSubSrcType
@@ -327,6 +327,8 @@ class MediaProvider(threading.Thread):
   def convert_to_smi(cls, MediaSubBuffer):
     if not MediaSubBuffer[0]:
       return None
+    if len(MediaSubBuffer) >= 4 and MediaSubBuffer[3] == '.smi':
+      return True
     ffmpeg_env = {'mediabuilder_address': '-', 'mediabuilder_start': '', 'mediabuilder_mux': 'SRT', 'mediabuilder_profile': ''}
     ffmpeg_env['mediabuilder_sub'] = '-'
     ffmpeg_env['mediabuilder_lang'] = ''
@@ -422,8 +424,10 @@ class MediaProvider(threading.Thread):
       smi_sub_buffer = smi_sub_buffer + '</BODY>\r\n</SAMI>'
     except:
       return None
-    MediaSubBuffer[0] = smi_sub_buffer.encode('ansi')
-    MediaSubBuffer[1] = '.smi'
+    if len(MediaSubBuffer) < 4:
+      MediaSubBuffer.extend([None] * (4 - len(MediaSubBuffer)))
+    MediaSubBuffer[2] = smi_sub_buffer.encode('ansi')
+    MediaSubBuffer[3] = '.smi'
     return True
 
   def MediaBuilder(self):
@@ -1021,8 +1025,6 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
         except:
           pass
         return False
-    if self.path.lower() == '/media.smi' and self.MediaSubBuffer:
-      MediaProvider.convert_to_smi(self.MediaSubBuffer)
     alt_sub = '/mediasub'
     if self.MediaSubBuffer:
       if self.MediaSubBuffer[1]:
@@ -1063,6 +1065,32 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
         self.close_connection = True
         return False
       return 'mediasub'
+    elif self.path.lower() == '/media.smi' and self.MediaSubBuffer:
+      sub_size = len(self.MediaSubBuffer[0])
+      if sub_size > 0:
+        try:
+          if MediaProvider.convert_to_smi(self.MediaSubBuffer):
+            sub_size = len(self.MediaSubBuffer[2])
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-type", "application/octet-stream")
+            self.send_header("Transfer-Encoding", "chunked")
+            try:
+              self.end_headers()
+            except:
+              self.close_connection = True
+              return False
+            return 'mediasubsmi'
+          else:
+            sub_size = 0
+        except:
+          sub_size = 0
+      if sub_size == 0:
+        self.close_connection = True
+        try:
+          self.send_error(HTTPStatus.NOT_FOUND, "Content not found")
+        except:
+          pass
+        return False
     else:
       self.close_connection = True
       try:
@@ -1073,7 +1101,7 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
 
   def do_GET(self):
     f = self.send_head()
-    if f in ('media', 'mediasub'):
+    if f in ('media', 'mediasub', 'mediasubsmi'):
       try:
         self.copyfile(f, self.wfile)
       except:
@@ -1083,16 +1111,16 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
     f = self.send_head()
 
   def copyfile(self, source, outputfile):
-    if self.server.__dict__['_BaseServer__is_shut_down'].is_set() or not source in ('media', 'mediasub'):
+    if self.server.__dict__['_BaseServer__is_shut_down'].is_set() or not source in ('media', 'mediasub', 'mediasubsmi'):
       self.close_connection = True
       try:
         outputfile.write(b"0\r\n\r\n")
       except:
         pass
       return
-    if source == 'mediasub':
+    if source in ('mediasub', 'mediasubsmi'):
       try:
-        outputfile.write(str(hex(len(self.MediaSubBuffer[0]))).encode("ISO-8859-1")[2:] + b"\r\n" + self.MediaSubBuffer[0] + b"\r\n")
+        outputfile.write(str(hex(len(self.MediaSubBuffer[0] if source == 'mediasub' else self.MediaSubBuffer[2]))).encode("ISO-8859-1")[2:] + b"\r\n" + (self.MediaSubBuffer[0] if source == 'mediasub' else self.MediaSubBuffer[2]) + b"\r\n")
         self.server.logger.log('Distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 2)
       except:
         self.server.logger.log('Échec de distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 1)
@@ -1175,8 +1203,6 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         except:
           pass
         return None, None, None
-    if self.path.lower() == '/media.smi' and self.MediaSubBuffer:
-      MediaProvider.convert_to_smi(self.MediaSubBuffer)
     alt_sub = '/mediasub'
     if self.MediaSubBuffer:
       if self.MediaSubBuffer[1]:
@@ -1244,6 +1270,27 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
       self.send_header("Content-type", "application/octet-stream")
       self.send_header("Content-Length", str(sub_size))
       return 'mediasub', None, None
+    elif self.path.lower() == '/media.smi' and self.MediaSubBuffer:
+      sub_size = len(self.MediaSubBuffer[0])
+      if sub_size > 0:
+        try:
+          if MediaProvider.convert_to_smi(self.MediaSubBuffer):
+            sub_size = len(self.MediaSubBuffer[2])
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-type", "application/octet-stream")
+            self.send_header("Content-Length", str(sub_size))
+            return 'mediasubsmi', None, None
+          else:
+            sub_size = 0
+        except:
+          sub_size = 0
+      if sub_size == 0:
+        self.close_connection = True
+        try:
+          self.send_error(HTTPStatus.NOT_FOUND, "Content not found")
+        except:
+          pass
+        return None, None, None
     else:
       self.close_connection = True
       try:
@@ -1254,7 +1301,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
 
   def do_GET(self):
     source, req_start, req_end = self.send_head()
-    if source in ('media', 'mediasub'):
+    if source in ('media', 'mediasub', 'mediasubsmi'):
       try:
         self.copyfile(source, req_start, req_end, self.wfile)
       except:
@@ -1268,7 +1315,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
       self.close_connection = True
 
   def copyfile(self, source, req_start, req_end, outputfile):
-    if self.server.__dict__['_BaseServer__is_shut_down'].is_set() or not source in ('media', 'mediasub'):
+    if self.server.__dict__['_BaseServer__is_shut_down'].is_set() or not source in ('media', 'mediasub', 'mediasubsmi'):
       self.close_connection = True
       return
     f = None
@@ -1376,7 +1423,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
           self.server.logger.log('Connexion %d -> fin de la distribution du contenu' % (self.MediaBufferId + 1), 1)
         self.MediaBuffer.r_indexes[self.MediaBufferId] = 0
         self.MediaBuffer.r_event.set()
-    elif source == 'mediasub':
+    elif source in ('mediasub', 'mediasubsmi'):
       try:
         self.end_headers()
       except:
@@ -1385,7 +1432,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         return
       self.server.logger.log('Distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 2)
       try:
-        outputfile.write(self.MediaSubBuffer[0])
+        outputfile.write(self.MediaSubBuffer[0] if source == 'mediasub' else self.MediaSubBuffer[2])
       except:
         self.close_connection = True
         self.server.logger.log('Échec de distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 1)
@@ -1437,7 +1484,7 @@ class MediaServer(threading.Thread):
     self.MediaSubSrcType = MediaSubSrcType
     self.MediaSubLang = MediaSubLang
     if MediaSubBuffer:
-      if len(MediaSubBuffer) == 2:
+      if len(MediaSubBuffer) >= 2:
         self.MediaSubBufferInstance = MediaSubBuffer
       else:
         self.MediaSubBufferInstance = [b'', '']
