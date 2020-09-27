@@ -325,10 +325,23 @@ class MediaProvider(threading.Thread):
 
   @classmethod
   def convert_to_smi(cls, MediaSubBuffer):
+    if not MediaSubBuffer:
+      return None
     if not MediaSubBuffer[0]:
       return None
-    if len(MediaSubBuffer) >= 4 and MediaSubBuffer[3] == '.smi':
-      return True
+    if len(MediaSubBuffer) >= 4:
+      if MediaSubBuffer[3] == '.smi':
+        if MediaSubBuffer[2]:
+          return True
+        else:
+          return None
+      else:
+        MediaSubBuffer[2] = None
+        MediaSubBuffer[3] = '.smi'
+    else:
+      MediaSubBuffer.extend([None] * (4 - len(MediaSubBuffer)))
+      MediaSubBuffer[3] = '.smi'
+    print('cv')
     ffmpeg_env = {'mediabuilder_address': '-', 'mediabuilder_start': '', 'mediabuilder_mux': 'SRT', 'mediabuilder_profile': ''}
     ffmpeg_env['mediabuilder_sub'] = '-'
     ffmpeg_env['mediabuilder_lang'] = ''
@@ -424,10 +437,7 @@ class MediaProvider(threading.Thread):
       smi_sub_buffer = smi_sub_buffer + '</BODY>\r\n</SAMI>'
     except:
       return None
-    if len(MediaSubBuffer) < 4:
-      MediaSubBuffer.extend([None] * (4 - len(MediaSubBuffer)))
     MediaSubBuffer[2] = smi_sub_buffer.encode('ansi')
-    MediaSubBuffer[3] = '.smi'
     return True
 
   def MediaBuilder(self):
