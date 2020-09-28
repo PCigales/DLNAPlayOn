@@ -264,7 +264,10 @@ class MediaProvider(threading.Thread):
         try:
           process_result = subprocess.run(r'"%s\%s" %s' % (cls.SCRIPT_PATH, 'youtube-dl.bat', 'playlist'), env={**os.environ, 'mediabuilder_url': '"%s"' % src, 'mediabuilder_profile': ''}, capture_output=True)
           if process_result.returncode == 0:
-            p_t = list(get_p_t(json.loads(e)) for e in process_result.stdout.splitlines() if not is_stop())
+            try:
+              p_t = list(get_p_t(json.loads(e)) for e in process_result.stdout.splitlines() if not is_stop())
+            except:
+              return (False, []) if check else ([src], [sh_str(src)])
             if not is_stop():
               playlist = (e[0] for e in p_t)
               titles = (sh_str(e[1]) for e in p_t)
