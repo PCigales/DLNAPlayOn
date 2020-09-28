@@ -252,9 +252,12 @@ class MediaProvider(threading.Thread):
     if r'://' in src:
       playlist = '?'
       if '.' in src[-5:]:
-        media_mime = mimetypes.guess_type(src)[0]
-        if (media_mime or '')[0:5] in ('video', 'audio', 'image'):
+        if ''.join(src.rpartition('.')[1:3]).lower() in ('.m3u', '.m3u8'):
           playlist = False
+        else:
+          media_mime = mimetypes.guess_type(src)[0]
+          if (media_mime or '')[0:5] in ('video', 'audio', 'image'):
+            playlist = False
       if playlist:
         playlist = '/playlist' in src.lower() or '/channels' in src.lower()
       if playlist:
@@ -448,7 +451,9 @@ class MediaProvider(threading.Thread):
     if not self.MediaSrcType:
       if r'://' in self.MediaSrc:
         self.MediaSrcType = 'WebPageURL'
-        if '.' in self.MediaSrc[-5:]:
+        if ''.join(self.MediaSrc[-5:].rpartition('.')[1:3]).lower() in ('.m3u', '.m3u8'):
+          self.MediaSrcType = 'ContentURL'
+        elif '.' in self.MediaSrc[-5:]:
           media_mime = mimetypes.guess_type(self.MediaSrc)[0]
           if media_mime:
             if media_mime[0:5] in ('video', 'audio', 'image'):
@@ -609,6 +614,8 @@ class MediaProvider(threading.Thread):
           pass
     elif self.MediaSrcType.lower() == 'ContentURL'.lower():
       try:
+        if self.ServerMode == MediaProvider.SERVER_MODE_AUTO and self.MediaMuxContainer and ''.join(self.MediaSrc[-5:].rpartition('.')[1:3]).lower() in ('.m3u', '.m3u8'):
+          self.ServerMode = MediaProvider.SERVER_MODE_SEQUENTIAL
         if self.ServerMode != MediaProvider.SERVER_MODE_SEQUENTIAL:
           rep = MediaProvider.open_url(self.MediaSrc, 'HEAD')
           self.MediaSize = int(rep.getheader('Content-Length'))
@@ -635,7 +642,7 @@ class MediaProvider(threading.Thread):
             self.ServerMode = MediaProvider.SERVER_MODE_SEQUENTIAL
           rep.close()
         if self.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL:
-          if self.MediaMuxContainer and (self.MediaMuxAlways or self.MediaStartFrom):
+          if self.MediaMuxContainer and (self.MediaMuxAlways or self.MediaStartFrom or ''.join(self.MediaSrc[-5:].rpartition('.')[1:3]).lower() in ('.m3u', '.m3u8')):
             self.MediaFeed = self._open_FFmpeg(vid=self.MediaSrc)
             self.MediaFeedExt = {'MP4':'.mp4','MPEGTS':'.ts'}.get(self.MediaMuxContainer,'')
           else:
