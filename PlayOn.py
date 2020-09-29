@@ -347,7 +347,6 @@ class MediaProvider(threading.Thread):
     else:
       MediaSubBuffer.extend([None] * (4 - len(MediaSubBuffer)))
       MediaSubBuffer[3] = '.smi'
-    print('cv')
     ffmpeg_env = {'mediabuilder_address': '-', 'mediabuilder_start': '', 'mediabuilder_mux': 'SRT', 'mediabuilder_profile': ''}
     ffmpeg_env['mediabuilder_sub'] = '-'
     ffmpeg_env['mediabuilder_lang'] = ''
