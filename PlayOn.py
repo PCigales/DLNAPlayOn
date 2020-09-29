@@ -1808,6 +1808,8 @@ class DLNAEventNotificationHandler(socketserver.StreamRequestHandler):
       return
     try:
       for node in root_xml.documentElement.childNodes:
+        if node.nodeType != node.ELEMENT_NODE:
+          continue
         if node.tagName.split(':', 1)[-1].lower() != 'property':
           continue
         for child_node in node.childNodes:
@@ -1822,13 +1824,20 @@ class DLNAEventNotificationHandler(socketserver.StreamRequestHandler):
           self.server.logger.log('DLNA Renderer %s -> Service %s -> notification d\'événement %s -> %s est passé à %s' % (self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq, prop_name, prop_nvalue), 2)
           if prop_name.upper() == 'LastChange'.upper():
             lc_xml = minidom.parseString(prop_nvalue)
-            for p_node in lc_xml.documentElement.childNodes[0].childNodes:
-              lc_prop_name = p_node.tagName
-              for att in p_node.attributes.items():
-                if att[0].lower() == 'val':
-                  lc_prop_value = att[1]
-                  break
-              dlna_event.Changes.append((lc_prop_name, lc_prop_value))
+            for node in lc_xml.documentElement.childNodes:
+              if node.nodeType == node.ELEMENT_NODE:
+                break
+            if node.nodeType == node.ELEMENT_NODE:
+              for p_node in node.childNodes:
+                if p_node.nodeType == p_node.ELEMENT_NODE:
+                  lc_prop_name = p_node.tagName
+                  lc_prop_value = None
+                  for att in p_node.attributes.items():
+                    if att[0].lower() == 'val':
+                      lc_prop_value = att[1]
+                      break
+                  if lc_prop_value != None:
+                    dlna_event.Changes.append((lc_prop_name, lc_prop_value))
           else:
             dlna_event.Changes.append((prop_name, prop_nvalue))
       if self.EventListener.log:
@@ -2101,7 +2110,14 @@ class DLNARendererControler:
       '\r\n'
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.settimeout(timeout)
-    sock.sendto(msg.encode("ISO-8859-1"), ('239.255.255.250', 1900))
+    try:
+      sock.sendto(msg.encode("ISO-8859-1"), (self.ip, 1900))
+    except:
+      pass
+    try:
+      sock.sendto(msg.encode("ISO-8859-1"), ('239.255.255.250', 1900))
+    except:
+      pass
     loca_time=[]
     stopped = False
     time_req = time.localtime()
@@ -4065,12 +4081,12 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.ControlDataStore.IncomingEvent = incoming_event
     if playlist != False:
       if playlist:
-        self.logger.log('Liste de lecture générée depuis l\'adresse %s: %s contenus média' % (self.MediaSrc, len(playlist)), 0)
+        self.logger.log('Liste de lecture générée depuis l\'adresse %s: %s contenus média' % (self.MediaSrc, len(playlist)), 1)
         self.ControlDataStore.Playlist = titles
       if self.MediaPosition == '0:00:00' and self.SlideshowDuration:
         self.MediaPosition = self.SlideshowDuration
       else:
-        self.logger.log('Absence de contenu média sous l\'adresse %s' % self.MediaSrc, 2)
+        self.logger.log('Absence de contenu média sous l\'adresse %s' % self.MediaSrc, 0)
     cmd_stop = True
     playlist_stop = False
     media_kind = None
