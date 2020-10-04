@@ -12,7 +12,7 @@ import time
 from http import server, client, HTTPStatus
 import socket
 import socketserver
-import urllib.request, urllib.parse
+import urllib.request, urllib.parse, urllib.error
 from io import BytesIO
 from xml.dom import minidom
 import json
@@ -107,6 +107,15 @@ class MediaProvider(threading.Thread):
     rep = None
     try:
       rep = urllib.request.urlopen(req)
+    except urllib.error.HTTPError as e:
+      if e.code == HTTPStatus.NOT_ACCEPTABLE and method.upper() == 'HEAD':
+        del header['Range']
+        req = urllib.request.Request(url, headers=header, method=method)
+        rep = None
+        try:
+          rep = urllib.request.urlopen(req)
+        except:
+          pass
     except:
       pass
     return rep
@@ -3652,6 +3661,7 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
                     c[0] = '/upnp.html?uuid=0&id=0'
                     c[1] = self.server.Interface.HTML_UPNP_TEMPLATE.replace('##UPNP-VAL##','e').replace('##UPNP-TITLE##','').replace('##UPNP-OBJ##', '').encode('utf-8')
                     c[2] = []
+                    c[3] = []
                     break
               html_upnp = self.server.Interface.HTML_UPNP_TEMPLATE.replace('##UPNP-VAL##','1'if len(content[2]) >= 1 else '0').replace('##UPNP-TITLE##', html.escape(content[0]['title'])).replace('##UPNP-OBJ##', self.server.Interface.build_server_html(req['uuid'][0], content)).encode('utf-8')
               c_found = False
@@ -3660,9 +3670,10 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
                   c_found = True
                   c[1] = html_upnp
                   c[2] = list(e['uri'] for e in content[2])
+                  c[3] = list({'object.item.videoitem': 'video', 'object.item.audioitem': 'audio', 'object.item.imageitem': 'image'}.get(e['class'].lower(), 'video') for e in content[2])
                   break
               if not c_found:
-                self.server.Interface.DLNAClientCache.append([path, html_upnp, list(e['uri'] for e in content[2])])
+                self.server.Interface.DLNAClientCache.append([path, html_upnp, list(e['uri'] for e in content[2]), list({'object.item.videoitem': 'video', 'object.item.audioitem': 'audio', 'object.item.imageitem': 'image'}.get(e['class'].lower(), 'video') for e in content[2])])
               if url.params == 'refresh':
                 raise
         except:
@@ -4645,28 +4656,38 @@ class DLNAWebInterfaceServer(threading.Thread):
     incoming_event = self.ControlDataStore.IncomingEvent
     self.ControlDataStore.IncomingEvent = threading.Event()
     playlist = None
+    titles = []
+    mediakinds = []
     if self.MediaSrc[:7].lower() == 'upnp://':
       try:
-        obj_uuid = self.MediaSrc[7:].partition('?')[0].lower()
-        obj_id = self.MediaSrc[7:].partition('?')[2].lower()
+        obj_uuid = self.MediaSrc[7:].partition('?')[0]
+        obj_id = self.MediaSrc[7:].partition('?')[2]
         for c in self.DLNAClientCache:
           req = urllib.parse.parse_qs(urllib.parse.urlparse(c[0]).query.lower())
-          if req.get('uuid')[0] == obj_uuid and req.get('id')[0] == obj_id:
+          if req.get('uuid')[0] == obj_uuid.lower() and req.get('id')[0] == obj_id.lower():
             playlist = c[2]
             titles = list(html.unescape(l.split('</')[0].rsplit('>', 1)[1]) for l in c[1].decode('utf-8').splitlines() if l.lstrip()[:3] == '<p>')
             del titles[0:len(titles) - len(playlist)]
+            mediakinds = c[3]
             break
         if playlist == None:
           server = self.DLNAClientInstance.search(uuid=obj_uuid)
           if not server:
-            raise
+            if self.Status == DLNAWebInterfaceServer.INTERFACE_CONTROL:
+              self.DLNAClientInstance.discover(timeout=3, alive_persistence=86400)
+              server = self.DLNAClientInstance.search(uuid=obj_uuid)
+            if not server:
+              raise
           if not server.StatusAlive:
             raise
           content = self.DLNAClientInstance.get_Content(server, obj_id)
           playlist = list(e['uri'] for e in content[2])
           titles = list(((e['album'] + ' - ') if e['album'] and e['class'].lower() == 'object.item.audioitem' else '') + ((e['track'] + ' - ') if e['track'] and e['track'] != '0' and e['class'].lower() == 'object.item.audioitem' else '') + ((e['artist'] + ' - ') if e['artist'] and e['class'].lower() == 'object.item.audioitem' else '') + e['title'] for e in content[2])
+          mediakinds = list({'object.item.videoitem': 'video', 'object.item.audioitem': 'audio', 'object.item.imageitem': 'image'}.get(e['class'].lower(), 'video') for e in content[2])
       except:
         playlist = []
+        titles = []
+        mediakinds = []
     if playlist == None:
       playlist, titles = MediaProvider.parse_playlist(self.MediaSrc, True, self.ControlDataStore.IncomingEvent)
     self.ControlDataStore.IncomingEvent = incoming_event
@@ -4720,11 +4741,14 @@ class DLNAWebInterfaceServer(threading.Thread):
         media_sub_src = self.MediaSubSrc
         cmd_stop = restart_from == None or restart_from == ''
       prev_media_kind = media_kind
-      media_kind = 'video'
-      media_mime = mimetypes.guess_type(media_src)[0]
-      if media_mime:
-        if media_mime[0:5] in ('audio', 'image'):
-          media_kind = media_mime[0:5]
+      if self.MediaSrc[:7].lower()=='upnp://':
+        media_kind = mediakinds[ind]
+      else:
+        media_kind = 'video'
+        media_mime = mimetypes.guess_type(media_src.rsplit('?',1)[0])[0]
+        if media_mime:
+          if media_mime[0:5] in ('audio', 'image'):
+            media_kind = media_mime[0:5]
       if media_kind == 'image':
         media_start_from = '0:00:00'
         image_duration = _position_to_seconds(self.MediaPosition or '0:00:00')
@@ -4737,7 +4761,7 @@ class DLNAWebInterfaceServer(threading.Thread):
       self.MediaServerInstance = None
       check_renderer = False
       if self.MediaServerMode != DLNAWebInterfaceServer.SERVER_MODE_NONE:
-        self.MediaServerInstance = MediaServer(self.MediaServerMode, (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5), media_src, MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(urllib.parse.urlparse(renderer.BaseURL)).netloc.split(':',1)[0])
+        self.MediaServerInstance = MediaServer(self.MediaServerMode, (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(urllib.parse.urlparse(renderer.BaseURL)).netloc.split(':',1)[0])
         self.MediaServerInstance.start()
         if not self.shutdown_requested:
           self.ControlDataStore.IncomingEvent = self.MediaServerInstance.BuildFinishedEvent
@@ -4994,7 +5018,7 @@ class DLNAWebInterfaceServer(threading.Thread):
               if restart_from != None:
                 restart_from = None
                 self.ControlDataStore.ShowStartFrom = False
-              if self.ControlDataStore.Status in ('prêt', 'Arrêt'):
+              if self.ControlDataStore.Status in ('prêt', 'prêt (lecture à partir du début)', 'Arrêt'):
                 self.ControlDataStore.Status = 'en cours...'
                 self.DLNARendererControlerInstance.send_Play(renderer)
               else:
@@ -5008,7 +5032,7 @@ class DLNAWebInterfaceServer(threading.Thread):
               pass
           elif wi_cmd == 'Arrêt':
             cmd_stop = True
-            if playlist and self.ControlDataStore.Status == 'prêt':
+            if playlist and self.ControlDataStore.Status in ('prêt', 'prêt (lecture à partir du début)'):
               playlist_stop = True
             self.ControlDataStore.Status = 'en cours...'
             if restart_from != None:
