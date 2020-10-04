@@ -9,6 +9,7 @@ The usable media sources are:
 - remote files from the local network or from internet
 - content from a webpage as long as its address can be extracted by youtube-dl; they can be in a single stream or in separate video and audio streams (such as Youtube high resolution contents)
 - playlists: folder, video web sites, .wpl (Windows Media Player playlist), m3u and m3u8
+- content from a DLNA server
 
 The application runs a server that can operate in two modes (except if 'typeserver' is set as 'n': the URI will directly be sent to the renderer):
 - a random mode, where the content is loaded into a buffer to be distributed to the renderer, and time seeking is allowed during playing from the renderer or from the web interface (provided the source can be accessed in random mode)
