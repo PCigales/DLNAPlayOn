@@ -266,7 +266,11 @@ elif args.command in ('play_on', 'p'):
               elif k.upper() == b'A':
                 DLNARendererControlerInstance.send_Stop(renderer)
                 break
-            stop_reason = DLNARendererControlerInstance.get_StoppedReason(renderer)[0]
+            stop_reason = ""
+            try:
+              stop_reason = DLNARendererControlerInstance.get_StoppedReason(renderer)[0]
+            except:
+              pass
             if not stop_reason:
               stop_reason = '\b '
             print('\r\nFin de lecture à %s - statut: %s:%s' % (max_renderer_position, DLNARendererControlerInstance.get_TransportInfo(renderer)[1], stop_reason))

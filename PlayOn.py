@@ -1030,6 +1030,8 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
     self.MediaExt = MediaExt
     super().__init__(*args, **kwargs)
 
+  def log_message(self, format, *args):
+    self.server.logger.log(format%args, 1)
   
   def send_head(self):
     if self.server.auth_ip:
@@ -1208,6 +1210,9 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
     self.MediaSize = MediaSize
     self.AcceptRanges = AcceptRanges
     super().__init__(*args, **kwargs)
+
+  def log_message(self, format, *args):
+    self.server.logger.log(format%args, 1)
 
   def send_head(self):
     if self.server.auth_ip:
@@ -1531,7 +1536,7 @@ class MediaServer(threading.Thread):
             return
           with ThreadedDualStackServer(self.MediaServerAddress, self.MediaRequestBoundHandler, verbosity=self.verbosity, auth_ip=self.auth_ip) as self.MediaServerInstance:
             if self.is_running:
-              self.logger.log('Démarrage du serveur de diffusion en mode %s%s' % ({MediaProvider.SERVER_MODE_SEQUENTIAL: 'séquentiel', MediaProvider.SERVER_MODE_RANDOM: 'aléatoire'}.get(self.MediaProviderInstance.ServerMode,''), '' if self.MediaProviderInstance.ServerMode==MediaProvider.SERVER_MODE_SEQUENTIAL else ('' if self.MediaProviderInstance.AcceptRanges else ' non supporté par la source')), 0)
+              self.logger.log('Démarrage du serveur de diffusion en mode %s%s' % ({MediaProvider.SERVER_MODE_SEQUENTIAL: 'séquentiel', MediaProvider.SERVER_MODE_RANDOM: 'aléatoire'}.get(self.MediaProviderInstance.ServerMode,''), '' if self.MediaProviderInstance.ServerMode==MediaProvider.SERVER_MODE_SEQUENTIAL else ('' if self.MediaProviderInstance.AcceptRanges else ' non supporté par la source')), 1)
               self.MediaServerInstance.serve_forever()
       self.is_running = None
 
@@ -1546,7 +1551,7 @@ class MediaServer(threading.Thread):
     if was_running:
       try:
         self.MediaServerInstance.shutdown()
-        self.logger.log('Fermeture du serveur de diffusion', 0)
+        self.logger.log('Fermeture du serveur de diffusion', 1)
         for sock in self.MediaServerInstance.conn_sockets:
           try:
             sock.shutdown(socket.SHUT_RDWR)
@@ -1919,8 +1924,8 @@ class DLNAAdvertisementHandler(socketserver.DatagramRequestHandler):
         return
       time_resp = time.localtime()
       nts = resp.header('NTS', '')
-      usn = resp.header('USN','')
-      udn = usn[:41]
+      usn = resp.header('USN', '')
+      udn = usn[0:6] + usn[6:].split(':', 1)[0]
       desc_url = resp.header('Location','')
       self.server.logger.log('Réception d\'une publicité du périphérique %s (%s:%s): %s' % (usn, self.client_address[0], self.client_address[1], nts), 2)
       for handler in self.Handlers:
@@ -1940,7 +1945,7 @@ class DLNAAdvertisementHandler(socketserver.DatagramRequestHandler):
                 handler.advert_status_change.set()
             else:
               self.server.logger.log('Publicité du périphérique %s (%s:%s) ignorée en raison de la discordance d\'adresse de l\'URL de description' % (usn, self.client_address[0], self.client_address[1]), 2)
-        else:
+        elif 'byebye' in nts.lower():
           for dev in handler.Devices:
             if dev.UDN == udn:
               if dev.StatusAlive:
@@ -2087,7 +2092,19 @@ class DLNAHandler:
     except:
       pass
     try:
-      device.IconURL = device.BaseURL + _XMLGetNodeText(root_xml.getElementsByTagName('icon')[-1].getElementsByTagName('url')[0])
+      device.IconURL = None
+      nodes_ic = root_xml.getElementsByTagName('icon')
+      try:
+        for node_ic in reversed(nodes_ic):
+          if 'png' in _XMLGetNodeText(node_ic.getElementsByTagName('mimetype')[0]).lower():
+            device.IconURL = device.BaseURL + _XMLGetNodeText(node_ic.getElementsByTagName('url')[0])
+      except:
+        pass
+      if not device.IconURL:
+        try:
+          device.IconURL = device.BaseURL + _XMLGetNodeText(root_xml.getElementsByTagName('icon')[-1].getElementsByTagName('url')[0])
+        except:
+          device.IconURL = ''
     except:
       pass
     self.update_devices.acquire()
@@ -2255,22 +2272,30 @@ class DLNAHandler:
             dev.StatusTime = time_resp
 
   def search(self, uuid=None, name=None):
+    device = None
     for dev in self.Devices:
       if uuid:
         if name:
           if dev.UDN == 'uuid:' + uuid and dev.FriendlyName.lower() == name.lower():
-            return dev
+            device = dev
+            if dev.StatusAlive:
+              break
         else:
           if dev.UDN == 'uuid:' + uuid:
-            return dev
+            device = dev
+            if dev.StatusAlive:
+              break
       else:
         if name:
           if dev.FriendlyName.lower() == name.lower():
-            return dev
+            device = dev
+            if dev.StatusAlive:
+              break
         else:
           if dev.StatusAlive:
-            return dev
-    return None
+            device = dev
+            break
+    return device
 
   def _discovery_polling(self, timeout=2, alive_persistence=0, polling_period=30):
     self.is_discovery_polling_running = True
@@ -2785,7 +2810,7 @@ class DLNAClient(DLNAHandler):
       obj = self.get_Metadata(server, id)
       if not obj:
         return None
-      kind = obj.get('type')
+      kind = obj['type']
       if not kind in ('container', 'item'):
         return None
       if id == '0':
@@ -2801,9 +2826,9 @@ class DLNAClient(DLNAHandler):
           containers.sort(key=lambda e: e['class'].lower())
         items = list(e for e in children if e['type'].lower() == 'item')
         items.sort(key=lambda e: e['title'].lower())
-        items.sort(key=lambda e: e['artist'].lower())
-        items.sort(key=lambda e: '%10s' % e['track'].lower())
-        items.sort(key=lambda e: e['album'].lower())
+        items.sort(key=lambda e: e['artist'].lower() if e['class'].lower() == 'object.item.audioitem' else '')
+        items.sort(key=lambda e: '%10s' % e['track'].lower() if e['class'].lower() == 'object.item.audioitem' else '')
+        items.sort(key=lambda e: e['album'].lower() if e['class'].lower() == 'object.item.audioitem' else '')
     except:
       return None
     return [obj, containers, items]
@@ -2847,7 +2872,7 @@ class WebSocketDataStore:
     self.o_condition.notify_all()
     self.o_condition.release()
 
-  def push_outgoing(self, value):
+  def nest_outgoing(self, value):
     with self.outgoing_lock:
       if len(self.outgoing) == 0:
         self.outgoing.append(str(value))
@@ -3493,7 +3518,7 @@ class DLNAWebInterfaceRenderersDataStore(WebSocketDataStore):
 
   @Message.setter
   def Message(self, value):
-    self.push_outgoing(value)
+    self.nest_outgoing(value)
 
   @property
   def Redirect(self):
@@ -3527,6 +3552,9 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
   '    <p">Quelques secondes de patience...</p>\r\n' \
   '</body>\r\n' \
   '</html>'
+
+  def log_message(self, format, *args):
+    self.server.logger.log(format%args, 1)
 
   def send_head(self):
     if self.server.Interface.Status == DLNAWebInterfaceServer.INTERFACE_NOT_RUNNING :
@@ -3622,7 +3650,7 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
                 for c in self.server.Interface.DLNAClientCache:
                   if c[0] == path:
                     c[0] = '/upnp.html?uuid=0&id=0'
-                    c[1] = ''
+                    c[1] = self.server.Interface.HTML_UPNP_TEMPLATE.replace('##UPNP-VAL##','e').replace('##UPNP-TITLE##','').replace('##UPNP-OBJ##', '').encode('utf-8')
                     c[2] = []
                     break
               html_upnp = self.server.Interface.HTML_UPNP_TEMPLATE.replace('##UPNP-VAL##','1'if len(content[2]) >= 1 else '0').replace('##UPNP-TITLE##', html.escape(content[0]['title'])).replace('##UPNP-OBJ##', self.server.Interface.build_server_html(req['uuid'][0], content)).encode('utf-8')
@@ -4164,7 +4192,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        height: 100%;\r\n' \
   '        overflow: auto;\r\n' \
   '        background-color: rgb(40,45,50);\r\n' \
-  '        background-color: rgba(40,45,50,0.9);\r\n' \
+  '        background-color: rgba(40,45,50,0.97);\r\n' \
   '      }\r\n' \
   '      a {\r\n' \
   '        color: rgb(225,225,225);\r\n' \
@@ -4490,11 +4518,11 @@ class DLNAWebInterfaceServer(threading.Thread):
           skip_server = True
         else:
           for j in range(i):
-            if self.DLNAClientInstance.Servers[i].UDN == self.DLNAClientInstance.Servers[j].UDN:
+            if self.DLNAClientInstance.Servers[i].UDN == self.DLNAClientInstance.Servers[j].UDN and self.DLNAClientInstance.Servers[j].StatusAlive:
               skip_server = True
               break
         if not skip_server:
-          html_bloc = html_bloc + '    <p><a href="javascript:open_link(\'' + urllib.parse.quote(urllib.parse.urlencode({'uuid': self.DLNAClientInstance.Servers[i].UDN[5:], 'id': 0}, quote_via=urllib.parse.quote)) + ('\')">&rect;&nbsp;%s</a></p>\r\n' % html.escape(self.DLNAClientInstance.Servers[i].FriendlyName))
+          html_bloc = html_bloc + ('    <p><span style="display:inline-block;width:40px;height:22px;margin-top:-10px;"><img style="height:22px;width:30px;object-fit:contain;" src="%s" alt=" "/></span><span style="vertical-align:4px;"><a href="javascript:open_link(\'' % html.escape(self.DLNAClientInstance.Servers[i].IconURL)) + urllib.parse.quote(urllib.parse.urlencode({'uuid': self.DLNAClientInstance.Servers[i].UDN[5:], 'id': 0}, quote_via=urllib.parse.quote)) + ('\')">%s</a></span></p>\r\n' % html.escape(self.DLNAClientInstance.Servers[i].FriendlyName))
       return html_bloc
     for e in content[1]:
       html_bloc = html_bloc + '    <p><a href="javascript:open_link(\'' +  urllib.parse.quote(urllib.parse.urlencode({'id': e['id']}, quote_via=urllib.parse.quote)) + ('\')">&rect;&nbsp;%s%s</a></p>\r\n' % (html.escape(e['title']), html.escape(' (' + e['artist'] + ')') if e['artist'] and e['class'].lower() == 'object.container.album' else '',))
@@ -4594,6 +4622,7 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.WebSocketServerControlInstance = WebSocketServer((self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+1), self.ControlDataStore, self.verbosity)
     self.WebSocketServerControlInstance.start()
     self.html_ready = True
+    self.DLNARendererControlerInstance.send_Stop(renderer)
     event_listener = self.DLNARendererControlerInstance.new_event_subscription(renderer, 'AVTransport', self.DLNAWebInterfaceServerAddress[1]+3)
     prep_success = True
     if not event_listener:
@@ -4753,6 +4782,7 @@ class DLNAWebInterfaceServer(threading.Thread):
           media_ip = urllib.parse.urlparse(media_src).netloc.split(':',1)[0]
         except:
           pass
+        self.DLNARendererControlerInstance.wait_for_warning(warning, 0, True)
         if self.MediaSrc[:7].lower() == 'upnp://':
           media_title = titles[ind]
         else:
@@ -4812,6 +4842,7 @@ class DLNAWebInterfaceServer(threading.Thread):
             except:
               pass
           continue
+      self.logger.log('Prêt pour lecture de "%s"%s, par %s, sur le renderer "%s"' % (media_title, ', sous-titrée' if suburi else '', 'transmission directe de l\'adresse' if server_mode == DLNAWebInterfaceServer.SERVER_MODE_NONE else {MediaProvider.SERVER_MODE_RANDOM: 'diffusion via serveur en mode accès aléatoire', MediaProvider.SERVER_MODE_SEQUENTIAL: 'diffusion via serveur en mode accès séquentiel%s' % ((', remuxé en %s' % self.MediaServerInstance.MediaMuxContainer.lstrip('!')) if self.MediaServerInstance.MediaProviderInstance.FFmpeg_process else '')}.get(server_mode,''), self.Renderer.FriendlyName), 0)
       status_dict = {'PLAYING': 'Lecture', 'PAUSED_PLAYBACK': 'Pause', 'STOPPED': 'Arrêt'}
       old_value = None
       new_value = None
