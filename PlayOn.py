@@ -625,7 +625,12 @@ class MediaProvider(threading.Thread):
       try:
         if self.ServerMode != MediaProvider.SERVER_MODE_SEQUENTIAL:
           rep = MediaProvider.open_url(self.MediaSrc, 'HEAD')
-          self.MediaSize = int(rep.getheader('Content-Length'))
+          self.MediaSize = int(rep.getheader('Content-Length', 0))
+          if not self.MediaSize:
+            try:
+              self.MediaSize = int(rep.getheader('Content-Range', '').rpartition('/')[2])
+            except:
+              pass
           if rep.getheader('Accept-Ranges'):
             if rep.getheader('Accept-Ranges').lower() != 'none':
               self.AcceptRanges = True
@@ -681,7 +686,12 @@ class MediaProvider(threading.Thread):
               self.ServerMode = MediaProvider.SERVER_MODE_SEQUENTIAL
             if self.ServerMode != MediaProvider.SERVER_MODE_SEQUENTIAL:
               rep = MediaProvider.open_url(process_output[0].decode('utf-8'), 'HEAD')
-              self.MediaSize = int(rep.getheader('Content-Length'))
+              self.MediaSize = int(rep.getheader('Content-Length', 0))
+              if not self.MediaSize:
+                try:
+                  self.MediaSize = int(rep.getheader('Content-Range', '').rpartition('/')[2])
+                except:
+                  pass
               if rep.getheader('Accept-Ranges'):
                 if rep.getheader('Accept-Ranges').lower() != 'none':
                   self.AcceptRanges = True
@@ -1146,7 +1156,7 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
       return
     if source in ('mediasub', 'mediasubsmi'):
       try:
-        outputfile.write(str(hex(len(self.MediaSubBuffer[0] if source == 'mediasub' else self.MediaSubBuffer[2]))).encode("ISO-8859-1")[2:] + b"\r\n" + (self.MediaSubBuffer[0] if source == 'mediasub' else self.MediaSubBuffer[2]) + b"\r\n")
+        outputfile.write(hex(len(self.MediaSubBuffer[0] if source == 'mediasub' else self.MediaSubBuffer[2])).encode("ISO-8859-1")[2:] + b"\r\n" + (self.MediaSubBuffer[0] if source == 'mediasub' else self.MediaSubBuffer[2]) + b"\r\n")
         self.server.logger.log('Distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 2)
       except:
         self.server.logger.log('Échec de distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 1)
@@ -1170,7 +1180,7 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
             break
           else:
             try:
-              outputfile.write(str(hex(len(bloc))).encode("ISO-8859-1")[2:] + b"\r\n" + bloc + b"\r\n")
+              outputfile.write(hex(len(bloc)).encode("ISO-8859-1")[2:] + b"\r\n" + bloc + b"\r\n")
               self.server.logger.log('Connexion %d -> segment %d -> distribution à partir de la zone %d du tampon' % (self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId], (self.MediaBuffer.r_indexes[self.MediaBufferId] - 1) % self.MediaBufferSize), 2)
               self.MediaBuffer.r_indexes[self.MediaBufferId] += 1
               self.MediaBuffer.r_event.set()
@@ -1646,7 +1656,7 @@ def _XMLGetNodeText(node):
 
 class HTTPMessage():
 
-  def __init__(self, request, timeout=5, max_length=1048576):
+  def __init__(self, message, body=True, decode='utf-8', timeout=5, max_length=1048576):
     iter = 0
     while iter < 2:
       self.method = None
@@ -1657,13 +1667,18 @@ class HTTPMessage():
       self.headers = {}
       self.body = None
       if iter == 0:
-        if self._read_request(request, timeout, max_length):
+        if self._read_message(message, body, timeout, max_length):
           iter = 2
         else:
           iter = 1
       else:
         iter = 2
-    
+    if self.body != None and decode:
+      self.body = self.body.decode(decode)
+
+  def header(self, name, default = None):
+    return self.headers.get(name.upper(), default)
+
   def _read_headers(self, msg):
     if not msg:
       return
@@ -1673,7 +1688,6 @@ class HTTPMessage():
         return
       if not a:
         try:
-          msg_line.strip().split(None, 2)
           a, b, c = msg_line.strip().split(None, 2)
         except:
           return
@@ -1696,65 +1710,123 @@ class HTTPMessage():
       self.method = a.upper()
       self.path = b
       self.version = c.upper()
-    if not 'Content-Length'.upper() in self.headers:
+    if not 'Content-Length'.upper() in self.headers and self.header('Transfer-Encoding', '').lower() != 'chunked':
       self.headers['Content-Length'.upper()] = 0
     return True
 
-  def header(self, name, default = None):
-    return self.headers.get(name.upper(), default)
-
-  def _read_request(self, request, timeout=5, max_length=1048576):
-    if not isinstance(request, socket.socket):
-      resp = request[0]
+  def _read_message(self, message, body, timeout=5, max_length=1048576):
+    rem_length = max_length
+    if not isinstance(message, socket.socket):
+      resp = message[0]
+    else:
+      message.settimeout(timeout)
+      resp = b''
+    while True:
+      resp = resp.lstrip(b'\r\n')
       body_pos = resp.find(b'\r\n\r\n')
       if body_pos >= 0:
         body_pos += 4
-      else:
-        body_pos = resp.find(b'\n\n')
-        if body_pos >= 0:
-          body_pos += 2
-    else:
-      request.settimeout(timeout)
-      resp = b''
-      while len(resp) < max_length:
-        bloc = None
-        try:
-          bloc = request.recv(max_length - len(resp))
-        except:
-          return None
-        if not bloc:
-          return None
-        resp = resp + bloc
-        body_pos = resp.find(b'\r\n\r\n')
-        if body_pos >= 0:
-          body_pos += 4
-          break
-        else:
-          body_pos = resp.find(b'\n\n')
-          if body_pos >= 0:
-            body_pos += 2
-            break
-    if body_pos < 0:
-      return None
+        break
+      body_pos = resp.find(b'\n\n')
+      if body_pos >= 0:
+        body_pos += 2
+        break
+      if not isinstance(message, socket.socket) or rem_length <= 0:
+        return None
+      bloc = None
+      try:
+        bloc = message.recv(rem_length)
+      except:
+        return None
+      if not bloc:
+        return None
+      rem_length -= len(bloc)
+      resp = resp + bloc
     if not self._read_headers(resp[:body_pos].decode('ISO-8859-1')):
       return None
-    try:
-      body_len = int(self.header('Content-Length'))
-    except:
-      return None
-    if body_pos + body_len > max_length:
-      return None
-    if isinstance(request, socket.socket):
+    if not body:
+      self.body = b''
+      return True
+    if self.header('Transfer-Encoding', '').lower() != 'chunked':
+      try:
+        body_len = int(self.header('Content-Length'))
+      except:
+        return None
+      if body_pos + body_len - len(resp) > rem_length:
+        return None
       while len(resp) < body_pos + body_len:
+        if not isinstance(message, socket.socket):
+          return None
         bloc = None
         try:
-          bloc = request.recv(body_pos + body_len - len(resp))
+          bloc = message.recv(body_pos + body_len - len(resp))
         except:
           return None
         if not bloc:
           return None
         resp = resp + bloc
-    self.body = resp[body_pos:].decode('UTF-8')
+      self.body = resp[body_pos:body_pos + body_len]
+    else:
+      buff = resp[body_pos:]
+      self.body = b''
+      chunk_len = -1
+      while chunk_len != 0:
+        chunk_pos = -1
+        while chunk_pos < 0:
+          buff = buff.lstrip(b'\r\n')
+          chunk_pos = buff.find(b'\r\n')
+          if chunk_pos >= 0:
+            chunk_pos += 2
+            break
+          chunk_pos = buff.find(b'\n')
+          if chunk_pos >= 0:
+            chunk_pos += 1
+            break
+          if not isinstance(message, socket.socket) or rem_length <= 0:
+            return None
+          bloc = None
+          try:
+            bloc = message.recv(rem_length)
+          except:
+            return None
+          if not bloc:
+            return None
+          rem_length -= len(bloc)
+          buff = buff + bloc
+        try:
+          chunk_len = int(buff[:chunk_pos].rstrip(b'\r\n'), 16)
+        except:
+          return None
+        if chunk_pos + chunk_len - len(buff) > rem_length:
+          return None
+        while len(buff) < chunk_pos + chunk_len:
+          if not isinstance(message, socket.socket):
+            return None
+          bloc = None
+          try:
+            bloc = message.recv(chunk_pos + chunk_len - len(buff))
+          except:
+            return None
+          if not bloc:
+            return None
+          rem_length -= len(bloc)
+          buff = buff + bloc
+        self.body = self.body + buff[chunk_pos:chunk_pos+chunk_len]
+        buff = buff[chunk_pos+chunk_len:]
+      buff = b'\r\n' + buff
+      self.headers['Content-Length'.upper()] = len(self.body)
+      while not (b'\r\n\r\n' in buff or b'\n\n' in buff):
+        if not isinstance(message, socket.socket) or rem_length <= 0:
+          return None
+        bloc = None
+        try:
+          bloc = message.recv(rem_length)
+        except:
+          return None
+        if not bloc:
+          return None
+        rem_length -= len(bloc)
+        buff = buff + bloc
     return True
 
 
@@ -2106,12 +2178,12 @@ class DLNAHandler:
       try:
         for node_ic in reversed(nodes_ic):
           if 'png' in _XMLGetNodeText(node_ic.getElementsByTagName('mimetype')[0]).lower():
-            device.IconURL = device.BaseURL + _XMLGetNodeText(node_ic.getElementsByTagName('url')[0])
+            device.IconURL = urllib.parse.urljoin(device.BaseURL, _XMLGetNodeText(node_ic.getElementsByTagName('url')[0]))
       except:
         pass
       if not device.IconURL:
         try:
-          device.IconURL = device.BaseURL + _XMLGetNodeText(root_xml.getElementsByTagName('icon')[-1].getElementsByTagName('url')[0])
+          device.IconURL = urllib.parse.urljoin(device.BaseURL, _XMLGetNodeText(root_xml.getElementsByTagName('icon')[-1].getElementsByTagName('url')[0]))
         except:
           device.IconURL = ''
     except:
@@ -2140,9 +2212,9 @@ class DLNAHandler:
       try:
         service.Type = _XMLGetNodeText(node.getElementsByTagName('serviceType')[0])
         service.Id = _XMLGetNodeText(node.getElementsByTagName('serviceId')[0])
-        service.ControlURL = '%s%s' % (device.BaseURL, _XMLGetNodeText(node.getElementsByTagName('controlURL')[0]))
-        service.SubscrEventURL = '%s%s' % (device.BaseURL, _XMLGetNodeText(node.getElementsByTagName('eventSubURL')[0]))
-        service.DescURL = '%s%s' % (device.BaseURL, _XMLGetNodeText(node.getElementsByTagName('SCPDURL')[0]))
+        service.ControlURL = urllib.parse.urljoin(device.BaseURL, _XMLGetNodeText(node.getElementsByTagName('controlURL')[0]))
+        service.SubscrEventURL = urllib.parse.urljoin(device.BaseURL, _XMLGetNodeText(node.getElementsByTagName('eventSubURL')[0]))
+        service.DescURL = urllib.parse.urljoin(device.BaseURL, _XMLGetNodeText(node.getElementsByTagName('SCPDURL')[0]))
       except:
         continue
       try:
@@ -2310,10 +2382,17 @@ class DLNAHandler:
     self.is_discovery_polling_running = True
     if self.discovery_status_change == None:
         self.discovery_status_change = threading.Event()
+    first_time = True
     while self.is_discovery_polling_running and not self.discovery_polling_shutdown.is_set():
-      dev_stat = list([deverer.StatusAlive for deverer in self.Devices])
-      self.discover(uuid=None, timeout=timeout, alive_persistence=alive_persistence, from_polling=True)
+      dev_stat = list([dev.StatusAlive for dev in self.Devices])
+      if first_time:
+        self.discover(uuid=None, timeout=timeout, alive_persistence=86400, from_polling=True)
+        first_time = False
+      else:
+        self.discover(uuid=None, timeout=timeout, alive_persistence=alive_persistence, from_polling=True)
       discovery_event = False
+      if not self.is_discovery_polling_running:
+        break
       for ind in range(len(self.Devices)):
         if ind < len(dev_stat):
           if dev_stat[ind] != self.Devices[ind].StatusAlive:
@@ -2660,13 +2739,13 @@ class DLNARendererControler (DLNAHandler):
       self._shutdown_event_notification_receiver(EventListener)
       self.logger.log('Renderer %s -> service %s -> échec de la demande de souscription au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:]), 1)
       return None
-    if resp.status != HTTPStatus.OK:
+    EventListener.SID = resp.getheader('SID', '')
+    if resp.status != HTTPStatus.OK or not EventListener.SID:
       self._shutdown_event_notification_receiver(EventListener)
       self.logger.log('Renderer %s -> service %s -> échec de la demande de souscription au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:]), 1)
       return None
-    EventListener.SID = resp.getheader('SID')
     if EventListener.is_running:
-      self.logger.log('Renderer %s -> service %s -> souscription au serveur d\'événements sous le SID %s pour une durée de %s' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.getheader('TIMEOUT')), 1)
+      self.logger.log('Renderer %s -> service %s -> souscription au serveur d\'événements sous le SID %s pour une durée de %s' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.getheader('TIMEOUT', '')), 1)
       return True
     else:
       self.logger.log('Renderer %s -> service %s -> échec de la demande de souscription au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:]), 1)
@@ -2689,7 +2768,7 @@ class DLNARendererControler (DLNAHandler):
     if resp.status != HTTPStatus.OK:
       self.logger.log('Renderer %s -> service %s -> échec de la demande de renouvellement de souscription de SID %s au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID), 1)
       return None
-    self.logger.log('Renderer %s -> service %s -> renouvellement de la souscription de SID %s au serveur d\'événements pour une durée de %s' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.getheader('TIMEOUT')), 1)
+    self.logger.log('Renderer %s -> service %s -> renouvellement de la souscription de SID %s au serveur d\'événements pour une durée de %s' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.getheader('TIMEOUT', '')), 1)
     return True
     
   def send_event_unsubscription(self, EventListener):
@@ -2863,8 +2942,9 @@ class WebSocketDataStore:
       if ind >= len(self.outgoing):
         self.outgoing = self.outgoing + [None]*(ind - len(self.outgoing) + 1)
         self.outgoing_seq = self.outgoing_seq + [None]*(ind - len(self.outgoing_seq) + 1)
-      if not if_different or str(value) != self.outgoing[ind]:
-        self.outgoing[ind] = str(value)
+      cvt_value = None if value == None else str(value)
+      if not if_different or cvt_value != self.outgoing[ind]:
+        self.outgoing[ind] = cvt_value
         if self.outgoing_seq[ind] == None:
           self.outgoing_seq[ind] = 0
         else:
@@ -2875,7 +2955,7 @@ class WebSocketDataStore:
 
   def add_outgoing(self, value):
     with self.outgoing_lock:
-      self.outgoing.append(str(value))
+      self.outgoing.append(None if value == None else str(value))
       self.outgoing_seq.append(0)
     self.o_condition.acquire()
     self.o_condition.notify_all()
@@ -2884,11 +2964,11 @@ class WebSocketDataStore:
   def nest_outgoing(self, value):
     with self.outgoing_lock:
       if len(self.outgoing) == 0:
-        self.outgoing.append(str(value))
+        self.outgoing.append(None if value == None else str(value))
         self.outgoing_seq.append(0)
       else:
         old_value = self.outgoing[-1]
-        self.outgoing[-1] = str(value)
+        self.outgoing[-1] = None if value == None else str(value)
         self.outgoing_seq[-1] += 1
         self.outgoing.append(old_value)
         self.outgoing_seq.append(0)
@@ -3438,11 +3518,17 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @property
   def Duration(self):
-    return self.outgoing[2][9:]
+    if self.outgoing[2]:
+      return self.outgoing[2][9:]
+    else:
+      return self.outgoing[2]
 
   @Duration.setter
   def Duration(self, value):
-    self.set_outgoing(2, 'Duration:' + value, True)
+    if value != None:
+      self.set_outgoing(2, 'Duration:' + value, True)
+    else:
+      self.set_outgoing(2, None)
 
   @property
   def URL(self):
@@ -3453,34 +3539,56 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @URL.setter
   def URL(self, value):
-    self.set_outgoing(3, 'URL:' + html.escape(value), True)
+    if value != None:
+      self.set_outgoing(3, 'URL:' + html.escape(value), True)
+    else:
+      self.set_outgoing(3, None)
 
   @property
   def Playlist(self):
-    return self.outgoing[4][9:].splitlines()[1:]
+    if self.outgoing[4]:
+      return self.outgoing[4][9:].splitlines()[1:]
+    else:
+      return self.outgoing[4]
 
   @Playlist.setter
   def Playlist(self, value):
-    self.set_outgoing(4, 'Playlist:\r\n' + '\r\n'.join(value), True)
+    if value != None:
+      self.set_outgoing(4, 'Playlist:\r\n' + '\r\n'.join(value), True)
+    else:
+      self.set_outgoing(4, None)
 
   @property
   def Current(self):
-    if self.outgoing[5][8:].lstrip().isdecimal():
-      return int(self.outgoing[5][8:]) - 1
+    if self.outgoing[5]:
+      if self.outgoing[5][8:].lstrip().isdecimal():
+        return int(self.outgoing[5][8:]) - 1
+      else:
+        return -1
     else:
-      return -1
+      return self.outgoing[5]
 
   @Current.setter
   def Current(self, value):
-    self.set_outgoing(5, 'Current:' + str(value + 1), False)
+    if value != None:
+      self.set_outgoing(5, 'Current:' + str(value + 1), False)
+    else:
+      self.set_outgoing(5, None)
 
   @property
   def ShowStartFrom(self):
-    return self.outgoing[6][14:] == 'true'
+    if self.outgoing[6]:
+      return self.outgoing[6][14:] == 'true'
+    else:
+      return self.outgoing[6]
 
   @ShowStartFrom.setter
   def ShowStartFrom(self, value):
-    self.set_outgoing(6, 'Showstartfrom:' + ('true' if value else 'false'), True)
+    if value != None:
+      self.set_outgoing(6, 'Showstartfrom:' + ('true' if value else 'false'), True)
+    else:
+      self.set_outgoing(6, None)
+      
 
   @property
   def Command(self):
@@ -3639,8 +3747,11 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
       if self.server.Interface.Status == DLNAWebInterfaceServer.INTERFACE_START and self.server.Interface.DLNAClientInstance.search():
         try:
           url = urllib.parse.urlparse(self.path)
-          path = self.path.replace(';refresh?', '?')
-          if len(self.path) == 10:
+          path = self.path.replace('/upnp.html;refresh', '/upnp.html')
+          if len(path) == 10:
+            if url.params == 'refresh':
+              self.server.Interface._discover_servers()
+              raise
             html_upnp = self.server.Interface.HTML_UPNP_TEMPLATE.replace('##UPNP-VAL##','0').replace('##UPNP-TITLE##','').replace('##UPNP-OBJ##', self.server.Interface.build_server_html()).encode('utf-8')
           else:
             req = urllib.parse.parse_qs(url.query, keep_blank_values=True)
@@ -3974,7 +4085,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '          n_row.id = "renderer_" + renderer_index;\r\n' \
   '          let n_cell = n_row.insertCell();\r\n' \
   '          n_cell.id = "renderer_icon";\r\n' \
-  '          n_cell.innerHTML = "<img style=\'height:36px;width:auto;vertical-align:middle;\' src=" + renderer_icon + " alt=\' \'/>";\r\n' \
+  '          n_cell.innerHTML = "<img style=\'height:36px;width:auto;vertical-align:middle;\' src=\'" + renderer_icon + "\' alt=\' \'/>";\r\n' \
   '          n_cell = n_row.insertCell();\r\n' \
   '          n_cell.id = "renderer_name";\r\n' \
   '          n_cell.innerHTML = renderer_name;\r\n' \
@@ -4126,7 +4237,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        let bc = "";\r\n' \
   '        for (let i=0; i<upnp_hist.length; i++) {\r\n' \
   '          if (i == 0 && upnp_hist.length==1) {\r\n' \
-  '            bc = "<a class=\\"refresh\\" style=\\"font-size:200%;line-height:100%;\\" href=\\"javascript:open_link(\'" + encodeURIComponent(upnp_hist[0][0]) + "\')\\">&capand;</a>&nbsp;&sc;&nbsp;";\r\n' \
+  '            bc = "<a class=\\"refresh\\" style=\\"font-size:200%;line-height:100%;\\" href=\\"javascript:open_link(\'" + encodeURIComponent(upnp_hist[0][0]+ ";refresh") + "\')\\">&capand;</a>&nbsp;&sc;&nbsp;";\r\n' \
   '          } else if (i == 0) {\r\n' \
   '            bc = "<a style=\\"font-size:200%;line-height:100%;\\" href=\\"javascript:open_link(\'" + encodeURIComponent(upnp_hist[0][0]) + "\')\\">&capand;</a>&nbsp;&sc;&nbsp;";\r\n' \
   '          } else if (i < upnp_hist.length -1) {\r\n' \
@@ -4513,7 +4624,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   def _discover_servers(self):
     self.DLNAClientInstance.discover(timeout=3, alive_persistence=86400, from_polling=True)
     if self.DLNAClientInstance.is_discovery_polling_running:
-      self.DLNAClientInstance.discover(timeout=5, alive_persistence=86400, from_polling=True)
+      self.DLNAClientInstance.discover(timeout=5, alive_persistence=15, from_polling=True)
 
   def discover_servers(self):
     self.DLNAClientInstance.is_discovery_polling_running = True
@@ -4554,7 +4665,7 @@ class DLNAWebInterfaceServer(threading.Thread):
       self.html_start = DLNAWebInterfaceServer.HTML_START_TEMPLATE.replace('##CONTROL-URL##', 'http://%s:%s/control.html' % self.DLNAWebInterfaceServerAddress).replace('##UPNP-URL##', 'http://%s:%s/upnp.html' % self.DLNAWebInterfaceServerAddress).replace('##DISPLAY##', 'inline-block').replace('##URL##', html.escape(self.MediaSrc) + ('\r\n' + html.escape(self.MediaSubSrc) if self.MediaSubSrc else '')).replace('##STARTFROM##', self.MediaPosition).encode('utf-8')
     else:
       return
-    self.DLNARendererControlerInstance.start_discovery_polling(timeout=3, alive_persistence=86400, polling_period=30, DiscoveryEvent = self.RenderersEvent)
+    self.DLNARendererControlerInstance.start_discovery_polling(timeout=5, alive_persistence=45, polling_period=30, DiscoveryEvent = self.RenderersEvent)
     self.WebSocketServerRenderersInstance = WebSocketServer((self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+2), self.RenderersDataStore, self.verbosity)
     self.WebSocketServerRenderersInstance.start()
     self.html_ready = True
@@ -4761,7 +4872,7 @@ class DLNAWebInterfaceServer(threading.Thread):
       self.MediaServerInstance = None
       check_renderer = False
       if self.MediaServerMode != DLNAWebInterfaceServer.SERVER_MODE_NONE:
-        self.MediaServerInstance = MediaServer(self.MediaServerMode, (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(urllib.parse.urlparse(renderer.BaseURL)).netloc.split(':',1)[0])
+        self.MediaServerInstance = MediaServer(self.MediaServerMode, (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(urllib.parse.urlparse(renderer.BaseURL)).netloc.split(':',1)[0])
         self.MediaServerInstance.start()
         if not self.shutdown_requested:
           self.ControlDataStore.IncomingEvent = self.MediaServerInstance.BuildFinishedEvent
@@ -4884,12 +4995,12 @@ class DLNAWebInterfaceServer(threading.Thread):
         renderer_stopped_position = None
       self.ControlDataStore.Position = media_start_from
       if server_mode == MediaProvider.SERVER_MODE_RANDOM:
-        if accept_ranges:
+        if accept_ranges or media_kind == 'image':
           self.ControlDataStore.Status = 'prêt'
         else:
           self.ControlDataStore.Status = 'prêt (lecture à partir du début)'
       elif server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL:
-        if self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer:
+        if self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer or media_kind == 'image':
           self.ControlDataStore.Status = 'prêt'
         else:
           self.ControlDataStore.Status = 'prêt (lecture à partir du début)'
@@ -4904,13 +5015,16 @@ class DLNAWebInterfaceServer(threading.Thread):
       self.DLNARendererControlerInstance.wait_for_warning(warning_e, 0, True)
       while not self.shutdown_requested and new_value != 'STOPPED':
         new_value = self.DLNARendererControlerInstance.wait_for_warning(warning, 10 if is_paused else 1)
-        if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE):
+        if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and accept_ranges:
           if old_value and media_kind != 'image':
             new_duration = self.DLNARendererControlerInstance.wait_for_warning(warning_d, 0)
             if new_duration:
               if _position_to_seconds(new_duration):
                 self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
-        renderer_new_position = self.DLNARendererControlerInstance.get_Position(renderer)
+        try:
+          renderer_new_position = self.DLNARendererControlerInstance.get_Position(renderer).rsplit('.')[0]
+        except:
+          renderer_new_position = ''
         if media_kind != 'image' and renderer_new_position:
           if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and _position_to_seconds(renderer_new_position) == 0 and _position_to_seconds(renderer_position) != 0:
             if not renderer_stopped_position:
@@ -4967,7 +5081,7 @@ class DLNAWebInterfaceServer(threading.Thread):
               image_duration = max(0, image_duration - (time.time() - image_start))
               image_start = None
           self.ControlDataStore.Status = status_dict[new_value.upper()]
-          if server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL and new_value == 'PAUSED_PLAYBACK' and media_kind != 'image':
+          if (server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL or (server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and (not self.ControlDataStore.Duration or self.ControlDataStore.Duration == '0') and accept_ranges)) and new_value == 'PAUSED_PLAYBACK' and media_kind != 'image':
             restart_from = ''
             self.ControlDataStore.ShowStartFrom = True
           old_value = new_value
@@ -4979,15 +5093,16 @@ class DLNAWebInterfaceServer(threading.Thread):
               self.ControlDataStore.Position = renderer_position
           if new_value == 'STOPPED' and server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE):
             self.ControlDataStore.Status = status_dict[new_value.upper()]
-            if accept_ranges and not playlist:
+            if (accept_ranges or media_kind == 'image') and not playlist:
               new_value = None
               if not renderer_stopped_position:
                 is_paused = True
                 renderer_stopped_position = renderer_position
-                try:
-                  self.DLNARendererControlerInstance.send_Seek(renderer, '0:00:00')
-                except:
-                  pass
+                if media_kind != 'image':
+                  try:
+                    self.DLNARendererControlerInstance.send_Seek(renderer, '0:00:00')
+                  except:
+                    pass
             if media_kind == 'image':
               image_duration = _position_to_seconds(self.MediaPosition or '0:00:00')
               image_start = None
@@ -5057,16 +5172,19 @@ class DLNAWebInterfaceServer(threading.Thread):
             self.DLNARendererControlerInstance.send_Stop(renderer)
           elif (wi_cmd or '')[:4] == 'Jump':
             if wi_cmd[5:].isdecimal():
-              if media_kind != 'image':
-                self.DLNARendererControlerInstance.send_Stop(renderer)
-              new_value = 'STOPPED'
-              jump_ind = int(wi_cmd[5:]) - 1
+              jump_ind = max(0, int(wi_cmd[5:]) - 1)
+              if server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL or jump_ind != ind:
+                if media_kind != 'image':
+                  self.DLNARendererControlerInstance.send_Stop(renderer)
+                new_value = 'STOPPED'
               if restart_from != None:
                 self.ControlDataStore.ShowStartFrom = False
           elif server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and wi_cmd:
             if accept_ranges and (wi_cmd or '')[:4] == 'Seek':
               if not renderer_stopped_position:
                 try:
+                  if not self.ControlDataStore.Duration or self.ControlDataStore.Duration == '0':
+                    self.DLNARendererControlerInstance.send_Play(renderer)
                   self.DLNARendererControlerInstance.send_Seek(renderer, wi_cmd[5:])
                 except:
                   pass
