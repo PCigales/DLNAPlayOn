@@ -4188,11 +4188,10 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        return get_elt (uri, "id");\r\n' \
   '      }\r\n' \
   '      function upnp_button() {\r\n' \
-  '        document.getElementById("upnp_content").contentWindow.location = "##UPNP-URL##";\r\n' \
+  '        if (document.getElementById("upnp_content").contentWindow.location.toString().indexOf("upnp") == -1) {document.getElementById("upnp_content").contentWindow.location = "##UPNP-URL##";}\r\n' \
   '        document.getElementById("upnp_nav").style.display = "block";\r\n' \
   '      }\r\n' \
   '      function upnp_cancel() {\r\n' \
-  '        document.getElementById("upnp_content").contentWindow.location = "about:blank";\r\n' \
   '        document.getElementById("upnp_nav").style.display = "none";\r\n' \
   '      }\r\n' \
   '      function upnp_back() {\r\n' \
