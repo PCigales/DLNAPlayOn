@@ -1656,7 +1656,7 @@ def _XMLGetNodeText(node):
 
 class HTTPMessage():
 
-  def __init__(self, message, body=True, decode='utf-8', timeout=5, max_length=1048576):
+  def __init__(self, message, body=True, decode='utf-8', timeout=5, max_length=1048576, max_time=None, stop=None):
     iter = 0
     while iter < 2:
       self.method = None
@@ -1667,7 +1667,7 @@ class HTTPMessage():
       self.headers = {}
       self.body = None
       if iter == 0:
-        if self._read_message(message, body, timeout, max_length):
+        if self._read_message(message, body, timeout, max_length, max_time, stop):
           iter = 2
         else:
           iter = 1
@@ -1714,7 +1714,29 @@ class HTTPMessage():
       self.headers['Content-Length'.upper()] = 0
     return True
 
-  def _read_message(self, message, body, timeout=5, max_length=1048576):
+  def _read(self, message, max_data, start_time, max_time, stop):
+    is_stop = lambda : False if stop == None else stop.is_set()
+    start_read_time = time.time()
+    with selectors.DefaultSelector() as selector:
+      selector.register(message, selectors.EVENT_READ)
+      ready = False
+      while not ready and not is_stop():
+        t = time.time()
+        rem_time = message.timeout - t + start_read_time
+        if max_time:
+          rem_time = min(rem_time, max_time - t + start_time)
+        if rem_time <= 0:
+          return None
+        ready = selector.select(min(0.5, rem_time))
+        if ready:
+          try:
+            return message.recv(max_data)
+          except:
+            return None
+    return None
+
+  def _read_message(self, message, body, timeout, max_length, max_time, stop):
+    start_time = time.time()
     rem_length = max_length
     if not isinstance(message, socket.socket):
       resp = message[0]
@@ -1735,7 +1757,7 @@ class HTTPMessage():
         return None
       bloc = None
       try:
-        bloc = message.recv(rem_length)
+        bloc = self._read(message, rem_length, start_time, max_time, stop)
       except:
         return None
       if not bloc:
@@ -1759,7 +1781,7 @@ class HTTPMessage():
           return None
         bloc = None
         try:
-          bloc = message.recv(body_pos + body_len - len(resp))
+          bloc = self._read(message, body_pos + body_len - len(resp), start_time, max_time, stop)
         except:
           return None
         if not bloc:
@@ -1786,7 +1808,7 @@ class HTTPMessage():
             return None
           bloc = None
           try:
-            bloc = message.recv(rem_length)
+            bloc = self._read(message, rem_length, start_time, max_time, stop)
           except:
             return None
           if not bloc:
@@ -1804,7 +1826,7 @@ class HTTPMessage():
             return None
           bloc = None
           try:
-            bloc = message.recv(chunk_pos + chunk_len - len(buff))
+            bloc = self._read(message, chunk_pos + chunk_len - len(buff), start_time, max_time, stop)
           except:
             return None
           if not bloc:
@@ -1820,7 +1842,7 @@ class HTTPMessage():
           return None
         bloc = None
         try:
-          bloc = message.recv(rem_length)
+          bloc = self._read(message, rem_length, start_time, max_time, stop)
         except:
           return None
         if not bloc:
@@ -1828,6 +1850,61 @@ class HTTPMessage():
         rem_length -= len(bloc)
         buff = buff + bloc
     return True
+
+def HTTPRequest(url, method='GET', headers={}, data=None, timeout=3, max_length=1048576, max_time=None, stop=None):
+  is_stop = lambda : False if stop == None else stop.is_set()
+  redir = 0
+  code = '0'
+  url_ = url
+  if max_time:
+    start_time = time.time()
+  while code != '200':
+    try:
+      url_p = urllib.parse.urlparse(url_)
+      if max_time:
+        if time.time() - start_time > max_time:
+          raise
+      if is_stop():
+        raise
+      if url_p.scheme.lower() == 'http':
+        conn = client.HTTPConnection(url_p.netloc, timeout=timeout)
+      elif url_p.scheme.lower() == 'https':
+        conn = client.HTTPSConnection(url_p.netloc, timeout=timeout)
+      else:
+        raise
+      if max_time:
+        if time.time() - start_time > max_time:
+          raise
+      if is_stop():
+        raise
+      conn.request(method, url_[len(url_p.scheme) + 3 + len(url_p.netloc):], body=data, headers=headers)
+      if max_time:
+        rem_time = max_time - time.time() + start_time
+        if rem_time <= 0:
+          raise
+      if is_stop():
+        raise
+      resp = HTTPMessage(conn.sock, decode=None, timeout=timeout, max_length=max_length, max_time=(rem_time if max_time else None), stop=stop)
+      if not resp.code:
+        raise
+      code = resp.code
+      if code[:2] == '30':
+        if resp.header('location', '') != '':
+          url_ = resp.header('location')
+          redir += 1
+        else:
+          raise
+        if redir > 5:
+          raise
+      elif code != '200':
+        raise
+    except:
+      try:
+        conn.close()
+      except:
+        pass
+      return None
+  return resp
 
 
 class DLNAEvent:
@@ -2496,7 +2573,7 @@ class DLNAHandler:
     }
     return serv.ControlURL, msg_headers, msg_body_b, out_args
 
-  def send_soap_msg(self, device, service, action, soap_timeout=5, **arguments):
+  def send_soap_msg(self, device, service, action, soap_timeout=5, soap_stop=None, **arguments):
     if not device:
       return None
     cturl_headers_body_oargs = self._build_soap_msg(device, service, action, **arguments)
@@ -2504,25 +2581,13 @@ class DLNAHandler:
       self.logger.log('%s %s -> service %s -> abandon de l\'envoi de la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 1)
       return None
     self.logger.log('%s %s -> service %s -> envoi de la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 2)
-    try:
-      requ = urllib.request.Request(cturl_headers_body_oargs[0], cturl_headers_body_oargs[2], cturl_headers_body_oargs[1])
-      resp = urllib.request.urlopen(requ, timeout=soap_timeout)
-    except:
-      self.logger.log('%s %s -> service %s -> échec de l\'envoi de la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 1)
-      return None
-    if resp.status != HTTPStatus.OK:
+    resp = HTTPRequest(cturl_headers_body_oargs[0], method='POST', headers=cturl_headers_body_oargs[1], data=cturl_headers_body_oargs[2], timeout=soap_timeout, max_length=104857600, max_time=soap_timeout+1, stop=soap_stop)
+    if not resp:
       self.logger.log('%s %s -> service %s -> échec de l\'envoi de la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 1)
       return None
     self.logger.log('%s %s -> service %s -> succès de l\'envoi de la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 1)    
     try:
-      msg = resp.read()
-    except:
-      msg = None
-    if not msg:
-      self.logger.log('%s %s -> service %s -> échec de la réception de la réponse à la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 2)
-      return None
-    try:
-      root_xml = minidom.parseString(msg)
+      root_xml = minidom.parseString(resp.body)
     except:
       self.logger.log('%s %s -> service %s -> échec du traitement de la réponse à la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 2)
       return None
@@ -2617,18 +2682,18 @@ class DLNARendererControler (DLNAHandler):
       '</DIDL-Lite>' % (media_class, html.escape(title), size_arg, duration_arg, html.escape(uri), '<sec:CaptionInfoEx sec:type="%s">%s</sec:CaptionInfoEx>' %(html.escape(subtype), html.escape(suburi)) if suburi else '')
     return didl_lite
     
-  def send_URI(self, renderer, uri, title, kind=None, size=None, duration=None, suburi=None):
+  def send_URI(self, renderer, uri, title, kind=None, size=None, duration=None, suburi=None, stop=None):
     didl_lite = self._build_didl(uri, title, kind, size, duration, suburi)
-    out_args = self.send_soap_msg(renderer, 'AVTransport', 'SetAVTransportURI', soap_timeout=10, InstanceID=0, CurrentURI=uri, CurrentURIMetaData=didl_lite)
+    out_args = self.send_soap_msg(renderer, 'AVTransport', 'SetAVTransportURI', soap_timeout=15,  soap_stop=stop, InstanceID=0, CurrentURI=uri, CurrentURIMetaData=didl_lite)
     if not out_args:
       return None
     else:
       return True
       
-  def send_Local_URI(self, renderer, uri, title, kind=None, size=None, duration=None, suburi=None):
+  def send_Local_URI(self, renderer, uri, title, kind=None, size=None, duration=None, suburi=None, stop=None):
     didl_lite = self._build_didl(uri, title, kind, size, duration, suburi)
     didl_lite = didl_lite.replace(' sec:URIType="public"', '').replace('DLNA.ORG_OP=00', 'DLNA.ORG_OP=01').replace('DLNA.ORG_FLAGS=017', 'DLNA.ORG_FLAGS=217')
-    out_args = self.send_soap_msg(renderer, 'AVTransport', 'SetAVTransportURI', soap_timeout=10, InstanceID=0, CurrentURI=uri, CurrentURIMetaData=didl_lite)
+    out_args = self.send_soap_msg(renderer, 'AVTransport', 'SetAVTransportURI', soap_timeout=15, soap_stop=stop, InstanceID=0, CurrentURI=uri, CurrentURIMetaData=didl_lite)
     if not out_args:
       return None
     else:
@@ -2859,8 +2924,8 @@ class DLNAClient(DLNAHandler):
     except:
      return None
 
-  def get_Metadata(self, server, id='0'):
-    out_args = self.send_soap_msg(server, 'ContentDirectory', 'Browse', soap_timeout=5, ObjectID=id, BrowseFlag='BrowseMetadata', Filter='*', StartingIndex=0, RequestedCount=0, SortCriteria='')
+  def get_Metadata(self, server, id='0', stop=None):
+    out_args = self.send_soap_msg(server, 'ContentDirectory', 'Browse', soap_timeout=10, soap_stop=stop, ObjectID=id, BrowseFlag='BrowseMetadata', Filter='*', StartingIndex=0, RequestedCount=0, SortCriteria='')
     if not out_args:
       return None
     else:
@@ -2874,8 +2939,8 @@ class DLNAClient(DLNAHandler):
         return None
       return d
 
-  def get_Children(self, server, id='0'):
-    out_args = self.send_soap_msg(server, 'ContentDirectory', 'Browse', soap_timeout=30, ObjectID=id, BrowseFlag='BrowseDirectChildren', Filter='*', StartingIndex=0, RequestedCount=0, SortCriteria='')
+  def get_Children(self, server, id='0', stop=None):
+    out_args = self.send_soap_msg(server, 'ContentDirectory', 'Browse', soap_timeout=60, soap_stop=stop,ObjectID=id, BrowseFlag='BrowseDirectChildren', Filter='*', StartingIndex=0, RequestedCount=0, SortCriteria='')
     if not out_args:
       return None
     else:
@@ -2892,10 +2957,10 @@ class DLNAClient(DLNAHandler):
         return None
       return children
 
-  def get_Content(self, server, id='0'):
+  def get_Content(self, server, id='0', stop=None):
     try:
       obj = None
-      obj = self.get_Metadata(server, id)
+      obj = self.get_Metadata(server, id, stop)
       if not obj:
         return None
       kind = obj['type']
@@ -2907,7 +2972,7 @@ class DLNAClient(DLNAHandler):
         containers = []
         items = [obj]
       else:
-        children = self.get_Children(server, id)
+        children = self.get_Children(server, id, stop)
         containers = list(e for e in children if e['type'].lower() == 'container')
         if id !='0':
           containers.sort(key=lambda e: e['title'].lower())
@@ -3765,7 +3830,7 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
                   html_upnp = c[1]
                   break
             if not html_upnp or url.params == 'refresh':
-              content = self.server.Interface.DLNAClientInstance.get_Content(server, req['id'][0])
+              content = self.server.Interface.DLNAClientInstance.get_Content(server, req['id'][0], self.server.Interface.DLNAClientStop)
               if not content and url.params == 'refresh':
                 for c in self.server.Interface.DLNAClientCache:
                   if c[0] == path:
@@ -4615,6 +4680,7 @@ class DLNAWebInterfaceServer(threading.Thread):
       mimetypes.init()
     self.DLNAClientInstance = DLNAClient(verbosity)
     self.DLNAClientCache = []
+    self.DLNAClientStop = threading.Event()
     if Launch == DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS:
       self.DLNAAdvertisementListenerInstance = DLNAAdvertisementListener((self.DLNARendererControlerInstance,), verbosity)
     else:
@@ -4667,6 +4733,7 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.DLNARendererControlerInstance.start_discovery_polling(timeout=5, alive_persistence=45, polling_period=30, DiscoveryEvent = self.RenderersEvent)
     self.WebSocketServerRenderersInstance = WebSocketServer((self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+2), self.RenderersDataStore, self.verbosity)
     self.WebSocketServerRenderersInstance.start()
+    self.DLNAClientStop.clear()
     self.html_ready = True
     rend_stat = []
     first_loop = True
@@ -4697,6 +4764,7 @@ class DLNAWebInterfaceServer(threading.Thread):
         if not upnp_button and self.DLNAClientInstance.search():
           self.RenderersDataStore.Message = 'upnp'
           upnp_button = True
+    self.DLNAClientStop.set()
     self.html_ready = False
     self.DLNARendererControlerInstance.stop_discovery_polling()
     if self.Status != DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS:
@@ -4763,8 +4831,9 @@ class DLNAWebInterfaceServer(threading.Thread):
       if event_listener:
         self.DLNARendererControlerInstance.send_event_unsubscription(event_listener)
       return
+    spare_event = threading.Event()
     incoming_event = self.ControlDataStore.IncomingEvent
-    self.ControlDataStore.IncomingEvent = threading.Event()
+    self.ControlDataStore.IncomingEvent = spare_event
     playlist = None
     titles = []
     mediakinds = []
@@ -4790,7 +4859,7 @@ class DLNAWebInterfaceServer(threading.Thread):
               raise
           if not server.StatusAlive:
             raise
-          content = self.DLNAClientInstance.get_Content(server, obj_id)
+          content = self.DLNAClientInstance.get_Content(server, obj_id, self.ControlDataStore.IncomingEvent)
           playlist = list(e['uri'] for e in content[2])
           titles = list(((e['album'] + ' - ') if e['album'] and e['class'].lower() == 'object.item.audioitem' else '') + ((e['track'] + ' - ') if e['track'] and e['track'] != '0' and e['class'].lower() == 'object.item.audioitem' else '') + ((e['artist'] + ' - ') if e['artist'] and e['class'].lower() == 'object.item.audioitem' else '') + e['title'] for e in content[2])
           mediakinds = list({'object.item.videoitem': 'video', 'object.item.audioitem': 'audio', 'object.item.imageitem': 'image'}.get(e['class'].lower(), 'video') for e in content[2])
@@ -4894,10 +4963,12 @@ class DLNAWebInterfaceServer(threading.Thread):
             media_title = titles[ind]
           else:
             media_title = self.MediaServerInstance.MediaProviderInstance.MediaTitle
+          spare_event.clear()
+          self.ControlDataStore.IncomingEvent = spare_event
           if server_mode == MediaProvider.SERVER_MODE_RANDOM:
             accept_ranges = self.MediaServerInstance.MediaProviderInstance.AcceptRanges
             if accept_ranges:
-              prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
+              prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi, stop=self.ControlDataStore.IncomingEvent)
             else:
               prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
           elif server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL:
@@ -4905,6 +4976,7 @@ class DLNAWebInterfaceServer(threading.Thread):
             prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
           else:
             prep_success = False
+          self.ControlDataStore.IncomingEvent = incoming_event
           if not prep_success:
             check_renderer = True
       else:
@@ -4921,10 +4993,13 @@ class DLNAWebInterfaceServer(threading.Thread):
           media_title = titles[ind]
         else:
           media_title = media_src
+        spare_event.clear()
+        self.ControlDataStore.IncomingEvent = spare_event
         if self.DLNAWebInterfaceServerAddress[0] == media_ip:
           prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
         else:
           prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
+        self.ControlDataStore.IncomingEvent = incoming_event
         if not prep_success:
           check_renderer = True
       if self.shutdown_requested:
