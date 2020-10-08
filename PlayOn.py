@@ -22,6 +22,7 @@ import hashlib
 import base64
 import webbrowser
 import mimetypes
+import random
 
 
 class log_event:
@@ -1076,6 +1077,8 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
       self.MediaBuffer.create_lock.release()
       self.send_response(HTTPStatus.OK)
       self.send_header("Content-type", "application/octet-stream")
+      self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+      self.send_header("Pragma", "no-cache")
       self.send_header("Accept-Ranges", "none")
       self.send_header("Transfer-Encoding", "chunked")
       if self.MediaSubBuffer:
@@ -1097,6 +1100,8 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
         return False
       self.send_response(HTTPStatus.OK)
       self.send_header("Content-type", "application/octet-stream")
+      self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+      self.send_header("Pragma", "no-cache")
       self.send_header("Transfer-Encoding", "chunked")
       try:
         self.end_headers()
@@ -1112,6 +1117,8 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
             sub_size = len(self.MediaSubBuffer[2])
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-type", "application/octet-stream")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
             self.send_header("Transfer-Encoding", "chunked")
             try:
               self.end_headers()
@@ -1287,6 +1294,8 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         self.send_response(HTTPStatus.PARTIAL_CONTENT)
       self.send_header("Content-type", "application/octet-stream")
       self.send_header("Content-Length", str(self.MediaSize if req_start == None else req_end - req_start))
+      self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+      self.send_header("Pragma", "no-cache")
       if self.AcceptRanges:
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("contentFeatures.dlna.org", "DLNA.ORG_PN=;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=21700000000000000000000000000000")
@@ -1311,6 +1320,8 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
       self.send_response(HTTPStatus.OK)
       self.send_header("Content-type", "application/octet-stream")
       self.send_header("Content-Length", str(sub_size))
+      self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+      self.send_header("Pragma", "no-cache")
       return 'mediasub', None, None
     elif self.path.lower() == '/media.smi' and self.MediaSubBuffer:
       sub_size = len(self.MediaSubBuffer[0])
@@ -1321,6 +1332,8 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-type", "application/octet-stream")
             self.send_header("Content-Length", str(sub_size))
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
             return 'mediasubsmi', None, None
           else:
             sub_size = 0
@@ -3567,15 +3580,15 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   def __init__(self, IncomingEvent=None):
     super().__init__(IncomingEvent)
-    self.outgoing = [None, None, None, None, None, None, None]
-    self.outgoing_seq = [None, None, None, None, None, None, None]
+    self.outgoing = [None, None, None, None, None, None, None, None]
+    self.outgoing_seq = [None, None, None, None, None, None, None, None]
     self.incoming_text_only = True
     self.set_before_shutdown('close')
 
   def reinit(self):
     super().reinit()
-    self.outgoing = [None, None, None, None, None, None, None]
-    self.outgoing_seq = [None, None, None, None, None, None, None]
+    self.outgoing = [None, None, None, None, None, None, None, None]
+    self.outgoing_seq = [None, None, None, None, None, None, None, None]
     self.set_before_shutdown('close')
 
   @property
@@ -3655,7 +3668,7 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   @property
   def ShowStartFrom(self):
-    if self.outgoing[6]:
+    if self.outgoing[6] != None:
       return self.outgoing[6][14:] == 'true'
     else:
       return self.outgoing[6]
@@ -3666,7 +3679,20 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
       self.set_outgoing(6, 'Showstartfrom:' + ('true' if value else 'false'), True)
     else:
       self.set_outgoing(6, None)
-      
+
+  @property
+  def Shuffle(self):
+    if self.outgoing[7] != None:
+      return self.outgoing[7][8:] == 'true'
+    else:
+      return self.outgoing[7]
+
+  @Shuffle.setter
+  def Shuffle(self, value):
+    if value != None:
+      self.set_outgoing(7, 'Shuffle:' + ('true' if value else 'false'), True)
+    else:
+      self.set_outgoing(7, None)      
 
   @property
   def Command(self):
@@ -3796,6 +3822,8 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
         self.send_response(HTTPStatus.OK)
         self.send_header("Connection", "keep-alive")
         self.send_header("Content-type", "text/html")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
         self.send_header("Content-Length", len(self.server.Interface.html_control))
         f = BytesIO(self.server.Interface.html_control)
         self.end_headers()
@@ -3811,6 +3839,8 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
         self.send_response(HTTPStatus.OK)
         self.send_header("Connection", "keep-alive")
         self.send_header("Content-type", "text/html")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
         self.send_header("Content-Length", len(self.server.Interface.html_start))
         f = BytesIO(self.server.Interface.html_start)
         self.end_headers()
@@ -3869,9 +3899,9 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
           html_upnp = self.server.Interface.HTML_UPNP_TEMPLATE.replace('##UPNP-VAL##','e').replace('##UPNP-TITLE##','').replace('##UPNP-OBJ##', '').encode('utf-8')
         self.send_response(HTTPStatus.OK)
         self.send_header("Connection", "keep-alive")
+        self.send_header("Content-type", "text/html")
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
-        self.send_header("Content-type", "text/html")
         self.send_header("Content-Length", len(html_upnp))
         f = BytesIO(html_upnp)
         self.end_headers()
@@ -3880,9 +3910,9 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
         html_upnp = self.server.Interface.HTML_UPNP_TEMPLATE.replace('##UPNP-VAL##','e').replace('##UPNP-TITLE##','').replace('##UPNP-OBJ##', '').encode('utf-8')
         self.send_response(HTTPStatus.OK)
         self.send_header("Connection", "keep-alive")
+        self.send_header("Content-type", "text/html")
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
-        self.send_header("Content-type", "text/html")
         self.send_header("Content-Length", len(html_upnp))
         f = BytesIO(html_upnp)
         self.end_headers()
@@ -4538,6 +4568,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '                  playlist.options.add(new Option(pl[i].replace(/ /g,"\xa0"), i.toString()));\r\n' \
   '                }\r\n' \
   '                playlist.style.display="inline-block";\r\n' \
+  '                document.getElementById("shuffle").style.display = "inline-block";\r\n' \
   '              } else {\r\n' \
   '                let ml = Math.min(pl.length, playlist.options.length)\r\n' \
   '                for (let i=1;i<ml;i++) {\r\n' \
@@ -4549,6 +4580,12 @@ class DLNAWebInterfaceServer(threading.Thread):
   '            }\r\n' \
   '          } else if (event.data.substring(0,7) == "Current") {\r\n' \
   '            playlist.selectedIndex = parseInt(event.data.substring(8),10);\r\n' \
+  '          } else if (event.data.substring(0,7) == "Shuffle") {\r\n' \
+  '              if (event.data.substring(8) == "true") {\r\n' \
+  '                document.getElementById("shuffle").style.backgroundColor = "rgb(200,250,240)";\r\n' \
+  '              } else {\r\n' \
+  '                document.getElementById("shuffle").style.backgroundColor = "";\r\n' \
+  '              }\r\n' \
   '          } else if (event.data != "close") {\r\n' \
   '            document.getElementById("position").innerHTML = event.data;\r\n' \
   '            if (duration != 0 && !seekongoing ) {\r\n' \
@@ -4581,6 +4618,9 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      function jump() {\r\n' \
   '        socket.send("Jump:" + playlist.selectedIndex.toString());\r\n' \
   '      }\r\n ' \
+  '      function shuffle_button() {\r\n' \
+  '        socket.send("Shuffle");\r\n' \
+  '      }\r\n ' \
   '    </script>\r\n' \
   '  </head>\r\n' \
   '  <body style="background-color:rgb(40,45,50);color:rgb(225,225,225);font-size:32px;">\r\n' \
@@ -4590,7 +4630,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '    <br style="line-height:100px;">\r\n' \
   '    <select id="playlist" onchange="jump()" style="background-color:rgb(40,45,50);color:rgb(225,225,225);font-size:50%;width:91%;display:none;">\r\n' \
   '    <option value="0" disabled hidden>Liste de lecture</option>\r\n' \
-  '    </select>\r\n' \
+  '    </select>&nbsp;<button id="shuffle" style="border:none;vertical-align:middle;display:none;" onclick="shuffle_button()"><svg xmlns="http://www.w3.org/2000/svg" width="15px" height="23px" style="font-size:30px;font-weight:bold;"><text x="-5" y="21" >&nesear;</text></svg></button>\r\n' \
   '    <p style="margin-bottom:0px;">URL du média : </p>\r\n' \
   '    <p id="media_src" style="margin-left:30px;margin-top:10px;font-size:50%;word-wrap:break-word;height:110px;width:90%;overflow-y:auto;white-space:pre-wrap;">##URL##</p>\r\n' \
   '    <p style="line-height:60px;">Statut :&nbsp;&nbsp;&nbsp;<span id="status" style="color:rgb(200,250,240);">initialisation</span></p>\r\n' \
@@ -4850,6 +4890,7 @@ class DLNAWebInterfaceServer(threading.Thread):
     playlist = None
     titles = []
     mediakinds = []
+    order = [0]
     if self.MediaSrc[:7].lower() == 'upnp://':
       try:
         obj_uuid = self.MediaSrc[7:].partition('?')[0]
@@ -4887,6 +4928,8 @@ class DLNAWebInterfaceServer(threading.Thread):
       if playlist:
         self.logger.log('Liste de lecture générée depuis l\'adresse %s: %s contenus média' % (self.MediaSrc, len(playlist)), 1)
         self.ControlDataStore.Playlist = titles
+        random.seed()
+        order = list(range(len(playlist)))
       else:
         self.logger.log('Absence de contenu média sous l\'adresse %s' % self.MediaSrc, 0)
       if self.MediaPosition == '0:00:00' and self.SlideshowDuration:
@@ -4900,15 +4943,18 @@ class DLNAWebInterfaceServer(threading.Thread):
     warning_e = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'TransportStatus', 'ERROR_OCCURRED')
     warning_d = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'CurrentMediaDuration')
     server_mode = None
-    while (ind < (len(playlist) - 1 if playlist != False else 0)) or jump_ind != None:
+    while (ind < (len(playlist) - 1 if playlist != False else 0)) or jump_ind != None or self.ControlDataStore.Shuffle:
       if self.shutdown_requested:
         break
       if jump_ind == None:
         ind +=1
+        if playlist:
+          if ind == len(playlist):
+            ind = 0
       else:
-        ind = jump_ind if playlist else 0
+        ind = order.index(jump_ind) if playlist else 0
         jump_ind = None
-      media_src = playlist[ind] if playlist != False else self.MediaSrc
+      media_src = playlist[order[ind]] if playlist != False else self.MediaSrc
       if playlist:
         if playlist_stop:
           break
@@ -4923,7 +4969,7 @@ class DLNAWebInterfaceServer(threading.Thread):
         self.ControlDataStore.Position = '0:00:00'
         self.ControlDataStore.Duration = '0'
         self.ControlDataStore.URL = media_src + ('\r\n' + media_sub_src if media_sub_src else '')
-        self.ControlDataStore.Current = ind
+        self.ControlDataStore.Current = order[ind]
         self.ControlDataStore.incoming = []
         media_start_from = '0:00:00' if not restart_from else restart_from
         restart_from = None
@@ -4934,7 +4980,7 @@ class DLNAWebInterfaceServer(threading.Thread):
         cmd_stop = restart_from == None or restart_from == ''
       prev_media_kind = media_kind
       if self.MediaSrc[:7].lower()=='upnp://':
-        media_kind = mediakinds[ind]
+        media_kind = mediakinds[order[ind]]
       else:
         media_kind = 'video'
         media_mime = mimetypes.guess_type(media_src.rsplit('?',1)[0])[0]
@@ -4968,12 +5014,12 @@ class DLNAWebInterfaceServer(threading.Thread):
             if self.MediaServerInstance.MediaProviderInstance.MediaSubBuffer[0]:
               suburi = 'http://%s:%s/mediasub%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaSubBuffer[1])
           server_mode = self.MediaServerInstance.MediaProviderInstance.ServerMode
-          if playlist and self.MediaServerInstance.MediaProviderInstance.MediaSrcType == 'WebPageURL' and playlist[ind][:MediaProvider.TITLE_MAX_LENGTH] == titles[ind][:MediaProvider.TITLE_MAX_LENGTH]:
-            titles[ind] = self.MediaServerInstance.MediaProviderInstance.MediaTitle if len(self.MediaServerInstance.MediaProviderInstance.MediaTitle) <= MediaProvider.TITLE_MAX_LENGTH else self.MediaServerInstance.MediaProviderInstance.MediaTitle[:MediaProvider.TITLE_MAX_LENGTH] + '…'
+          if playlist and self.MediaServerInstance.MediaProviderInstance.MediaSrcType == 'WebPageURL' and playlist[order[ind]][:MediaProvider.TITLE_MAX_LENGTH] == titles[order[ind]][:MediaProvider.TITLE_MAX_LENGTH]:
+            titles[order[ind]] = self.MediaServerInstance.MediaProviderInstance.MediaTitle if len(self.MediaServerInstance.MediaProviderInstance.MediaTitle) <= MediaProvider.TITLE_MAX_LENGTH else self.MediaServerInstance.MediaProviderInstance.MediaTitle[:MediaProvider.TITLE_MAX_LENGTH] + '…'
             self.ControlDataStore.Playlist = titles
           self.DLNARendererControlerInstance.wait_for_warning(warning, 0, True)
           if self.MediaSrc[:7].lower() == 'upnp://':
-            media_title = titles[ind]
+            media_title = titles[order[ind]]
           else:
             media_title = self.MediaServerInstance.MediaProviderInstance.MediaTitle
           spare_event.clear()
@@ -5003,7 +5049,7 @@ class DLNAWebInterfaceServer(threading.Thread):
           pass
         self.DLNARendererControlerInstance.wait_for_warning(warning, 0, True)
         if self.MediaSrc[:7].lower() == 'upnp://':
-          media_title = titles[ind]
+          media_title = titles[order[ind]]
         else:
           media_title = media_src
         spare_event.clear()
@@ -5029,7 +5075,7 @@ class DLNAWebInterfaceServer(threading.Thread):
           jump_ind = int(wi_cmd[5:]) - 1
         prep_success = False
       if playlist:
-        self.ControlDataStore.Current = ind
+        self.ControlDataStore.Current = order[ind]
       if not prep_success:
         if self.MediaServerInstance:
           try:
@@ -5260,12 +5306,26 @@ class DLNAWebInterfaceServer(threading.Thread):
           elif (wi_cmd or '')[:4] == 'Jump':
             if wi_cmd[5:].isdecimal():
               jump_ind = max(0, int(wi_cmd[5:]) - 1)
-              if server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL or jump_ind != ind:
+              if server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL or jump_ind != order[ind]:
                 if media_kind != 'image':
                   self.DLNARendererControlerInstance.send_Stop(renderer)
                 new_value = 'STOPPED'
               if restart_from != None:
                 self.ControlDataStore.ShowStartFrom = False
+          elif playlist and wi_cmd == 'Shuffle':
+            if self.ControlDataStore.Shuffle:
+              ind = order[ind]
+              order = list(range(len(playlist)))
+              self.ControlDataStore.Shuffle = False
+            else:
+              random.shuffle(order)
+              self.ControlDataStore.Shuffle = True
+              if old_value:
+                ind = order.index(ind)
+              else:
+                ind = -1
+                self.DLNARendererControlerInstance.send_Stop(renderer)
+                new_value = 'STOPPED'
           elif server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and wi_cmd:
             if accept_ranges and (wi_cmd or '')[:4] == 'Seek':
               if not renderer_stopped_position:
