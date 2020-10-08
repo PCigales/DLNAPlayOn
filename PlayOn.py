@@ -2717,13 +2717,6 @@ class DLNARendererControler (DLNAHandler):
       return True
   
   def send_Play(self, renderer):
-    out_args = self.send_soap_msg(renderer, 'AVTransport', 'Play', soap_timeout=30, InstanceID=0, Speed=1)
-    if not out_args:
-      return None
-    else:
-      return True
-
-  def send_Resume(self, renderer):
     out_args = self.send_soap_msg(renderer, 'AVTransport', 'Play', InstanceID=0, Speed=1)
     if not out_args:
       return None
@@ -5228,9 +5221,7 @@ class DLNAWebInterfaceServer(threading.Thread):
                 self.ControlDataStore.ShowStartFrom = False
               if self.ControlDataStore.Status in ('prêt', 'prêt (lecture à partir du début)', 'Arrêt'):
                 self.ControlDataStore.Status = 'en cours...'
-                self.DLNARendererControlerInstance.send_Play(renderer)
-              else:
-                self.DLNARendererControlerInstance.send_Resume(renderer)
+              self.DLNARendererControlerInstance.send_Play(renderer)
             except:
               pass
           elif wi_cmd == 'Pause':
