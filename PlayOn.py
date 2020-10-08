@@ -921,9 +921,6 @@ class MediaProvider(threading.Thread):
               self.Connection.request('GET', self.MediaSrcURL, headers=header)
               rep = self.Connection.getresponse()
               bloc = rep.read(self.MediaBuffer.bloc_size)
-              if bloc:
-                if len(bloc) != min(self.MediaSize, (self.MediaBuffer.w_index + self.MediaBuffer.len) * self.MediaBuffer.bloc_size) - (self.MediaBuffer.w_index + self.MediaBuffer.len - 1) * self.MediaBuffer.bloc_size:
-                  bloc = None
               rep.close()
               rep = None
             else:
@@ -938,9 +935,6 @@ class MediaProvider(threading.Thread):
                 self.Connection.request('GET', self.MediaSrcURL, headers=header)
                 rep = self.Connection.getresponse()
               bloc = rep.read(self.MediaBuffer.bloc_size)
-              if bloc:
-                if len(bloc) != min(self.MediaSize, (self.MediaBuffer.w_index + self.MediaBuffer.len) * self.MediaBuffer.bloc_size) - (self.MediaBuffer.w_index + self.MediaBuffer.len - 1) * self.MediaBuffer.bloc_size:
-                  bloc = None
           except:
             if self.Persistent and self.AcceptRanges:
               try:
@@ -948,14 +942,14 @@ class MediaProvider(threading.Thread):
                 self.Connection.request('GET', self.MediaSrcURL, headers=header)
                 rep = self.Connection.getresponse()
                 bloc = rep.read(self.MediaBuffer.bloc_size)
-                if bloc:
-                  if len(bloc) != min(self.MediaSize, (self.MediaBuffer.w_index + self.MediaBuffer.len) * self.MediaBuffer.bloc_size) - (self.MediaBuffer.w_index + self.MediaBuffer.len - 1) * self.MediaBuffer.bloc_size:
-                    bloc = None
                 rep.close()
                 rep = None
               except:
                 pass
             pass
+          if bloc:
+            if len(bloc) != min(self.MediaSize, (self.MediaBuffer.w_index + self.MediaBuffer.len) * self.MediaBuffer.bloc_size) - (self.MediaBuffer.w_index + self.MediaBuffer.len - 1) * self.MediaBuffer.bloc_size:
+              bloc = None
           if not bloc:
             self.Status = MediaProvider.STATUS_ABORTED
             self.logger.log('Segment %d -> échec de lecture du contenu' % (self.MediaBuffer.w_index + self.MediaBuffer.len), 1)
@@ -1862,9 +1856,12 @@ class HTTPMessage():
         buff = buff + bloc
     return True
 
-def HTTPRequest(url, method='GET', headers={}, data=None, timeout=3, max_length=1048576, max_time=None, stop=None):
+def HTTPRequest(url, method=None, headers={}, data=None, timeout=3, max_length=1048576, max_time=None, stop=None):
   is_stop = lambda : False if stop == None else stop.is_set()
+  if not method:
+    method = 'GET' if not data else 'POST'
   redir = 0
+  switch_get = False
   code = '0'
   url_ = url
   if max_time:
@@ -1888,7 +1885,10 @@ def HTTPRequest(url, method='GET', headers={}, data=None, timeout=3, max_length=
           raise
       if is_stop():
         raise
-      conn.request(method, url_[len(url_p.scheme) + 3 + len(url_p.netloc):], body=data, headers=headers)
+      if switch_get:
+        conn.request('GET', url_[len(url_p.scheme) + 3 + len(url_p.netloc):], body=None, headers=headers)
+      else:
+        conn.request(method, url_[len(url_p.scheme) + 3 + len(url_p.netloc):], body=data, headers=headers)
       if max_time:
         rem_time = max_time - time.time() + start_time
         if rem_time <= 0:
@@ -1907,6 +1907,8 @@ def HTTPRequest(url, method='GET', headers={}, data=None, timeout=3, max_length=
         if resp.header('location', '') != '':
           url_ = resp.header('location')
           redir += 1
+          if code == '303':
+            switch_get = True
         else:
           raise
         if redir > 5:
