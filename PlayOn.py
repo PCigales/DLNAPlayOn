@@ -2701,7 +2701,7 @@ class DLNARendererControler (DLNAHandler):
     
   def send_URI(self, renderer, uri, title, kind=None, size=None, duration=None, suburi=None, stop=None):
     didl_lite = self._build_didl(uri, title, kind, size, duration, suburi)
-    out_args = self.send_soap_msg(renderer, 'AVTransport', 'SetAVTransportURI', soap_timeout=15,  soap_stop=stop, InstanceID=0, CurrentURI=uri, CurrentURIMetaData=didl_lite)
+    out_args = self.send_soap_msg(renderer, 'AVTransport', 'SetAVTransportURI', soap_timeout=20,  soap_stop=stop, InstanceID=0, CurrentURI=uri, CurrentURIMetaData=didl_lite)
     if not out_args:
       return None
     else:
@@ -2710,7 +2710,7 @@ class DLNARendererControler (DLNAHandler):
   def send_Local_URI(self, renderer, uri, title, kind=None, size=None, duration=None, suburi=None, stop=None):
     didl_lite = self._build_didl(uri, title, kind, size, duration, suburi)
     didl_lite = didl_lite.replace(' sec:URIType="public"', '').replace('DLNA.ORG_OP=00', 'DLNA.ORG_OP=01').replace('DLNA.ORG_FLAGS=017', 'DLNA.ORG_FLAGS=217')
-    out_args = self.send_soap_msg(renderer, 'AVTransport', 'SetAVTransportURI', soap_timeout=15, soap_stop=stop, InstanceID=0, CurrentURI=uri, CurrentURIMetaData=didl_lite)
+    out_args = self.send_soap_msg(renderer, 'AVTransport', 'SetAVTransportURI', soap_timeout=20, soap_stop=stop, InstanceID=0, CurrentURI=uri, CurrentURIMetaData=didl_lite)
     if not out_args:
       return None
     else:
@@ -2984,11 +2984,14 @@ class DLNAClient(DLNAHandler):
       else:
         children = self.get_Children(server, id, stop)
         containers = list(e for e in children if e['type'].lower() == 'container')
+        numb_exp = lambda t: '.'.join([(t[0].rstrip('0123456789') + t[0][len(t[0].rstrip('0123456789')):].rjust(5,'0')) if ('0' <= t[0][-1:] and t[0][-1:] <= '9') else t[0]] + t[1:2])
         if id !='0':
           containers.sort(key=lambda e: e['title'].lower())
+          containers.sort(key=lambda e: numb_exp(e['title'].lower().rsplit('.', 1)))
           containers.sort(key=lambda e: e['class'].lower())
         items = list(e for e in children if e['type'].lower() == 'item')
         items.sort(key=lambda e: e['title'].lower())
+        items.sort(key=lambda e: numb_exp(e['title'].lower().rsplit('.', 1)))
         items.sort(key=lambda e: e['artist'].lower() if e['class'].lower() == 'object.item.audioitem' else '')
         items.sort(key=lambda e: '%10s' % e['track'].lower() if e['class'].lower() == 'object.item.audioitem' else '')
         items.sort(key=lambda e: e['album'].lower() if e['class'].lower() == 'object.item.audioitem' else '')
