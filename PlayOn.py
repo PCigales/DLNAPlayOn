@@ -1889,7 +1889,6 @@ def HTTPRequest(url, method='GET', headers={}, data=None, timeout=3, max_length=
       if is_stop():
         raise
       conn.request(method, url_[len(url_p.scheme) + 3 + len(url_p.netloc):], body=data, headers=headers)
-      conn.sock.settimeout(None)
       if max_time:
         rem_time = max_time - time.time() + start_time
         if rem_time <= 0:
