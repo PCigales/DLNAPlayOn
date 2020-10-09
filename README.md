@@ -29,7 +29,7 @@ The play session can be controlled from any device on the same network by openin
 To launch the application with more options (PlayOn -h to display the complete syntax of command line and abbreviated commands):
 - to only diplay the available renderers: PlayOn.py display_renderers [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--verbosity VERBOSE]
 - to open the web launch page to select the renderer, enter the content address and start playing: PlayOn.py start [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--mediasrc MEDIA_ADDRESS] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--verbosity VERBOSE]
-- to directly start playing a content and open the web control page: PlayOn.py control [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--slideshowduration SLIDESHOW_DURATION] [--verbosity VERBOSE] MEDIA_ADDRESS  
+- to directly start playing a content and open the web control page: PlayOn.py control [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--slideshowduration SLIDESHOW_DURATION] [--endless] [--verbosity VERBOSE] MEDIA_ADDRESS  
 where:  
   --ip SERVER_IP_ADDRESS, -i SERVER_IP_ADDRESS                  IP address to be used for the web server [default: computer address on the network]  
   --port SERVER_TCP_PORT, -p SERVER_TCP_PORT                    TCP port to be used for the web server [default: 8000]  
@@ -45,6 +45,7 @@ where:
   --mediasublang MEDIA_SUBLANG, -l MEDIA_SUBLANG                subtitle prefered language, . for no selection [default: fr,fre,fra]  
   --mediastartfrom MEDIA_START_FROM, -f MEDIA_START_FROM        time position to start from or image display duration in format H:MM:SS [default: beginning]  
   --slideshowduration SLIDESHOW_DURATION, -d SLIDESHOW_DURATION image display duration in playlist in format H:MM:SS if no --mediastartfrom [default: none]  
+  --endless, -e                                                 endless playback [default: not]  
   --verbosity VERBOSE, -v VERBOSE                               verbosity level from 0 to 2 [default: 2]  
   
 Exemples (let's suppose the IP address of the computer is 192.168.1.10):
