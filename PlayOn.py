@@ -4,7 +4,6 @@ import threading
 import selectors
 import argparse
 import os
-import sys
 import shutil
 import msvcrt
 import subprocess
@@ -89,7 +88,7 @@ class MediaProvider(threading.Thread):
   STATUS_ABORTED = 1
   STATUS_RUNNING = 2
   STATUS_COMPLETED = 3
-  SCRIPT_PATH = os.path.dirname(sys.argv[0])
+  SCRIPT_PATH = os.path.dirname(__file__)
   
   SERVER_MODE_AUTO = 0
   SERVER_MODE_SEQUENTIAL = 1
@@ -1762,7 +1761,7 @@ class HTTPMessage():
     if not isinstance(message, socket.socket):
       resp = message[0]
     else:
-      message.settimeout(timeout)
+      message.settimeout(None if max_time else timeout)
       resp = b''
     while True:
       resp = resp.lstrip(b'\r\n')
@@ -1797,6 +1796,16 @@ class HTTPMessage():
         return None
       if body_pos + body_len - len(resp) > rem_length:
         return None
+    if self.header('Expect', '').lower() == '100-continue' and isinstance(message, socket.socket):
+      if max_time:
+        message.settimeout(timeout)
+      try:
+        message.sendall('HTTP/1.1 100 Continue\r\n\r\n'.encode('ISO-8859-1'))
+      except:
+        return None
+      if max_time:
+        message.settimeout(None)
+    if self.header('Transfer-Encoding', '').lower() != 'chunked':
       while len(resp) < body_pos + body_len:
         if not isinstance(message, socket.socket):
           return None
@@ -1911,7 +1920,7 @@ def HTTPRequest(url, method=None, headers={}, data=None, timeout=3, max_length=1
           raise
       if is_stop():
         raise
-      resp = HTTPMessage(conn.sock, decode=None, timeout=None, max_length=max_length, max_time=(rem_time if max_time else None), stop=stop)
+      resp = HTTPMessage(conn.sock, decode=None, timeout=timeout, max_length=max_length, max_time=(rem_time if max_time else None), stop=stop)
       try:
         conn.close()
       except:
