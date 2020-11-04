@@ -2787,6 +2787,30 @@ class DLNARendererControler (DLNAHandler):
       return None
     return out_args['CurrentTransportState'], out_args['CurrentTransportStatus']
 
+  def get_Mute(self, renderer):
+    out_args = self.send_soap_msg(renderer, 'RenderingControl', 'GetMute', InstanceID=0, Channel='Master')
+    if not out_args:
+      return None
+    return out_args['CurrentMute']
+
+  def set_Mute(self, renderer, mute=False):
+    out_args = self.send_soap_msg(renderer, 'RenderingControl', 'SetMute', InstanceID=0, Channel='Master', DesiredMute=(1 if mute else 0))
+    if not out_args:
+      return None
+    return True
+
+  def get_Volume(self, renderer):
+    out_args = self.send_soap_msg(renderer, 'RenderingControl', 'GetVolume', InstanceID=0, Channel='Master')
+    if not out_args:
+      return None
+    return out_args['CurrentVolume']
+
+  def set_Volume(self, renderer, volume=0):
+    out_args = self.send_soap_msg(renderer, 'RenderingControl', 'SetVolume', InstanceID=0, Channel='Master', DesiredVolume=volume)
+    if not out_args:
+      return None
+    return True
+
   def get_StoppedReason(self, renderer):
     out_args = self.send_soap_msg(renderer, 'AVTransport', 'X_GetStoppedReason', InstanceID=0)
     if not out_args:
@@ -3592,15 +3616,15 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
 
   def __init__(self, IncomingEvent=None):
     super().__init__(IncomingEvent)
-    self.outgoing = [None, None, None, None, None, None, None, None]
-    self.outgoing_seq = [None, None, None, None, None, None, None, None]
+    self.outgoing = [None, None, None, None, None, None, None, None, None, None]
+    self.outgoing_seq = [None, None, None, None, None, None, None, None, None, None]
     self.incoming_text_only = True
     self.set_before_shutdown('close')
 
   def reinit(self):
     super().reinit()
-    self.outgoing = [None, None, None, None, None, None, None, None]
-    self.outgoing_seq = [None, None, None, None, None, None, None, None]
+    self.outgoing = [None, None, None, None, None, None, None, None, None, None]
+    self.outgoing_seq = [None, None, None, None, None, None, None, None, None, None]
     self.set_before_shutdown('close')
 
   @property
@@ -3705,6 +3729,37 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
       self.set_outgoing(7, 'Shuffle:' + ('true' if value else 'false'), True)
     else:
       self.set_outgoing(7, None)      
+
+  @property
+  def Mute(self):
+    if self.outgoing[8] != None:
+      return (True if self.outgoing[8][5:] == 'true' else (False if self.outgoing[8][5:] == 'false' else ''))
+    else:
+      return self.outgoing[8]
+
+  @Mute.setter
+  def Mute(self, value):
+    if value != None:
+      self.set_outgoing(8, 'Mute:' + ('true' if value == True else ('false' if value == False else 'none')), True)
+    else:
+      self.set_outgoing(8, None)
+
+  @property
+  def Volume(self):
+    if self.outgoing[9] != None:
+      if self.outgoing[9][7:].lstrip().isdecimal():
+        return int(self.outgoing[9][7:])
+      else:
+        return 0
+    else:
+      return self.outgoing[9]
+
+  @Volume.setter
+  def Volume(self, value):
+    if value != None:
+      self.set_outgoing(9, 'Volume:' + str(value), True)
+    else:
+      self.set_outgoing(9, None)
 
   @property
   def Command(self):
@@ -4520,6 +4575,8 @@ class DLNAWebInterfaceServer(threading.Thread):
   '            document.getElementById("status").innerHTML = "interface close";\r\n' \
   '            document.getElementById("play-pause").style.display = "none";\r\n' \
   '            document.getElementById("stop").style.display = "none";\r\n' \
+  '            document.getElementById("mute").style.display = "none";\r\n' \
+  '            document.getElementById("volume").style.display = "none";\r\n' \
   '            seekbar.style.display = "none";\r\n' \
   '            seektarget.style.display = "none";\r\n' \
   '            document.getElementById("seektarget").style.display = "none";\r\n' \
@@ -4598,6 +4655,21 @@ class DLNAWebInterfaceServer(threading.Thread):
   '              } else {\r\n' \
   '                document.getElementById("shuffle").style.backgroundColor = "";\r\n' \
   '              }\r\n' \
+  '          } else if (event.data.substring(0,4) == "Mute") {\r\n' \
+  '              if (event.data.substring(5) == "none") {\r\n'\
+  '                document.getElementById("mute").style.display = "none";\r\n' \
+  '                document.getElementById("volume").style.display = "none";\r\n' \
+  '              } else if (document.getElementById("mute").style.display == "none") {\r\n' \
+  '                document.getElementById("mute").style.display = "inline-block";\r\n' \
+  '                document.getElementById("volume").style.display = "inline-block";\r\n' \
+  '              }\r\n' \
+  '              if (event.data.substring(5) == "true") {\r\n'\
+  '                document.getElementById("mute").innerHTML = "🔈 <strong style=\'visibility:visible;\'>&setmn;</strong>";\r\n' \
+  '              } else {\r\n' \
+  '               document.getElementById("mute").innerHTML = "🔈 <strong style=\'visibility:hidden;\'>&setmn;</strong>";\r\n' \
+  '              }\r\n' \
+  '          } else if (event.data.substring(0,6) == "Volume") {\r\n' \
+  '              document.getElementById("volume").value = parseInt(event.data.substring(7),10);\r\n' \
   '          } else if (event.data != "close") {\r\n' \
   '            document.getElementById("position").innerHTML = event.data;\r\n' \
   '            if (duration != 0 && !seekongoing ) {\r\n' \
@@ -4633,6 +4705,16 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      function shuffle_button() {\r\n' \
   '        socket.send("Shuffle");\r\n' \
   '      }\r\n ' \
+  '      function mute_button() {\r\n' \
+  '        if (document.getElementById("mute").innerHTML.indexOf("hidden") > 0) {\r\n' \
+  '          socket.send("Mute:true");\r\n' \
+  '        } else {\r\n' \
+  '          socket.send("Mute:false");\r\n' \
+  '        }\r\n' \
+  '      }\r\n ' \
+  '      function volume_range() {\r\n' \
+  '        socket.send("Volume:" + document.getElementById("volume").value.toString());\r\n' \
+  '      }\r\n ' \
   '    </script>\r\n' \
   '  </head>\r\n' \
   '  <body style="background-color:rgb(40,45,50);color:rgb(225,225,225);font-size:32px;">\r\n' \
@@ -4648,8 +4730,9 @@ class DLNAWebInterfaceServer(threading.Thread):
   '    <p style="line-height:60px;">Statut :&nbsp;&nbsp;&nbsp;<span id="status" style="color:rgb(200,250,240);">initialisation</span></p>\r\n' \
   '    <p style="line-height:60px;">Position de lecture :&nbsp;&nbsp;&nbsp;<span id="position" style="color:rgb(200,250,240);">-</span></p>\r\n' \
   '    <br>\r\n' \
-  '    <button id="play-pause" style="background-color:rgb(200,250,240);border:none;padding-top:20px;padding-bottom:20px;margin-left:50px;margin-right:200px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="play_pause_button()">Lecture</button>\r\n' \
-  '    <button id="stop" style="background-color:rgb(250,220,200);border:none;padding-top:20px;padding-bottom:20px;margin-left:200px;margin-right:50px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="stop_button()">Arrêt</button>\r\n' \
+  '    <button id="play-pause" style="background-color:rgb(200,250,240);border:none;padding-top:20px;padding-bottom:20px;margin-left:50px;margin-right:75px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="play_pause_button()">Lecture</button>\r\n' \
+  '    <button id="stop" style="background-color:rgb(250,220,200);border:none;padding-top:20px;padding-bottom:20px;margin-left:75px;margin-right:150px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="stop_button()">Arrêt</button>\r\n' \
+  '    <span id="mute" style="color:red;word-spacing:-30px;cursor:pointer;display:none;" onclick="mute_button()">🔈 <strong style="visibility:hidden;">&setmn;</strong></span>&nbsp;<input type="range" min="0" max="100" value="100" id="volume" style="width:100px;cursor:pointer;display:none;" onchange="volume_range()">\r\n' \
   '    <br>\r\n' \
   '    <br>\r\n' \
   '    <input type="range" min="0" max="10000" value="0" id="seekbar" style="margin-left:50px;margin-right:50px;width:80%;cursor:pointer;display:none;">\r\n' \
@@ -4900,6 +4983,24 @@ class DLNAWebInterfaceServer(threading.Thread):
       if event_listener:
         self.DLNARendererControlerInstance.send_event_unsubscription(event_listener)
       return
+    event_listener_rc = self.DLNARendererControlerInstance.new_event_subscription(renderer, 'RenderingControl', self.DLNAWebInterfaceServerAddress[1]+4)
+    if event_listener_rc:
+      warning_m = self.DLNARendererControlerInstance.add_event_warning(event_listener_rc, 'Mute', WarningEvent=incoming_event)
+      warning_v = self.DLNARendererControlerInstance.add_event_warning(event_listener_rc, 'Volume', WarningEvent=incoming_event)
+      if not self.DLNARendererControlerInstance.send_event_subscription(event_listener_rc, 36000):
+        self.DLNARendererControlerInstance.send_event_unsubscription(event_listener_rc)
+        event_listener_rc = None
+      if event_listener_rc:
+        if (self.DLNARendererControlerInstance.get_Volume(renderer) == None or self.DLNARendererControlerInstance.get_Mute(renderer) == None):
+          self.DLNARendererControlerInstance.send_event_unsubscription(event_listener_rc)
+          event_listener_rc = None
+      if event_listener_rc:
+        try:
+          vol_max = int(next((arg for arg in next((act for act in next((serv for serv in renderer.Services if serv.Id == 'urn:upnp-org:serviceId:RenderingControl')).Actions if act.Name == 'SetVolume'), None).Arguments if arg.Name == 'DesiredVolume'), None).AllowedValueRange[1])
+        except:
+          vol_max = 100
+        if vol_max <=0:
+          vol_max = 100
     playlist = None
     titles = []
     mediakinds = []
@@ -5110,6 +5211,8 @@ class DLNAWebInterfaceServer(threading.Thread):
             self.DLNARendererControlerInstance.send_Stop(renderer)
           except:
             pass
+          if event_listener_rc:
+            self.DLNARendererControlerInstance.send_event_unsubscription(event_listener_rc)
           return
         else:
           if check_renderer:
@@ -5163,6 +5266,14 @@ class DLNAWebInterfaceServer(threading.Thread):
       cmd_stop = False
       self.DLNARendererControlerInstance.wait_for_warning(warning_d, 0, True)
       self.DLNARendererControlerInstance.wait_for_warning(warning_e, 0, True)
+      if event_listener_rc:
+        warning_m.TriggerLastValue = None
+        warning_v.TriggerLastValue = None
+        try:
+          self.ControlDataStore.Volume = int(int(self.DLNARendererControlerInstance.get_Volume(renderer)) * 100 / vol_max)
+          self.ControlDataStore.Mute = (self.DLNARendererControlerInstance.get_Mute(renderer) == "1")
+        except:
+          pass
       while not self.shutdown_requested and new_value != 'STOPPED':
         new_value = self.DLNARendererControlerInstance.wait_for_warning(warning, 10 if is_paused else 1)
         if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and accept_ranges:
@@ -5257,6 +5368,16 @@ class DLNAWebInterfaceServer(threading.Thread):
               image_duration = _position_to_seconds(self.MediaPosition or '0:00:00')
               image_start = None
               self.ControlDataStore.Position = self.MediaPosition
+          if event_listener_rc:
+            tv = warning_m.TriggerLastValue
+            if tv != None:
+              self.ControlDataStore.Mute = (tv == "1")
+            tv = warning_v.TriggerLastValue
+            if tv != None:
+              try:
+                self.ControlDataStore.Volume = int(int(tv) * 100 / vol_max)
+              except:
+                pass
           if not wi_cmd:
             wi_cmd = self.ControlDataStore.Command
           if wi_cmd == 'Lecture':
@@ -5379,6 +5500,16 @@ class DLNAWebInterfaceServer(threading.Thread):
                 renderer_position = self.MediaPosition
               except:
                 pass
+          elif (wi_cmd or '')[:4] == 'Mute':
+            try:
+              self.DLNARendererControlerInstance.set_Mute(renderer, wi_cmd[5:] == "true")
+            except:
+              pass
+          elif (wi_cmd or '')[:6] == 'Volume':
+            try:
+              self.DLNARendererControlerInstance.set_Volume(renderer, int(int(wi_cmd[7:]) * vol_max / 100))
+            except:
+              pass
           wi_cmd = self.ControlDataStore.Command
           if media_kind == 'image' and image_start:
             if renderer_position == '0:00:00':
@@ -5393,6 +5524,8 @@ class DLNAWebInterfaceServer(threading.Thread):
           self.MediaServerInstance = None
         except:
           pass
+      if event_listener_rc:
+        self.ControlDataStore.Mute = ''
     transport_status = ""
     stop_reason = ""
     if not self.shutdown_requested and self.verbosity == 2:
@@ -5419,6 +5552,8 @@ class DLNAWebInterfaceServer(threading.Thread):
         pass
     self.html_ready = False
     self.DLNARendererControlerInstance.send_event_unsubscription(event_listener)
+    if event_listener_rc:
+      self.DLNARendererControlerInstance.send_event_unsubscription(event_listener_rc)
     self.logger.log('Arrêt du gestionnaire de contrôleur de lecture pour serveur d\'interface Web%s%s%s%s' % (' - statut ' if transport_status or stop_reason else '', transport_status, ':' if transport_status and stop_reason else '', stop_reason), 2)
     if not self.shutdown_requested:
       self.ControlDataStore.Redirect = True
