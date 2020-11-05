@@ -1991,7 +1991,6 @@ class DLNAEventNotificationHandler(socketserver.StreamRequestHandler):
 
   def __init__(self, *args, EventListener, **kwargs):
     self.EventListener = EventListener
-    t = time.time()
     try:
       super().__init__(*args, **kwargs)
     except:
