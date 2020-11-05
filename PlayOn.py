@@ -1991,6 +1991,7 @@ class DLNAEventNotificationHandler(socketserver.StreamRequestHandler):
 
   def __init__(self, *args, EventListener, **kwargs):
     self.EventListener = EventListener
+    t = time.time()
     try:
       super().__init__(*args, **kwargs)
     except:
@@ -1998,6 +1999,7 @@ class DLNAEventNotificationHandler(socketserver.StreamRequestHandler):
   
   def handle(self):
     try:
+      t = time.time()
       resp = HTTPMessage(self.request)
       if resp.method != 'NOTIFY' or resp.header('SID', '') != self.EventListener.SID:
         self.request.sendall("HTTP/1.0 400 Bad Request\r\n\r\n".encode("ISO-8859-1"))
@@ -5267,8 +5269,8 @@ class DLNAWebInterfaceServer(threading.Thread):
       self.DLNARendererControlerInstance.wait_for_warning(warning_d, 0, True)
       self.DLNARendererControlerInstance.wait_for_warning(warning_e, 0, True)
       if event_listener_rc:
-        warning_m.TriggerLastValue = None
-        warning_v.TriggerLastValue = None
+        vol_seq = warning_v.ReferenceSEQ
+        mut_seq = warning_m.ReferenceSEQ
         try:
           self.ControlDataStore.Volume = int(int(self.DLNARendererControlerInstance.get_Volume(renderer)) * 100 / vol_max)
           self.ControlDataStore.Mute = (self.DLNARendererControlerInstance.get_Mute(renderer) == "1")
@@ -5369,15 +5371,17 @@ class DLNAWebInterfaceServer(threading.Thread):
               image_start = None
               self.ControlDataStore.Position = self.MediaPosition
           if event_listener_rc:
-            tv = warning_m.TriggerLastValue
-            if tv != None:
-              self.ControlDataStore.Mute = (tv == "1")
-            tv = warning_v.TriggerLastValue
-            if tv != None:
-              try:
-                self.ControlDataStore.Volume = int(int(tv) * 100 / vol_max)
-              except:
-                pass
+            if mut_seq != warning_m.ReferenceSEQ:
+              tv = warning_m.TriggerLastValue
+              if tv != None:
+                self.ControlDataStore.Mute = (tv == "1")
+            if vol_seq != warning_v.ReferenceSEQ:
+              tv = warning_v.TriggerLastValue
+              if tv != None:
+                try:
+                  self.ControlDataStore.Volume = int(int(tv) * 100 / vol_max)
+                except:
+                  pass
           if not wi_cmd:
             wi_cmd = self.ControlDataStore.Command
           if wi_cmd == 'Lecture':
