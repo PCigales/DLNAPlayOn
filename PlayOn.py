@@ -5454,11 +5454,10 @@ class DLNAWebInterfaceServer(threading.Thread):
                     self.DLNARendererControlerInstance.send_Stop(renderer)
                   except:
                     pass
-                if media_kind != 'image' or restart_from == None:
-                  new_value = 'STOPPED'
+                new_value = 'STOPPED'
             if restart_from != None:
               self.ControlDataStore.ShowStartFrom = False
-              if media_kind == 'image':
+              if media_kind == 'image' and jump_ind == order[ind]:
                 restart_from = None
                 jump_ind = None
                 try:
