@@ -1026,13 +1026,13 @@ class MediaProvider(threading.Thread):
     if self.FFmpeg_process:
       if self.FFmpeg_process.poll() == None:
         try:
-          os.system('taskkill /t /f /pid %s > nul' % (self.FFmpeg_process.pid))
+          os.system('taskkill /t /f /pid %s >nul 2>&1' % (self.FFmpeg_process.pid))
         except:
           pass
     if self.FFmpeg_sub_process:
       if self.FFmpeg_sub_process.poll() == None:
         try:
-          os.system('taskkill /t /f /pid %s > nul' % (self.FFmpeg_process.pid))
+          os.system('taskkill /t /f /pid %s >nul 2>&1' % (self.FFmpeg_process.pid))
         except:
           pass
     if self.Status == MediaProvider.STATUS_INITIALIZING:
@@ -5157,14 +5157,17 @@ class DLNAWebInterfaceServer(threading.Thread):
           if not prep_success:
             check_renderer = True
       else:
-        suburi = None
+        suburi = media_sub_src
         server_mode = DLNAWebInterfaceServer.SERVER_MODE_NONE
         accept_ranges = True
         media_ip = None
-        try:
-          media_ip = urllib.parse.urlparse(media_src).netloc.split(':',1)[0]
-        except:
-          pass
+        if r'://' in media_src:
+          try:
+            media_ip = urllib.parse.urlparse(media_src).netloc.split(':',1)[0]
+          except:
+            pass
+        else:
+          media_ip = ''
         self.DLNARendererControlerInstance.wait_for_warning(warning, 0, True)
         if self.MediaSrc[:7].lower() == 'upnp://':
           media_title = titles[order[ind]]
@@ -5172,7 +5175,7 @@ class DLNAWebInterfaceServer(threading.Thread):
           media_title = media_src
         spare_event.clear()
         self.ControlDataStore.IncomingEvent = spare_event
-        if self.DLNAWebInterfaceServerAddress[0] == media_ip and not self.shutdown_requested:
+        if (media_ip == '' or self.DLNAWebInterfaceServerAddress[0] == media_ip) and not self.shutdown_requested:
           prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
         elif not self.shutdown_requested:
           prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
