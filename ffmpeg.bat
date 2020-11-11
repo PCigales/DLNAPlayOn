@@ -1,4 +1,4 @@
-@set "ffmpeg_path="C:\Program Files\FFmpeg\bin\ffmpeg.exe""
+@set "ffmpeg_path="C:\Program Files\FFmpeg\Media Autobuild Suite\bin\ffmpeg.exe""
 
 @setlocal enabledelayedexpansion
 
@@ -41,7 +41,7 @@
 
 @if /I "!mediabuilder_mux!" == "SRT--" @exit 1
 
-@%ffmpeg_path% !ffmpeg_vid! !ffmpeg_aud! !ffmpeg_sub! %ffmpeg_par% -listen 1 !mediabuilder_address!
+@%ffmpeg_path% -user-agent "Lavf/ Mozilla/ AppleWebKit/ Chrome/" !ffmpeg_vid! !ffmpeg_aud! !ffmpeg_sub! %ffmpeg_par% -listen 1 !mediabuilder_address!
 
 @endlocal
 
