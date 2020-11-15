@@ -1,4 +1,4 @@
-@set "ffmpeg_path="C:\Program Files\FFmpeg\Media Autobuild Suite\bin\ffmpeg.exe""
+@set "ffmpeg_path="C:\Program Files\FFmpeg\bin\ffmpeg.exe""
 @set "ffmpeg_user_agent="Lavf/ Mozilla/ AppleWebKit/ Chrome/""
 
 @setlocal enabledelayedexpansion
