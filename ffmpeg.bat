@@ -1,4 +1,4 @@
-@set "ffmpeg_path="C:\Program Files\FFmpeg\bin\ffmpeg.exe""
+@set "ffmpeg_path="C:\Program Files\FFmpeg\Media Autobuild Suite\bin\ffmpeg.exe""
 @set "ffmpeg_user_agent="Lavf/ Mozilla/ AppleWebKit/ Chrome/""
 
 @setlocal enabledelayedexpansion
@@ -37,7 +37,7 @@
 
 @if /I "!mediabuilder_mux!" == "MPEGTS" @set "ffmpeg_par=%ffmpeg_st-% -c:v copy -c:a copy -sn -dn -y -f MPEGTS -mpegts_flags latm"
 
-@if /I "!mediabuilder_mux!" == "MPEGTS-" @exit 1
+@if /I "!mediabuilder_mux!" == "MPEGTS-" (@set "ffmpeg_par=%ffmpeg_st-% -c:v copy -c:a copy -sn -dn -y -f MPEGTS -mpegts_flags latm") & (@set "ffmpeg_vid=-fflags +genpts !ffmpeg_vid!")
 
 @if /I "!mediabuilder_mux!" == "MPEGTS--" @exit 1
 
