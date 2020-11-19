@@ -949,7 +949,16 @@ class MediaProvider(threading.Thread):
                 rep = None
               except:
                 pass
-            pass
+            elif self.AcceptRanges:
+              try:
+                self.Connection.close()
+                header = {'User-Agent': 'Lavf'}
+                header['Range'] = 'bytes=%d-' % ((self.MediaBuffer.w_index + self.MediaBuffer.len - 1) * self.MediaBuffer.bloc_size)
+                self.Connection.request('GET', self.MediaSrcURL, headers=header)
+                rep = self.Connection.getresponse()
+                bloc = rep.read(self.MediaBuffer.bloc_size)
+              except:
+                pass
           if bloc:
             if len(bloc) != min(self.MediaSize, (self.MediaBuffer.w_index + self.MediaBuffer.len) * self.MediaBuffer.bloc_size) - (self.MediaBuffer.w_index + self.MediaBuffer.len - 1) * self.MediaBuffer.bloc_size:
               bloc = None
