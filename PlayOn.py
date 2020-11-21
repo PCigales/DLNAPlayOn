@@ -1756,7 +1756,13 @@ class HTTPMessage():
           rem_time = min(rem_time, max_time - t + start_time)
         if rem_time <= 0:
           return None
-        ready = selector.select(rem_time)
+        if hasattr(message, 'pending'):
+          if message.pending():
+            ready = True
+          else:
+            ready = selector.select(rem_time)
+        else:
+          ready = selector.select(rem_time)
         if ready:
           try:
             return message.recv(max_data)
@@ -1865,7 +1871,7 @@ class HTTPMessage():
             return None
           bloc = None
           try:
-            bloc = self._read(message, chunk_pos + chunk_len - len(buff), start_time, max_time, stop)
+            bloc = self._read(message, rem_length, start_time, max_time, stop)
           except:
             return None
           if not bloc:
@@ -4112,6 +4118,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      function open_link_abs(uri) {\r\n' \
   '        if (page_loading) {return;}\r\n' \
   '        page_loading = true;\r\n' \
+  '        if (window.parent.window.getSelection) {window.parent.window.getSelection().removeAllRanges();}\r\n' \
   '        window.parent.document.getElementById("upnp_loading").style.color = "rgb(225,225,225)";\r\n' \
   '        window.parent.document.getElementById("upnp_loading").style.animationName = "rotating";\r\n' \
   '        document.styleSheets[0].cssRules[1].style.color="rgb(225,225,225)";\r\n' \
@@ -4380,6 +4387,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        document.getElementById("upnp_nav").style.display = "none";\r\n' \
   '      }\r\n' \
   '      function upnp_back() {\r\n' \
+  '        if (window.getSelection) {window.getSelection().removeAllRanges();}\r\n' \
   '        if (upnp_hist.length >= 2) {\r\n' \
   '          document.getElementById("upnp_content").contentWindow.location = upnp_hist[upnp_hist.length - 2][0];\r\n' \
   '        }\r\n' \
@@ -4395,6 +4403,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        }\r\n' \
   '      }\r\n' \
   '      function open_link(uri) {\r\n' \
+  '        if (window.getSelection) {window.getSelection().removeAllRanges();}\r\n' \
   '        document.getElementById("upnp_content").contentWindow.open_link_abs(uri);\r\n' \
   '      }\r\n' \
   '      function upnp_load() {\r\n' \
