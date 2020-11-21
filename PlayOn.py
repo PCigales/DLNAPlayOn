@@ -1111,7 +1111,7 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
         return False
       self.send_response(HTTPStatus.OK)
       self.send_header("Content-type", "application/octet-stream")
-      self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+      self.send_header("Cache-Control", "no-cache, must-revalidate")
       self.send_header("Pragma", "no-cache")
       self.send_header("Transfer-Encoding", "chunked")
       try:
@@ -1128,7 +1128,7 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
             sub_size = len(self.MediaSubBuffer[2])
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-type", "application/octet-stream")
-            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Cache-Control", "no-cache, must-revalidate")
             self.send_header("Pragma", "no-cache")
             self.send_header("Transfer-Encoding", "chunked")
             try:
@@ -1331,7 +1331,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
       self.send_response(HTTPStatus.OK)
       self.send_header("Content-type", "application/octet-stream")
       self.send_header("Content-Length", str(sub_size))
-      self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+      self.send_header("Cache-Control", "no-cache, must-revalidate")
       self.send_header("Pragma", "no-cache")
       return 'mediasub', None, None
     elif self.path.lower() == '/media.smi' and self.MediaSubBuffer:
@@ -1343,7 +1343,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-type", "application/octet-stream")
             self.send_header("Content-Length", str(sub_size))
-            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Cache-Control", "no-cache, must-revalidate")
             self.send_header("Pragma", "no-cache")
             return 'mediasubsmi', None, None
           else:
