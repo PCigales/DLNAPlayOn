@@ -42,9 +42,9 @@ class ThreadedDualStackServer(socketserver.ThreadingMixIn, server.HTTPServer):
     self.logger = log_event(verbosity)
     if auth_ip:
       if isinstance(auth_ip, tuple):
-        self.auth_ip = (*auth_ip , socket.gethostbyname(socket.getfqdn()), "127.0.0.1")
+        self.auth_ip = (*auth_ip , socket.gethostbyname(socket.gethostname()), "127.0.0.1")
       else:
-        self.auth_ip = (auth_ip, socket.gethostbyname(socket.getfqdn()), "127.0.0.1")
+        self.auth_ip = (auth_ip, socket.gethostbyname(socket.gethostname()), "127.0.0.1")
     else:
       self.auth_ip = None
     server.HTTPServer.__init__(self, *args, **kwargs)
@@ -2249,7 +2249,7 @@ class DLNAHandler:
     self.is_discovery_polling_running = None
     self.discovery_status_change = None
     self.discovery_polling_shutdown = None
-    self.ip = socket.gethostbyname(socket.getfqdn())
+    self.ip = socket.gethostbyname(socket.gethostname())
     self.update_devices = threading.Lock()
 
   def _update_devices(self, desc_url, time_resp):
