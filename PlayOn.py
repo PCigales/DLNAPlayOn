@@ -5065,8 +5065,8 @@ class DLNAWebInterfaceServer(threading.Thread):
         order = list(range(len(playlist)))
       else:
         self.logger.log('Absence de contenu média sous l\'adresse %s' % self.MediaSrc, 0)
-    if self.SlideshowDuration:
-      self.MediaPosition = self.SlideshowDuration
+      if self.SlideshowDuration:
+        self.MediaPosition = self.SlideshowDuration
     cmd_stop = True
     playlist_stop = False
     media_kind = None
