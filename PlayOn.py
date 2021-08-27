@@ -88,7 +88,7 @@ class MediaProvider(threading.Thread):
   STATUS_ABORTED = 1
   STATUS_RUNNING = 2
   STATUS_COMPLETED = 3
-  SCRIPT_PATH = os.path.dirname(__file__)
+  SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
   
   SERVER_MODE_AUTO = 0
   SERVER_MODE_SEQUENTIAL = 1
@@ -1717,7 +1717,10 @@ class HTTPMessage():
         try:
           a, b, c = msg_line.strip().split(None, 2)
         except:
-          return
+          try:
+            a, b, c = *msg_line.strip().split(None, 2), ''
+          except:
+            return
       else:
         try:
           header_name, header_value = msg_line.split(':', 1)
@@ -1765,7 +1768,7 @@ class HTTPMessage():
           ready = selector.select(rem_time)
         if ready:
           try:
-            return message.recv(max_data)
+            return message.recv(min(max_data, 1048576))
           except:
             return None
     return None
@@ -1801,7 +1804,7 @@ class HTTPMessage():
       resp = resp + bloc
     if not self._read_headers(resp[:body_pos].decode('ISO-8859-1')):
       return None
-    if not body:
+    if not body or self.code in ('204', '304'):
       self.body = b''
       return True
     if self.header('Transfer-Encoding', '').lower() != 'chunked':
@@ -1906,7 +1909,7 @@ def HTTPRequest(url, method=None, headers={}, data=None, timeout=3, max_length=1
   url_ = url
   if max_time:
     start_time = time.time()
-  while code != '200':
+  while code[:2] != '20' and code != '304':
     try:
       url_p = urllib.parse.urlparse(url_)
       if max_time:
@@ -1943,7 +1946,7 @@ def HTTPRequest(url, method=None, headers={}, data=None, timeout=3, max_length=1
       if not resp.code:
         raise
       code = resp.code
-      if code[:2] == '30':
+      if code[:2] == '30' and code != '304':
         if resp.header('location', '') != '':
           url_ = resp.header('location')
           redir += 1
@@ -1953,7 +1956,7 @@ def HTTPRequest(url, method=None, headers={}, data=None, timeout=3, max_length=1
           raise
         if redir > 5:
           raise
-      elif code != '200':
+      elif code[:2] != '20' and code != '304':
         raise
     except:
       try:
