@@ -37,7 +37,7 @@ where:
   --buffersize BUFFER_SIZE, -b BUFFER_SIZE                      buffer size in MB [default: 75]  
   --bufferahead BUFFER_AHEAD, -a BUFFER_AHEAD                   load ahead buffer size in MB [default: 25]  
   --muxcontainer MUX_CONTAINER, -m MUX_CONTAINER                remux container type, preceded by ! for systematic remux [default: MP4]  
-  --onreadyplay, -o                                             directly play the content when the media and the requested renderer are ready [default: not]  
+  --onreadyplay, -o                                             direct playback of the content when the media and the requested renderer are ready [default: not]  
   --uuid RENDERER_UUID, -u RENDERER_UUID                        uuid of the renderer [default: first renderer found]  
   --name RENDERER_NAME, -n RENDERER_NAME                        renderer name [default: first renderer found]  
   --mediasrc MEDIA_ADDRESS, -c MEDIA_ADDRESS                    optional content address [default: none]  
