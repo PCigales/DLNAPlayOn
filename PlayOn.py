@@ -4802,7 +4802,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '  </body>\r\n' \
   '</html>'
 
-  def __init__(self, DLNAWebInterfaceServerAddress=None, Launch=INTERFACE_NOT_RUNNING, Renderer_uuid=None, Renderer_name=None, MediaServerMode=None, MediaSrc='', MediaStartFrom='0:00:00', MediaBufferSize=75, MediaBufferAhead=25, MediaMuxContainer=None, MediaSubSrc='', MediaSubLang=None, SlideshowDuration=None, EndLess=False, verbosity=0):
+  def __init__(self, DLNAWebInterfaceServerAddress=None, Launch=INTERFACE_NOT_RUNNING, Renderer_uuid=None, Renderer_name=None, MediaServerMode=None, MediaSrc='', MediaStartFrom='0:00:00', MediaBufferSize=75, MediaBufferAhead=25, MediaMuxContainer=None, OnReadyPlay=False, MediaSubSrc='', MediaSubLang=None, SlideshowDuration=None, EndLess=False, verbosity=0):
     threading.Thread.__init__(self)
     self.verbosity = verbosity
     self.logger = log_event(verbosity)
@@ -4825,6 +4825,7 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.Renderer_uuid = Renderer_uuid
     self.Renderer_name = Renderer_name
     self.Renderer = None
+    self.RendererNotFound = False
     self.MediaServerInstance = None
     self.MediaSrc = MediaSrc
     if MediaStartFrom:
@@ -4837,6 +4838,7 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.MediaBufferSize = MediaBufferSize
     self.MediaBufferAhead = MediaBufferAhead
     self.MediaMuxContainer = MediaMuxContainer
+    self.OnReadyPlay = OnReadyPlay
     self.MediaSubSrc = MediaSubSrc
     self.MediaSubLang = MediaSubLang
     self.TargetStatus = Launch
@@ -4925,6 +4927,12 @@ class DLNAWebInterfaceServer(threading.Thread):
             elif self.Renderer_uuid or self.Renderer_name:
               if renderer == self.DLNARendererControlerInstance.search(self.Renderer_uuid, self.Renderer_name):
                 self.RenderersDataStore.Message = urllib.parse.urlencode({'command': 'sel', 'index': str(ind)}, quote_via=urllib.parse.quote)
+                if self.RendererNotFound and self.OnReadyPlay:
+                  self.Renderer = renderer
+                  self.Renderer_uuid = renderer.UDN[5:]
+                  self.Renderer_name = renderer.FriendlyName
+                  self.TargetStatus = DLNAWebInterfaceServer.INTERFACE_CONTROL
+                  self.RenderersDataStore.Message = 'redirect'
           if renderer.StatusAlive != rend_stat[ind]:
             rend_stat[ind] = renderer.StatusAlive
             if renderer.StatusAlive:
@@ -4963,8 +4971,12 @@ class DLNAWebInterfaceServer(threading.Thread):
       if renderer:
         self.Renderer_uuid = renderer.UDN[5:]
         self.Renderer_name = renderer.FriendlyName
+        self.RendererNotFound = False
+      else:
+        self.RendererNotFound = True
     else:
       renderer = self.Renderer
+      self.RendererNotFound = False
     if self.shutdown_requested or not renderer:
       self.logger.log('Interruption du gestionnaire de contrôleur de lecture pour serveur d\'interface Web', 2)
       return
@@ -5070,7 +5082,7 @@ class DLNAWebInterfaceServer(threading.Thread):
         self.logger.log('Absence de contenu média sous l\'adresse %s' % self.MediaSrc, 0)
       if self.SlideshowDuration:
         self.MediaPosition = self.SlideshowDuration
-    cmd_stop = True
+    cmd_stop = not self.OnReadyPlay
     playlist_stop = False
     media_kind = None
     ind = -1
@@ -5116,7 +5128,7 @@ class DLNAWebInterfaceServer(threading.Thread):
         if self.EndLess and self.ControlDataStore.Position != None:
           self.ControlDataStore.Position = '0:00:00'
         else:
-          cmd_stop = restart_from == None or restart_from == ''
+          cmd_stop = not self.OnReadyPlay and (restart_from == None or restart_from == '')
       prev_media_kind = media_kind
       if self.MediaSrc[:7].lower()=='upnp://':
         media_kind = mediakinds[order[ind]]
@@ -5663,6 +5675,7 @@ if __name__ == '__main__':
   server_parser.add_argument('--buffersize', '-b', metavar='BUFFER_SIZE', help='taille du tampon en blocs de 1 Mo [75 par défaut]', default=75, type=int)
   server_parser.add_argument('--bufferahead', '-a', metavar='BUFFER_AHEAD', help='taille du sous-tampon de chargement par anticipation en blocs de 1 Mo [25 par défaut]', default=25, type=int)
   server_parser.add_argument('--muxcontainer', '-m', metavar='MUX_CONTAINER', help='type de conteneur de remuxage précédé de ! pour qu\'il soit systématique [MP4 par défaut]', choices=['MP4', 'MPEGTS', '!MP4', '!MPEGTS'], default='MP4', type=str.upper)
+  server_parser.add_argument('--onreadyplay', '-o', help='lecture directe dès que le contenu média et le renderer sont prêts [désactivé par défaut]', action='store_true')
   
   subparser_display_renderers = subparsers.add_parser('display_renderers', aliases=['r'], parents=[common_parser], help='Affiche les renderers présents sur le réseau')
   subparser_display_renderers.add_argument('--verbosity', '-v', metavar='VERBOSE', help='niveau de verbosité de 0 à 2 [0 par défaut]', type=int, choices=[0, 1, 2], default=0)
@@ -5670,14 +5683,14 @@ if __name__ == '__main__':
   subparser_start = subparsers.add_parser('start', aliases=['s'], parents=[common_parser, server_parser], help='Démarre l\'interface à partir de la page de lancement')
   subparser_start.add_argument('--mediasrc', '-c', metavar='MEDIA_ADDRESS', help='adresse du contenu multimédia [aucune par défaut]', default='')
   subparser_start.add_argument('--mediasubsrc', '-s', metavar='MEDIA_SUBADDRESS', help='adresse du contenu de sous-titres [aucun par défaut]', default='')
-  subparser_start.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help='langue de sous-titres, . pour pas de sélection [fr,fre,fra par défaut]', default='fr,fre,fra')
+  subparser_start.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help='langue de sous-titres, . pour pas de sélection [fr,fre,fra,fr.* par défaut]', default='fr,fre,fra,fr.*')
   subparser_start.add_argument('--mediastartfrom', '-f', metavar='MEDIA_START_FROM', help='position temporelle de démarrage ou durée d\'affichage au format H:MM:SS [début/indéfinie par défaut]', default=None)
   subparser_start.add_argument('--verbosity', '-v', metavar='VERBOSE', help='niveau de verbosité de 0 à 2 [0 par défaut]', type=int, choices=[0, 1, 2], default=0)
 
   subparser_control = subparsers.add_parser('control', aliases=['c'], parents=[common_parser, server_parser], help='Démarre l\'interface à partir de la page de contrôle')
   subparser_control.add_argument('mediasrc', metavar='MEDIA_ADDRESS', help='adresse du contenu multimédia')
   subparser_control.add_argument('--mediasubsrc', '-s', metavar='MEDIA_SUBADDRESS', help='adresse du contenu de sous-titres [aucun par défaut]', default='')
-  subparser_control.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help='langue de sous-titres, . pour pas de sélection [fr,fre,fra par défaut]', default='fr,fre,fra')
+  subparser_control.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help='langue de sous-titres, . pour pas de sélection [fr,fre,fra,fr.* par défaut]', default='fr,fre,fra,fr.*')
   subparser_control.add_argument('--mediastartfrom', '-f', metavar='MEDIA_START_FROM', help='position temporelle de démarrage ou durée d\'affichage au format H:MM:SS [début/indéfinie par défaut]', default=None)
   subparser_control.add_argument('--slideshowduration', '-d', metavar='SLIDESHOW_DURATION', help='durée d\'affichage des images, si mediastrartfrom non défini, au format H:MM:SS [aucune par défaut]', default=None)
   subparser_control.add_argument('--endless', '-e', help='lecture en boucle [désactivé par défaut, toujours actif en mode lecture aléatoire de liste]', action='store_true')
@@ -5692,9 +5705,9 @@ if __name__ == '__main__':
   if args.command in ('display_renderers', 'r'):
     DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS, verbosity=args.verbosity)
   elif args.command in ('start', 's'):
-    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_START, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None) , MediaSrc=os.path.abspath(args.mediasrc) if args.mediasrc and not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if args.mediasublang != '.' else '', verbosity=args.verbosity)
+    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_START, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None) , MediaSrc=os.path.abspath(args.mediasrc) if args.mediasrc and not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if args.mediasublang != '.' else '', verbosity=args.verbosity)
   elif args.command in ('control', 'c'):
-    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None), MediaSrc=os.path.abspath(args.mediasrc) if not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if args.mediasublang != '.' else '', SlideshowDuration=args.slideshowduration, EndLess=args.endless, verbosity=args.verbosity)
+    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None), MediaSrc=os.path.abspath(args.mediasrc) if not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if args.mediasublang != '.' else '', SlideshowDuration=args.slideshowduration, EndLess=args.endless, verbosity=args.verbosity)
 
   DLNAWebInterfaceServerInstance.start()
   webbrowser.open('http://%s:%s/' % DLNAWebInterfaceServerInstance.DLNAWebInterfaceServerAddress)
