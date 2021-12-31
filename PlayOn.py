@@ -1,4 +1,3 @@
-import contextlib
 from functools import partial
 import threading
 import selectors
@@ -25,30 +24,6 @@ import random
 import locale
 
 FR_STRINGS = {
-  'boolean': {
-    True: 'oui',
-    False: 'non'
-  },
-  'server': {
-    'connexion': 'Connexion de %s:%s',
-    'response': 'Réponse à l\'interface Web %s:%s - requête: %s',
-    'formdatareceipt': 'Réception de la donnée de formulaire %s de %s:%s',
-    'formdatareject': 'Rejet de la donnée de formulaire %s de %s:%s',
-    'playbackaccept': 'Prise en compte de la demande de lecture de %s%s à partir de %s sur %s de %s:%s',
-    'playbacksub': ' et %s',
-    'playbackreject': 'Rejet de la demande de lecture de %s%s à partir de %s sur %s de %s:%s',
-    'deliverystart': 'Connexion %d -> début de la distribution du contenu à %s:%s',
-    'delivery1': 'Connexion %d -> segment %d -> distribution à partir de la zone %d du tampon',
-    'delivery2': 'Connexion %d -> segment %d -> distribution',
-    'delivery3': 'Connexion %d -> segment %d -> distribution à partir du tampon',
-    'exceeded': 'Connexion %d -> segment %d -> la zone %d a été dépassée par la queue du tampon',
-    'expulsion': 'Connexion %d -> segment %d -> expulsion du tampon',
-    'failure': 'Connexion %d -> segment %d -> échec de distribution du contenu',
-    'deliveryfailure': 'Connexion %d -> échec de distribution du contenu',
-    'deliverystop': 'Connexion %d -> fin de la distribution du contenu',
-    'subdelivery': 'Distribution des sous-titres à %s:%s',
-    'subfailure': 'Échec de distribution des sous-titres à %s:%s',
-  },
   'mediaprovider': {
     'opening': 'Ouverture de "%s" reconnu comme "%s" en mode "%s" - titre: %s',
     'extension': 'Extension de "%s" retenue comme "%s"',
@@ -64,18 +39,32 @@ FR_STRINGS = {
     'segmentfailure': 'Segment %d -> échec de lecture du contenu',
     'loadstop': 'Fin du chargement dans le tampon du contenu',
     'loadinterrupt': 'Interruption du chargement dans le tampon du contenu',
-    'connexion': 'Connexion pour diffusion de "%s": persistente=%s - requêtes partielles=%s',
+    'connexion': 'Connexion pour diffusion de "%s": persistente = %s - requêtes partielles = %s',
+    'yes': 'oui',
+    'no': 'non',
     'indexation': 'Indexation du tampon sur la connexion %d',
     'deindexation': 'Désindexation du tampon',
     'translation': 'Translation du tampon vers la position %d',
-    'present': 'Segment %d -> déjà présent dans la zone %d du tampon',
+    'present': 'Segment %d -> déjà présent dans la zone %d du tampon'
   },
   'mediaserver': {
+    'connexion': 'Connexion au serveur de diffusion de %s:%s',
+    'deliverystart': 'Connexion %d -> début de la distribution du contenu à %s:%s',
+    'delivery1': 'Connexion %d -> segment %d -> distribution à partir de la zone %d du tampon',
+    'delivery2': 'Connexion %d -> segment %d -> distribution',
+    'delivery3': 'Connexion %d -> segment %d -> distribution à partir du tampon',
+    'exceeded': 'Connexion %d -> segment %d -> la zone %d a été dépassée par la queue du tampon',
+    'expulsion': 'Connexion %d -> segment %d -> expulsion du tampon',
+    'failure': 'Connexion %d -> segment %d -> échec de distribution du contenu',
+    'deliveryfailure': 'Connexion %d -> échec de distribution du contenu',
+    'deliverystop': 'Connexion %d -> fin de la distribution du contenu',
+    'subdelivery': 'Distribution des sous-titres à %s:%s',
+    'subfailure': 'Échec de distribution des sous-titres à %s:%s',
     'start': 'Démarrage du serveur de diffusion en mode %s%s',
     'sequential': 'séquentiel',
     'random': 'aléatoire',
     'unsupported': ' non supporté par la source',
-    'shutdown': 'Fermeture du serveur de diffusion',
+    'shutdown': 'Fermeture du serveur de diffusion'
   },
   'dlnanotification': {
     'receipt': 'DLNA Renderer %s -> service %s -> réception de la notification d\'événement %s',
@@ -140,6 +129,13 @@ FR_STRINGS = {
     'shutdown': 'Fermeture du serveur pour Websocket à l\'adresse %s:%s'
   },
   'webinterface': {
+    'connexion': 'Connexion de l\'interface web %s:%s',
+    'response': 'Réponse à l\'interface Web %s:%s - requête: %s',
+    'formdatareceipt': 'Réception de la donnée de formulaire %s de %s:%s',
+    'formdatareject': 'Rejet de la donnée de formulaire %s de %s:%s',
+    'playbackaccept': 'Prise en compte de la demande de lecture de %s%s à partir de %s sur %s de %s:%s',
+    'playbacksub': ' et %s',
+    'playbackreject': 'Rejet de la demande de lecture de %s%s à partir de %s sur %s de %s:%s',
     'rendererstart': 'Démarrage du gestionnaire d\'affichage de renderer pour serveur d\'interface Web',
     'launchrendererstart': 'Démarrage du gestionnaire d\'affichage de renderer dans le formulaire de lancement pour serveur d\'interface Web',
     'rendererstop': 'Arrêt du gestionnaire d\'affichage de renderer pour serveur d\'interface Web',
@@ -255,8 +251,8 @@ class log_event:
 
 class ThreadedDualStackServer(socketserver.ThreadingMixIn, server.HTTPServer):
 
-  def __init__(self, *args, verbosity, auth_ip=None, **kwargs):
-    self.logger = log_event('server', verbosity)
+  def __init__(self, *args, kmod, verbosity, auth_ip=None, **kwargs):
+    self.logger = log_event(kmod, verbosity)
     if auth_ip:
       if isinstance(auth_ip, tuple):
         self.auth_ip = (*auth_ip , socket.gethostbyname(socket.gethostname()), "127.0.0.1")
@@ -268,8 +264,10 @@ class ThreadedDualStackServer(socketserver.ThreadingMixIn, server.HTTPServer):
   
   def server_bind(self):
     self.conn_sockets = []
-    with contextlib.suppress(Exception):
+    try:
       self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+    except:
+      pass
     super().server_bind()
     
   def process_request_thread(self, request, client_address):
@@ -1076,7 +1074,7 @@ class MediaProvider(threading.Thread):
       self.Connection.request('HEAD', self.MediaSrcURL, headers=header)
       rep = self.Connection.getresponse()
       self.Persistent = not rep.will_close
-      self.logger.log(2, 'connexion', self.MediaFeed, LSTRINGS['boolean'][self.Persistent], LSTRINGS['boolean'][self.AcceptRanges])
+      self.logger.log(2, 'connexion', self.MediaFeed, LSTRINGS['mediaprovider'].get('yes' if self.Persistent else 'no', self.Persistent), LSTRINGS['mediaprovider'].get('yes' if self.AcceptRanges else 'no', self.AcceptRanges))
     except:
       self.Status = MediaProvider.STATUS_ABORTED
     if rep:
@@ -1688,7 +1686,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
           if (r_index - 1) * self.MediaBuffer.bloc_size >= req_end:
             break
         if r_index == 0:
-          self.server.logger.log(1, 'deliveryfailure', self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId])
+          self.server.logger.log(1, 'failure', self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId])
           self.close_connection = True
           if first_loop and not self.server.__dict__['_BaseServer__is_shut_down']:
             try:
@@ -1791,7 +1789,7 @@ class MediaServer(threading.Thread):
             except:
               pass
             return
-          with ThreadedDualStackServer(self.MediaServerAddress, self.MediaRequestBoundHandler, verbosity=self.verbosity, auth_ip=self.auth_ip) as self.MediaServerInstance:
+          with ThreadedDualStackServer(self.MediaServerAddress, self.MediaRequestBoundHandler, kmod='mediaserver', verbosity=self.verbosity, auth_ip=self.auth_ip) as self.MediaServerInstance:
             if self.is_running:
               self.logger.log(1, 'start', LSTRINGS['mediaserver'].get({MediaProvider.SERVER_MODE_SEQUENTIAL: 'sequential', MediaProvider.SERVER_MODE_RANDOM: 'random'}.get(self.MediaProviderInstance.ServerMode, ''), ''), '' if self.MediaProviderInstance.ServerMode==MediaProvider.SERVER_MODE_SEQUENTIAL else ('' if self.MediaProviderInstance.AcceptRanges else LSTRINGS['mediaserver'].get('unsupported', 'unsupported')))
               self.MediaServerInstance.serve_forever()
@@ -2216,6 +2214,20 @@ class DLNAEventListener:
     self.Warnings = []
 
 
+class DLNAEventNotificationServer(socketserver.TCPServer):
+
+  def __init__(self, *args, verbosity, **kwargs):
+    self.logger = log_event('dlnanotification', verbosity)
+    super().__init__(*args, **kwargs)
+  
+  def server_bind(self):
+    try:
+      self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+    except:
+      pass
+    super().server_bind()
+    
+
 class DLNAEventNotificationHandler(socketserver.StreamRequestHandler):
 
   def __init__(self, *args, EventListener, **kwargs):
@@ -2357,7 +2369,7 @@ class DLNAAdvertisementHandler(socketserver.DatagramRequestHandler):
       usn = resp.header('USN', '')
       udn = usn[0:6] + usn[6:].split(':', 1)[0]
       desc_url = resp.header('Location','')
-      self.server.logger.log(2, 'receipt', usn, self.client_address[0], self.client_address[1], nts)
+      self.server.logger.log(2, 'receipt', usn, *self.client_address, nts)
       for handler in self.Handlers:
         if not ('Media' + handler.DEVICE_TYPE).lower() in nt.lower():
           continue
@@ -2374,7 +2386,7 @@ class DLNAAdvertisementHandler(socketserver.DatagramRequestHandler):
               if handler._update_devices(desc_url, time_resp):
                 handler.advert_status_change.set()
             else:
-              self.server.logger.log(2, 'ignored', usn, self.client_address[0], self.client_address[1])
+              self.server.logger.log(2, 'ignored', usn, *self.client_address)
         elif 'byebye' in nts.lower():
           for dev in handler.Devices:
             if dev.UDN == udn:
@@ -3049,8 +3061,7 @@ class DLNARendererControler (DLNAHandler):
 
   def _start_event_notification_receiver(self, EventListener, verbosity):
     EventListener.DLNAEventNotificationBoundHandler = partial(DLNAEventNotificationHandler, EventListener=EventListener)
-    with socketserver.TCPServer((self.ip, EventListener.port), EventListener.DLNAEventNotificationBoundHandler) as EventListener.DLNAEventNotificationReceiver:
-      EventListener.DLNAEventNotificationReceiver.logger = log_event('dlnanotification', verbosity)
+    with DLNAEventNotificationServer((self.ip, EventListener.port), EventListener.DLNAEventNotificationBoundHandler, verbosity=verbosity) as EventListener.DLNAEventNotificationReceiver:
       EventListener.DLNAEventNotificationReceiver.serve_forever()
     EventListener.is_running = None
 
@@ -3634,7 +3645,7 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
               if self.send_data(data_value):
                 self.server.logger.log(2, 'datasuccess', *self.server.Address, *self.client_address, data_value)
               else:
-                self.server.logger.log(2, datafailure, *self.server.Address, *self.client_address, data_value)
+                self.server.logger.log(2, 'datafailure', *self.server.Address, *self.client_address, data_value)
                 self.Error = 1002
                 continue
             self.OutgoingSeq[i] = seq_value
@@ -3796,6 +3807,13 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
 class ThreadedWebSocketServer(socketserver.ThreadingTCPServer):
 
   allow_reuse_address = True
+
+  def server_bind(self):
+    try:
+      self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+    except:
+      pass
+    super().server_bind()
 
   def shutdown(self):
     super().shutdown()
@@ -5814,7 +5832,7 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.WebSocketServerControlInstance.shutdown()
 
   def _start_webserver(self):
-    with ThreadedDualStackServer(self.DLNAWebInterfaceServerAddress, DLNAWebInterfaceRequestHandler, verbosity=self.verbosity) as self.DLNAWebInterfaceServerInstance:
+    with ThreadedDualStackServer(self.DLNAWebInterfaceServerAddress, DLNAWebInterfaceRequestHandler, kmod='webinterface', verbosity=self.verbosity) as self.DLNAWebInterfaceServerInstance:
       self.logger.log(0, 'start')
       self.DLNAWebInterfaceServerInstance.Interface = self
       self.DLNAWebInterfaceServerInstance.post_lock = threading.Lock()
