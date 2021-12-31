@@ -171,7 +171,6 @@ FR_STRINGS = {
     'jinterfaceclosed': 'interface close',
     'jback': 'retour',
     'jinitialization': 'initialisation',
-    'jplayback': 'Lecture',
     'jready': 'prêt',
     'jreadyfromstart': 'prêt (lecture à partir du début)',
     'jinprogress': 'en cours',
@@ -180,7 +179,7 @@ FR_STRINGS = {
     'jinstop': 'arrêt',
     'jplaylist': 'Liste de lecture',
     'jurl': 'URL du média',
-    'jstatus': 'Statut :',
+    'jstatus': 'Statut',
     'jtargetposition': 'Position cible',
     'jmstop': 'Arrêter la lecture ?'
   },
@@ -202,6 +201,7 @@ FR_STRINGS = {
     'mediasrc2': 'adresse du contenu multimédia',
     'mediasubsrc': 'adresse du contenu de sous-titres [aucun par défaut]',
     'mediasublang': 'langue de sous-titres, . pour pas de sélection [fr,fre,fra,fr.* par défaut]',
+    'mediasublangcode': 'fr,fre,fra,fr.*',
     'mediastartfrom': 'position temporelle de démarrage ou durée d\'affichage au format H:MM:SS [début/indéfinie par défaut]',
     'slideshowduration': 'durée d\'affichage des images, si mediastrartfrom non défini, au format H:MM:SS [aucune par défaut]',
     'endless': 'lecture en boucle [désactivé par défaut, toujours actif en mode lecture aléatoire de liste]',
@@ -221,6 +221,201 @@ FR_STRINGS = {
   }
 }
 EN_STRINGS = {
+  'mediaprovider': {
+    'opening': 'Opening of "%s" recognized as "%s" in "%s" mode - title: %s',
+    'extension': 'Extension of "%s" recognized as "%s"',
+    'failure': 'Failure of the opening of "%s" as "%s"',
+    'subopening': 'Opening of the subtitles "%s" recognized as "%s"',
+    'subextension': 'Extension of the subtitles recognized as "%s"',
+    'subfailure': 'Failure of the opening of the subtitles "%s" as "%s"',
+    'contentpath': 'content path',
+    'contenturl': 'content url',
+    'webpageurl': 'web page url',
+    'loadstart': 'Start of the loading in the content buffer',
+    'segmentbuffering': 'Segment %d -> placement in the zone %d of the buffer',
+    'segmentfailure': 'Segment %d -> failure of reading of the content',
+    'loadstop': 'End of the loading in the content buffer',
+    'loadinterrupt': 'Interruption of the loading in the content buffer',
+    'connexion': 'Connection for delivery of "%s": persistent = %s - partial requests = %s',
+    'yes': 'yes',
+    'no': 'no',
+    'indexation': 'Indexation of the buffer on the connection %d',
+    'deindexation': 'Deindexation of the buffer',
+    'translation': 'Translation of the buffer to the position %d',
+    'present': 'Segment %d -> already present in the zone %d of the buffer'
+  },
+  'mediaserver': {
+    'connexion': 'Connection to the delivery server of %s:%s',
+    'deliverystart': 'Connection %d -> start of the delivery of the content to %s:%s',
+    'delivery1': 'Connection %d -> segment %d -> delivery from the zone %d of the buffer',
+    'delivery2': 'Connection %d -> segment %d -> delivery',
+    'delivery3': 'Connection %d -> segment %d -> delivery from the buffer',
+    'exceeded': 'Connection %d -> segment %d -> the zone %d has been exceeded by the tail of the buffer',
+    'expulsion': 'Connection %d -> segment %d -> expulsion of the buffer',
+    'failure': 'Connection %d -> segment %d -> failure of the delivery of the content',
+    'deliveryfailure': 'Connection %d -> failure of the delivery of the content',
+    'deliverystop': 'Connection %d -> end of the delivery of the content',
+    'subdelivery': 'delivery of the subtitles to %s:%s',
+    'subfailure': 'Failure of the delivery of the subtitles to %s:%s',
+    'start': 'Start of the delivery server in %s mode%s',
+    'sequential': 'sequential',
+    'random': 'random',
+    'unsupported': ' unsupported by the source',
+    'shutdown': 'Shutdown of the delivery server'
+  },
+  'dlnanotification': {
+    'receipt': 'DLNA Renderer %s -> service %s -> receipt of the notification of event %s',
+    'notification': 'DLNA Renderer %s -> Service %s -> notification of event %s -> %s is changed to %s',
+    'alert': 'DLNA Renderer %s -> Service %s -> notification of event %s -> alerte: %s is changed to %s'
+  },
+  'dlnaadvertisement': {
+    'receipt': 'Receipt of an advertisement from the device %s (%s:%s): %s',
+    'ignored': 'Advertisement of the device %s (%s:%s) ignored due to the mismatch of the address of the description URL',
+    'alreadyactivated': 'Listening of advertisements of DLNA devices already activated',
+    'start': 'Start of the server of listening of advertisements of DLNA devices',
+    'stop': 'Shutdown of the server of listening of advertisements of DLNA devices'
+  },
+  'dlnahandler': {
+    'registering': 'Registration of the %s %s',
+    'msearch1': 'Sending of a search message of uuid:%s',
+    'msearch2': 'Sending of a search message of DLNA device',
+    'msearch3': 'Sending of a search message of DNLA %s',
+    'receipt': 'Receipt of a response to the search message from %s:%s',
+    'ignored': 'Response from %s:%s ignored due to the mismatch of the address of the description URL',
+    'alreadyactivated': 'Search of DNLA %s already activated',
+    'start': 'Start of the search of DLNA %s',
+    'stop': 'End of the search of DLNA %s',
+    'commandabandonment': '%s %s -> service %s -> abandonment of the sending of the command %s',
+    'commandsending': '%s %s -> service %s -> sending of the command %s',
+    'commandfailure': '%s %s -> service %s -> failure of the sending of the command %s',
+    'commandsuccess': '%s %s -> service %s -> success of the sending of the command %s',
+    'responsefailure': '%s %s -> service %s -> failure of the processing of the response to the command %s',
+    'responsesuccess': '%s %s -> service %s -> success of the receipt of the response to the command %s',
+    'advertalreadyactivated': 'Listening of the advertisements of %s already activated',
+    'advertstart': 'Start of the listening of advertisements of %s',
+    'advertstop': 'End of the listening of advertisements of %s',
+    'subscralreadyactivated': 'Renderer %s -> service %s -> subscription to the events server already in place',
+    'subscrfailure': 'Renderer %s -> service %s -> failure of the request of subscription to the events server',
+    'subscrsuccess': 'Renderer %s -> service %s -> subscription to the events server under the SID %s for a period of %s',
+    'subscrrenewfailure': 'Renderer %s -> service %s -> failure of the request of renewal of subscription under SID %s to the events server',
+    'subscrrenewsuccess': 'Renderer %s -> service %s -> renewal of the subscription under SID %s to the events server for a period of %s',
+    'subscrunsubscrfailure': 'Renderer %s -> service %s -> failure of the request of end of subscription under SID %s to the events server',
+    'subscrunsubscrsuccess': 'Renderer %s -> service %s -> end of subscription under SID %s to the events server'
+  },
+  'websocket': {
+    'endacksuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> success of the sending of the acknowledgment of receipt of the notice of end of connection',
+    'endackfailure': 'WebSocket server %s:%s -> WebSocket %s:%s -> failure of the sending of the acknowledgment of receipt of the notice of end of connection',
+    'errorendnotification': 'WebSocket server %s:%s -> WebSocket %s:%s -> sending of a notice of end of connection because of error %s',
+    'errorendnotificationsuccess': 'WebSocket server %s:%s -> WebSocket %s:%s -> success of the sending of the notice of end of connection',
+    'errorendnotificationfailure': 'WebSocket server %s:%s -> WebSocket %s:%s -> failure of the sending of the notice of end of connection',
+    'terminationdatasuccess': 'WebSocket server %s:%s -> WebSocket %s:%s -> success of the sending of the termination data %s',
+    'terminationdatafailure': 'WebSocket server %s:%s -> WebSocket %s:%s -> failure of the sending of the termination data %s',
+    'endnotificationsuccess': 'WebSocket server %s:%s -> WebSocket %s:%s -> success of the sending of the notice of end of connection',
+    'endnotificationfailure': 'WebSocket server %s:%s -> WebSocket %s:%s -> failure of the sending of the notice of end of connection',
+    'datasuccess': 'WebSocket server %s:%s -> WebSocket %s:%s -> sending of the data %s',
+    'datafailure': 'WebSocket server %s:%s -> WebSocket %s:%s -> failure of the sending of the data %s',
+    'datareceipt': 'WebSocket server %s:%s -> WebSocket %s:%s -> receipt of the data %s',
+    'connectionrequest': 'WebSocket server %s:%s -> connection request from the WebSocket %s:%s',
+    'connectionrequestinvalid': 'WebSocket server %s:%s -> connection request from the WebSocket %s:%s invalid',
+    'connectionresponsefailure': 'WebSocket server %s:%s -> failure of the sending of the response to the connection request from the WebSocket %s:%s',
+    'connection': 'WebSocket server %s:%s -> connection to the WebSocket %s:%s',
+    'endack': 'WebSocket server %s:%s -> acknowledgment of end of connection from the WebSocket %s:%s',
+    'endnotification': 'WebSocket server %s:%s -> notice of end of connection from the WebSocket %s:%s',
+    'connectionend': 'WebSocket server %s:%s -> end of connection to the WebSocket %s:%s',
+    'start': 'Start of the server for Websocket at the address %s:%s',
+    'shutdown': 'Shutdonw of the server for Websocket at the address %s:%s'
+  },
+  'webinterface': {
+    'connexion': 'Connection of the Web interface %s:%s',
+    'response': 'Response to the Web interface %s:%s - request: %s',
+    'formdatareceipt': 'Receipt of the form data %s from %s:%s',
+    'formdatareject': 'Rejection of the form data %s from %s:%s',
+    'playbackaccept': 'Acceptance of the playback request of %s%s starting at %s on %s from %s:%s',
+    'playbacksub': ' and %s',
+    'playbackreject': 'Rejection of the playback request of %s%s starting at %s on %s from %s:%s',
+    'rendererstart': 'Start of the display manager of renderer for Web interface server',
+    'launchrendererstart': 'Start of the display manager of renderer in the launch form for Web interface server',
+    'rendererstop': 'Shutdown of the display manager of renderer for Web interface server',
+    'controlstart': 'Start of the playback controller manager for Web interface server',
+    'controlinterrupt': 'Interruption of the playback controller manager for Web interface server',
+    'playlist': 'Playlist generated from the address %s: %s media contents',
+    'nocontent': 'Absence of media content under the address %s',
+    'norendereranswer': 'Absence of response from the renderer %s',
+    'ready': 'Ready for playback of "%s"%s, by %s, on the renderer "%s"',
+    'subtitled': ', subtitled',
+    'direct': 'direct transmission of the address',
+    'random': 'delivery through server in random access mode',
+    'sequential': 'delivery through server in sequential access mode%s',
+    'remuxed': ', remuxed in %s',
+    'controlstop': 'Shutdown of the playback controller manager for Web interface server%s%s%s%s',
+    'status': ' - status ',
+    'start': 'Start of the Web interface server',
+    'alreadyrunning': 'Web interface server already in place',
+    'shutdown': 'Shutdown of the Web interface server',
+    'jstart': 'Launch interface',
+    'jcontrol': 'Control interface',
+    'jrenderers': 'Renderers',
+    'jmwebsocketfailure': 'Failure of the establishment of the WebSocket connection',
+    'jmrenderersclosed': 'Renderers - interface closed',
+    'jmentervalidurl': 'Enter a valid URL',
+    'jmentervalidsuburl': 'Enter a valid subtitles URL',
+    'jmselectrenderer': 'First select a renderer',
+    'jplaybackposition': 'Playback position',
+    'jplay': 'Play',
+    'jpause': 'Pause',
+    'jstop': 'Stop',
+    'jreset': 'Reset',
+    'jinterfaceclosed': 'interface closed',
+    'jback': 'back',
+    'jinitialization': 'initialization',
+    'jready': 'ready',
+    'jreadyfromstart': 'ready (playback from the beginning)',
+    'jinprogress': 'in progress',
+    'jinplayback': 'playback',
+    'jinpause': 'pause',
+    'jinstop': 'stop',
+    'jplaylist': 'Playlist',
+    'jurl': 'Media URL',
+    'jstatus': 'Status',
+    'jtargetposition': 'Target position',
+    'jmstop': 'Stop the playback ?'
+  },
+  'parser': {
+    'help': 'display of the help message and interruption of the script',
+    'ip': 'IP address of the server [address on the network by default]',
+    'port': 'TCP port of the server [8000 by default]',
+    'rendereruuid': 'uuid of the renderer [first renderer without selection on the uuid by default]',
+    'renderername': 'name of the renderer [first renderer without selection on the name by default]',
+    'servertype': 'type of server (a:auto, s:sequential, r:random, n:none) [a by default]',
+    'buffersize': 'size of the buffer in blocks of 1 MB [75 by default]',
+    'bufferahead': 'size of the sub-buffer of loading in advance in blocks of 1 MB [25 by default]',
+    'muxcontainer': 'type of remuxing container preceded by ! so that it is systematic [MP4 by default]',
+    'onreadyplay': 'direct playback as soon as the media content and the renderer are ready [disabled by default]',
+    'displayrenderers': 'Displays the renderers present on the network',
+    'start': 'Starts the interface from the launch page',
+    'control': 'Starts the interface from the control page',
+    'mediasrc1': 'adress of the multimedia content [none by default]',
+    'mediasrc2': 'adress of the multimedia content',
+    'mediasubsrc': 'adress of the subtitles content [none by default]',
+    'mediasublang': 'language of the subtitles, . for no selection [fr,fre,fra,fr.* by default]',
+    'mediasublangcode': 'en,eng,en.*',
+    'mediastartfrom': 'start time position or display duration in format H:MM:SS [start/indefinite by default]',
+    'slideshowduration': 'display duration of the pictures, if mediastrartfrom not defined, in the format H:MM:SS [none by default]',
+    'endless': 'loop playback [disabled by default, always enabled in list random playback mode]',
+    'verbosity': 'verbosity level from 0 to 2 [0 by default]',
+    'stopkey': 'Press "S" to stop',
+    'auto': 'auto',
+    'sequential': 'sequential',
+    'random': 'random',
+    'remuxkey': 'Press "!" and "M" to switch between the remuxing modes (MP4, MPEGTS, !MP4, !MPEGTS) for the next playback session - current mode: %s',
+    'servertypekey': 'Press "T" to switch between the types of server (auto, sequential, random) for the next playback session - current mode: %s',
+    'endlesskey': 'Press "E" to enable/disable the loop playback - current mode: %s',
+    'enabled': 'enabled',
+    'disabled': 'disabled',
+    'remuxnext': 'Remuxing mode for the next playback session: %s',
+    'servertypenext': 'Type of server for the next playback session: %s',
+    'endlessstatus': 'Loop playback: %s'
+  }
 }
 LSTRINGS = EN_STRINGS
 try:
@@ -4277,7 +4472,7 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
       if media_src and renderer:
         self.server.post_lock.acquire()
         if self.server.Interface.TargetStatus == DLNAWebInterfaceServer.INTERFACE_START:
-          self.server.logger.log(1, 'playbackaccept', media_src, LSTRINGS['server'].get('playbacksub', 'playbacksub %s') % media_subsrc if media_subsrc else '', media_startfrom, renderer.FriendlyName, *self.client_address)
+          self.server.logger.log(1, 'playbackaccept', media_src, LSTRINGS['webinterface'].get('playbacksub', 'playbacksub %s') % media_subsrc if media_subsrc else '', media_startfrom, renderer.FriendlyName, *self.client_address)
           self.server.Interface.Renderer = renderer
           self.server.Interface.Renderer_uuid = renderer.UDN[5:]
           self.server.Interface.Renderer_name = renderer.FriendlyName
@@ -4287,7 +4482,7 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
           self.server.Interface.TargetStatus = DLNAWebInterfaceServer.INTERFACE_CONTROL
           self.server.Interface.html_ready = False
         else:
-          self.server.logger.log(1, 'playbackreject', media_src, LSTRINGS['server'].get('playbacksub', 'playbacksub %s') % media_subsrc if media_subsrc else '', media_startfrom, renderer.FriendlyName, *self.client_address)
+          self.server.logger.log(1, 'playbackreject', media_src, LSTRINGS['webinterface'].get('playbacksub', 'playbacksub %s') % media_subsrc if media_subsrc else '', media_startfrom, renderer.FriendlyName, *self.client_address)
         self.server.post_lock.release()
         self.send_response(HTTPStatus.SEE_OTHER)
         self.send_header("Location", "/control.html")
@@ -4840,7 +5035,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '            window.location.replace("##START-URL##");\r\n' \
   '          } else if (event.data == "initialisation") {\r\n' \
   '            document.getElementById("status").innerHTML = "{#jinitialization#}";\r\n' \
-  '            document.getElementById("play-pause").innerHTML = "{#jplayback#}";\r\n' \
+  '            document.getElementById("play-pause").innerHTML = "{#jplay#}";\r\n' \
   '          } else if (event.data == "prêt") {\r\n' \
   '            document.getElementById("status").innerHTML = "{#jready#}";\r\n' \
   '          } else if (event.data == "prêt (lecture à partir du début)") {\r\n' \
@@ -4852,7 +5047,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '            document.getElementById("play-pause").innerHTML = "{#jpause#}";\r\n' \
   '          } else if (event.data == "Pause") {\r\n' \
   '            document.getElementById("status").innerHTML = "{#jinpause#}";\r\n' \
-  '            document.getElementById("play-pause").innerHTML = "{#jplayback#}";\r\n' \
+  '            document.getElementById("play-pause").innerHTML = "{#jplay#}";\r\n' \
   '          } else if (event.data.substring(0,13) == "Showstartfrom") {\r\n' \
   '            if (event.data.substring(14) == "true") {\r\n' \
   '              startfrom.value = "0" + document.getElementById("position").innerHTML;\r\n' \
@@ -4865,7 +5060,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '            }\r\n' \
   '          } else if (event.data == "Arrêt") {\r\n' \
   '            document.getElementById("status").innerHTML = "{#jinstop#}";\r\n' \
-  '            document.getElementById("play-pause").innerHTML = "{#jplayback#}";\r\n' \
+  '            document.getElementById("play-pause").innerHTML = "{#jplay#}";\r\n' \
   '          } else if (event.data.substring(0,8) == "Duration") {\r\n' \
   '            duration = parseInt(event.data.substring(9),10);\r\n' \
   '            let seekduration_d = new Date(duration*1000);\r\n' \
@@ -4947,7 +5142,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      function play_pause_button() {\r\n' \
   '        if (document.getElementById("status").innerHTML != "{#jinitialization#}") {\r\n' \
   '          if (document.getElementById("status").innerHTML == "{#jinstop#}" && duration != 0) {socket.send("Seek:" + seekposition.innerHTML);}\r\n' \
-  '          socket.send(document.getElementById("play-pause").innerHTML=="{#jplayback#}"?"Lecture":"Pause");\r\n' \
+  '          socket.send(document.getElementById("play-pause").innerHTML=="{#jplay#}"?"Lecture":"Pause");\r\n' \
   '        }\r\n' \
   '      }\r\n' \
   '      function stop_button() {\r\n' \
@@ -4982,10 +5177,10 @@ class DLNAWebInterfaceServer(threading.Thread):
   '    </select>&nbsp;<button id="shuffle" style="border:none;vertical-align:middle;display:none;" onclick="shuffle_button()"><svg xmlns="http://www.w3.org/2000/svg" width="15px" height="23px" style="font-size:30px;font-weight:bold;"><text x="-5" y="21" >&nesear;</text></svg></button>\r\n' \
   '    <p style="margin-bottom:0px;">{#jurl#} : </p>\r\n' \
   '    <p id="media_src" style="margin-left:30px;margin-top:10px;font-size:50%;word-wrap:break-word;height:110px;width:90%;overflow-y:auto;white-space:pre-wrap;">##URL##</p>\r\n' \
-  '    <p style="line-height:60px;">{#jstatus#}&nbsp;&nbsp;&nbsp;<span id="status" style="color:rgb(200,250,240);">{#jinitialization#}</span></p>\r\n' \
+  '    <p style="line-height:60px;">{#jstatus#} :&nbsp;&nbsp;&nbsp;<span id="status" style="color:rgb(200,250,240);">{#jinitialization#}</span></p>\r\n' \
   '    <p style="line-height:60px;">{#jplaybackposition#} :&nbsp;&nbsp;&nbsp;<span id="position" style="color:rgb(200,250,240);">-</span></p>\r\n' \
   '    <br>\r\n' \
-  '    <button id="play-pause" style="background-color:rgb(200,250,240);border:none;padding-top:20px;padding-bottom:20px;margin-left:50px;margin-right:75px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="play_pause_button()">{#jplayback#}</button>\r\n' \
+  '    <button id="play-pause" style="background-color:rgb(200,250,240);border:none;padding-top:20px;padding-bottom:20px;margin-left:50px;margin-right:75px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="play_pause_button()">{#jplay#}</button>\r\n' \
   '    <button id="stop" style="background-color:rgb(250,220,200);border:none;padding-top:20px;padding-bottom:20px;margin-left:75px;margin-right:150px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="stop_button()">{#jstop#}</button>\r\n' \
   '    <span id="mute" style="color:red;word-spacing:-30px;cursor:pointer;display:none;" onclick="mute_button()">🔈 <strong style="visibility:hidden;">&setmn;</strong></span>&nbsp;<input type="range" min="0" max="100" value="100" id="volume" style="width:100px;cursor:pointer;display:none;" onchange="volume_range()">\r\n' \
   '    <br>\r\n' \
@@ -5919,14 +6114,14 @@ if __name__ == '__main__':
   subparser_start = subparsers.add_parser('start', aliases=['s'], parents=[common_parser, server_parser], help=LSTRINGS['parser']['start'])
   subparser_start.add_argument('--mediasrc', '-c', metavar='MEDIA_ADDRESS', help=LSTRINGS['parser']['mediasrc1'], default='')
   subparser_start.add_argument('--mediasubsrc', '-s', metavar='MEDIA_SUBADDRESS', help=LSTRINGS['parser']['mediasubsrc'], default='')
-  subparser_start.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help=LSTRINGS['parser']['mediasublang'], default='fr,fre,fra,fr.*')
+  subparser_start.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help=LSTRINGS['parser']['mediasublang'], default='')
   subparser_start.add_argument('--mediastartfrom', '-f', metavar='MEDIA_START_FROM', help=LSTRINGS['parser']['mediastartfrom'], default=None)
   subparser_start.add_argument('--verbosity', '-v', metavar='VERBOSE', help=LSTRINGS['parser']['verbosity'], type=int, choices=[0, 1, 2], default=0)
 
   subparser_control = subparsers.add_parser('control', aliases=['c'], parents=[common_parser, server_parser], help=LSTRINGS['parser']['control'])
   subparser_control.add_argument('mediasrc', metavar='MEDIA_ADDRESS', help=LSTRINGS['parser']['mediasrc2'])
   subparser_control.add_argument('--mediasubsrc', '-s', metavar='MEDIA_SUBADDRESS', help=LSTRINGS['parser']['mediasubsrc'], default='')
-  subparser_control.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help=LSTRINGS['parser']['mediasublang'], default='fr,fre,fra,fr.*')
+  subparser_control.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help=LSTRINGS['parser']['mediasublang'], default='')
   subparser_control.add_argument('--mediastartfrom', '-f', metavar='MEDIA_START_FROM', help=LSTRINGS['parser']['mediastartfrom'], default=None)
   subparser_control.add_argument('--slideshowduration', '-d', metavar='SLIDESHOW_DURATION', help=LSTRINGS['parser']['slideshowduration'], default=None)
   subparser_control.add_argument('--endless', '-e', help=LSTRINGS['parser']['endless'], action='store_true')
@@ -5941,9 +6136,9 @@ if __name__ == '__main__':
   if args.command in ('display_renderers', 'r'):
     DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS, verbosity=args.verbosity)
   elif args.command in ('start', 's'):
-    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_START, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None) , MediaSrc=os.path.abspath(args.mediasrc) if args.mediasrc and not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if args.mediasublang != '.' else '', verbosity=args.verbosity)
+    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_START, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None) , MediaSrc=os.path.abspath(args.mediasrc) if args.mediasrc and not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if (args.mediasublang and args.mediasublang != '.') else ('' if args.mediasublang == '.' else LSTRINGS['parser'].get('mediasublangcode', '')), verbosity=args.verbosity)
   elif args.command in ('control', 'c'):
-    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None), MediaSrc=os.path.abspath(args.mediasrc) if not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if args.mediasublang != '.' else '', SlideshowDuration=args.slideshowduration, EndLess=args.endless, verbosity=args.verbosity)
+    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None), MediaSrc=os.path.abspath(args.mediasrc) if not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if (args.mediasublang and args.mediasublang != '.') else ('' if args.mediasublang == '.' else LSTRINGS['parser'].get('mediasublangcode', '')), SlideshowDuration=args.slideshowduration, EndLess=args.endless, verbosity=args.verbosity)
 
   DLNAWebInterfaceServerInstance.start()
   webbrowser.open('http://%s:%s/' % DLNAWebInterfaceServerInstance.DLNAWebInterfaceServerAddress)
