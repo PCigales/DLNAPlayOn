@@ -22,24 +22,241 @@ import base64
 import webbrowser
 import mimetypes
 import random
+import locale
+
+FR_STRINGS = {
+  'boolean': {
+    True: 'oui',
+    False: 'non'
+  },
+  'server': {
+    'connexion': 'Connexion de %s:%s',
+    'response': 'Réponse à l\'interface Web %s:%s - requête: %s',
+    'formdatareceipt': 'Réception de la donnée de formulaire %s de %s:%s',
+    'formdatareject': 'Rejet de la donnée de formulaire %s de %s:%s',
+    'playbackaccept': 'Prise en compte de la demande de lecture de %s%s à partir de %s sur %s de %s:%s',
+    'playbacksub': ' et %s',
+    'playbackreject': 'Rejet de la demande de lecture de %s%s à partir de %s sur %s de %s:%s',
+    'deliverystart': 'Connexion %d -> début de la distribution du contenu à %s:%s',
+    'delivery1': 'Connexion %d -> segment %d -> distribution à partir de la zone %d du tampon',
+    'delivery2': 'Connexion %d -> segment %d -> distribution',
+    'delivery3': 'Connexion %d -> segment %d -> distribution à partir du tampon',
+    'exceeded': 'Connexion %d -> segment %d -> la zone %d a été dépassée par la queue du tampon',
+    'expulsion': 'Connexion %d -> segment %d -> expulsion du tampon',
+    'failure': 'Connexion %d -> segment %d -> échec de distribution du contenu',
+    'deliveryfailure': 'Connexion %d -> échec de distribution du contenu',
+    'deliverystop': 'Connexion %d -> fin de la distribution du contenu',
+    'subdelivery': 'Distribution des sous-titres à %s:%s',
+    'subfailure': 'Échec de distribution des sous-titres à %s:%s',
+  },
+  'mediaprovider': {
+    'opening': 'Ouverture de "%s" reconnu comme "%s" en mode "%s" - titre: %s',
+    'extension': 'Extension de "%s" retenue comme "%s"',
+    'failure': 'Échec de l\'ouverture de "%s" en tant que "%s"',
+    'subopening': 'Ouverture des sous-titres "%s" reconnus comme "%s"',
+    'subextension': 'Extension des sous_titres retenue comme "%s"',
+    'subfailure': 'Échec de l\'ouverture des sous-titres "%s" en tant que "%s"',
+    'contentpath': 'chemin d\'accès de contenu',
+    'contenturl': 'url de contenu',
+    'webpageurl': 'url de page web',
+    'loadstart': 'Début du chargement dans le tampon du contenu',
+    'segmentbuffering': 'Segment %d -> placement dans la zone %d du tampon',
+    'segmentfailure': 'Segment %d -> échec de lecture du contenu',
+    'loadstop': 'Fin du chargement dans le tampon du contenu',
+    'loadinterrupt': 'Interruption du chargement dans le tampon du contenu',
+    'connexion': 'Connexion pour diffusion de "%s": persistente=%s - requêtes partielles=%s',
+    'indexation': 'Indexation du tampon sur la connexion %d',
+    'deindexation': 'Désindexation du tampon',
+    'translation': 'Translation du tampon vers la position %d',
+    'present': 'Segment %d -> déjà présent dans la zone %d du tampon',
+  },
+  'mediaserver': {
+    'start': 'Démarrage du serveur de diffusion en mode %s%s',
+    'sequential': 'séquentiel',
+    'random': 'aléatoire',
+    'unsupported': ' non supporté par la source',
+    'shutdown': 'Fermeture du serveur de diffusion',
+  },
+  'dlnanotification': {
+    'receipt': 'DLNA Renderer %s -> service %s -> réception de la notification d\'événement %s',
+    'notification': 'DLNA Renderer %s -> Service %s -> notification d\'événement %s -> %s est passé à %s',
+    'alert': 'DLNA Renderer %s -> Service %s -> notification d\'événement %s -> alerte: %s est passé à %s'
+  },
+  'dlnaadvertisement': {
+    'receipt': 'Réception d\'une publicité du périphérique %s (%s:%s): %s',
+    'ignored': 'Publicité du périphérique %s (%s:%s) ignorée en raison de la discordance d\'adresse de l\'URL de description',
+    'alreadyactivated': 'Écoute des publicités de périphérique DLNA déjà activée',
+    'start': 'Démarrage du serveur d\'écoute des publicités de périphérique DLNA',
+    'stop': 'Arrêt du serveur d\'écoute des publicités de périphérique DLNA'
+  },
+  'dlnahandler': {
+    'registering': 'Enregistrement du %s %s',
+    'msearch1': 'Envoi d\'un message de recherche de uuid:%s',
+    'msearch2': 'Envoi d\'un message de recherche de périphérique DLNA',
+    'msearch3': 'Envoi d\'un message de recherche de %s DLNA',
+    'receipt': 'Réception d\'une réponse au message de recherche de %s:%s',
+    'ignored': 'Réponse de %s:%s ignorée en raison de la discordance d\'adresse de l\'URL de description',
+    'alreadyactivated': 'Recherche de %s DLNA déjà activée',
+    'start': 'Démarrage de la recherche de %s DLNA',
+    'stop': 'Fin de la recherche de %s DLNA',
+    'commandabandonment': '%s %s -> service %s -> abandon de l\'envoi de la commande %s',
+    'commandsending': '%s %s -> service %s -> envoi de la commande %s',
+    'commandfailure': '%s %s -> service %s -> échec de l\'envoi de la commande %s',
+    'commandsuccess': '%s %s -> service %s -> succès de l\'envoi de la commande %s',
+    'responsefailure': '%s %s -> service %s -> échec du traitement de la réponse à la commande %s',
+    'responsesuccess': '%s %s -> service %s -> succès de la réception de la réponse à la commande %s',
+    'advertalreadyactivated': 'Écoute des publicités de %s déjà activée',
+    'advertstart': 'Démarrage de l\'écoute des publicités de %s',
+    'advertstop': 'Fin de l\'écoute des publicités de %s',
+    'subscralreadyactivated': 'Renderer %s -> service %s -> souscription au serveur d\'événements déjà en place',
+    'subscrfailure': 'Renderer %s -> service %s -> échec de la demande de souscription au serveur d\'événements',
+    'subscrsuccess': 'Renderer %s -> service %s -> souscription au serveur d\'événements sous le SID %s pour une durée de %s',
+    'subscrrenewfailure': 'Renderer %s -> service %s -> échec de la demande de renouvellement de souscription de SID %s au serveur d\'événements',
+    'subscrrenewsuccess': 'Renderer %s -> service %s -> renouvellement de la souscription de SID %s au serveur d\'événements pour une durée de %s',
+    'subscrunsubscrfailure': 'Renderer %s -> service %s -> échec de la demande de fin de souscription de SID %s au serveur d\'événements',
+    'subscrunsubscrsuccess': 'Renderer %s -> service %s -> fin de la souscription de SID %s au serveur d\'événements'
+  },
+  'websocket': {
+    'endacksuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de l\'accusé de réception de l\'avis de fin de connexion',
+    'endackfailure': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de l\'accusé de réception de l\'avis de fin de connexion',
+    'errorendnotification': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> envoi d\'avis de fin de connexion pour cause d\'erreur %s',
+    'errorendnotificationsuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de l\'avis de fin de connexion',
+    'errorendnotificationfailure': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de l\'avis de fin de connexion',
+    'terminationdatasuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de la donnée de terminaison %s',
+    'terminationdatafailure': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de la donnée de terminaison %s',
+    'endnotificationsuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de l\'avis de fin de connexion',
+    'endnotificationfailure': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de l\'avis de fin de connexion',
+    'datasuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> envoi de la donnée %s',
+    'datafailure': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de la donnée %s',
+    'datareceipt': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> réception de la donnée %s',
+    'connexionrequest': 'WebSocket serveur %s:%s -> demande de connexion du WebSocket %s:%s',
+    'connexionrequestinvalid': 'WebSocket serveur %s:%s -> demande de connexion du WebSocket %s:%s invalide',
+    'connexionresponsefailure': 'WebSocket serveur %s:%s -> échec de l\'envoi de la réponse à la demande de connexion du WebSocket %s:%s',
+    'connexion': 'WebSocket serveur %s:%s -> connexion au WebSocket %s:%s',
+    'endack': 'WebSocket serveur %s:%s -> accusé de réception de fin de connexion du WebSocket %s:%s',
+    'endnotification': 'WebSocket serveur %s:%s -> avis de fin de connexion du WebSocket %s:%s',
+    'connexionend': 'WebSocket serveur %s:%s -> fin de connexion au WebSocket %s:%s',
+    'start': 'Démarrage du serveur pour Websocket à l\'adresse %s:%s',
+    'shutdown': 'Fermeture du serveur pour Websocket à l\'adresse %s:%s'
+  },
+  'webinterface': {
+    'rendererstart': 'Démarrage du gestionnaire d\'affichage de renderer pour serveur d\'interface Web',
+    'launchrendererstart': 'Démarrage du gestionnaire d\'affichage de renderer dans le formulaire de lancement pour serveur d\'interface Web',
+    'rendererstop': 'Arrêt du gestionnaire d\'affichage de renderer pour serveur d\'interface Web',
+    'controlstart': 'Démarrage du gestionnaire de contrôleur de lecture pour serveur d\'interface Web',
+    'controlinterrupt': 'Interruption du gestionnaire de contrôleur de lecture pour serveur d\'interface Web',
+    'playlist': 'Liste de lecture générée depuis l\'adresse %s: %s contenus média',
+    'nocontent': 'Absence de contenu média sous l\'adresse %s',
+    'norendereranswer': 'Absence de réponse du renderer %s',
+    'ready': 'Prêt pour lecture de "%s"%s, par %s, sur le renderer "%s"',
+    'subtitled': ', sous-titrée',
+    'direct': 'transmission directe de l\'adresse',
+    'random': 'diffusion via serveur en mode accès aléatoire',
+    'sequential': 'diffusion via serveur en mode accès séquentiel%s',
+    'remuxed': ', remuxé en %s',
+    'controlstop': 'Arrêt du gestionnaire de contrôleur de lecture pour serveur d\'interface Web%s%s%s%s',
+    'status': ' - statut ',
+    'start': 'Démarrage du serveur d\'interface Web',
+    'alreadyrunning': 'Serveur d\'interface Web déjà en place',
+    'shutdown': 'Fermeture du serveur d\'interface Web',
+    'jstart': 'Interface de démarrage',
+    'jcontrol': 'Interface de contrôle',
+    'jrenderers': 'Renderers',
+    'jmwebsocketfailure': 'Échec de l\'établissement de la connexion WebSocket',
+    'jmrenderersclosed': 'Renderers - interface close',
+    'jmentervalidurl': 'Saisissez une URL valide',
+    'jmentervalidsuburl': 'Saisissez une URL de sous-titres valide',
+    'jmselectrenderer': 'Sélectionnez d\'abord un renderer',
+    'jplaybackposition': 'Position de lecture',
+    'jplay': 'Lire',
+    'jpause': 'Pause',
+    'jstop': 'Arrêt',
+    'jreset': 'Réinitialiser',
+    'jinterfaceclosed': 'interface close',
+    'jback': 'retour',
+    'jinitialization': 'initialisation',
+    'jplayback': 'Lecture',
+    'jready': 'prêt',
+    'jreadyfromstart': 'prêt (lecture à partir du début)',
+    'jinprogress': 'en cours',
+    'jinplayback': 'lecture',
+    'jinpause': 'pause',
+    'jinstop': 'arrêt',
+    'jplaylist': 'Liste de lecture',
+    'jurl': 'URL du média',
+    'jstatus': 'Statut :',
+    'jtargetposition': 'Position cible',
+    'jmstop': 'Arrêter la lecture ?'
+  },
+  'parser': {
+    'help': 'affichage du message d\'aide et interruption du script',
+    'ip': 'adresse IP du serveur [adresse sur le réseau par défaut]',
+    'port': 'port TCP du serveur [8000 par défaut]',
+    'rendereruuid': 'uuid du renderer [premier renderer sans sélection sur l\'uuid par défaut]',
+    'renderername': 'nom du renderer [premier renderer sans sélection sur le nom par défaut]',
+    'servertype': 'type de serveur (a:auto, s:séquentiel, r:aléatoire, n:aucun) [a par défaut]',
+    'buffersize': 'taille du tampon en blocs de 1 Mo [75 par défaut]',
+    'bufferahead': 'taille du sous-tampon de chargement par anticipation en blocs de 1 Mo [25 par défaut]',
+    'muxcontainer': 'type de conteneur de remuxage précédé de ! pour qu\'il soit systématique [MP4 par défaut]',
+    'onreadyplay': 'lecture directe dès que le contenu média et le renderer sont prêts [désactivé par défaut]',
+    'displayrenderers': 'Affiche les renderers présents sur le réseau',
+    'start': 'Démarre l\'interface à partir de la page de lancement',
+    'control': 'Démarre l\'interface à partir de la page de contrôle',
+    'mediasrc1': 'adresse du contenu multimédia [aucune par défaut]',
+    'mediasrc2': 'adresse du contenu multimédia',
+    'mediasubsrc': 'adresse du contenu de sous-titres [aucun par défaut]',
+    'mediasublang': 'langue de sous-titres, . pour pas de sélection [fr,fre,fra,fr.* par défaut]',
+    'mediastartfrom': 'position temporelle de démarrage ou durée d\'affichage au format H:MM:SS [début/indéfinie par défaut]',
+    'slideshowduration': 'durée d\'affichage des images, si mediastrartfrom non défini, au format H:MM:SS [aucune par défaut]',
+    'endless': 'lecture en boucle [désactivé par défaut, toujours actif en mode lecture aléatoire de liste]',
+    'verbosity': 'niveau de verbosité de 0 à 2 [0 par défaut]',
+    'stopkey': 'Appuyez sur "S" pour stopper',
+    'auto': 'auto',
+    'sequential': 'séquentiel',
+    'random': 'aléatoire',
+    'remuxkey': 'Appuyez sur "!" et "M" pour alterner entre les modes de remuxage (MP4, MPEGTS, !MP4, !MPEGTS) pour la prochaine session de lecture - mode actuel: %s',
+    'servertypekey': 'Appuyez sur "T" pour alterner entre les types de serveur (auto, séquentiel, aléatoire) pour la prochaine session de lecture - mode actuel: %s',
+    'endlesskey': 'Appuyez sur "E" pour activer/désactiver la lecture en boucle - mode actuel: %s',
+    'enabled': 'activé',
+    'disabled': 'désactivé',
+    'remuxnext': 'Mode de remuxage pour la prochaine session de lecture: %s',
+    'servertypenext': 'Type de serveur pour la prochaine session de lecture: %s',
+    'endlessstatus': 'Lecture en boucle: %s'
+  }
+}
+EN_STRINGS = {
+}
+LSTRINGS = EN_STRINGS
+try:
+  if locale.getdefaultlocale()[0][:2].lower() == 'fr':
+    LSTRINGS = FR_STRINGS
+except:
+  pass
 
 
 class log_event:
 
-  def __init__(self, verbosity):
+  def __init__(self, kmod, verbosity):
+    self.kmod = kmod
     self.verbosity = verbosity
 
-  def log(self, msg, level):
+  def log(self, level, kmsg, *var):
     if level <= self.verbosity:
       now = time.localtime()
       s_now = '%02d/%02d/%04d %02d:%02d:%02d' % (now.tm_mday, now.tm_mon, now.tm_year, now.tm_hour, now.tm_min, now.tm_sec)
-      print(s_now, ':', msg)
+      try:
+        print(s_now, ':', LSTRINGS[self.kmod][kmsg] % var)
+      except:
+        try:
+          print(s_now, ':', kmsg % var)
+        except:
+          print(s_now, ':', kmsg)
 
 
 class ThreadedDualStackServer(socketserver.ThreadingMixIn, server.HTTPServer):
 
   def __init__(self, *args, verbosity, auth_ip=None, **kwargs):
-    self.logger = log_event(verbosity)
+    self.logger = log_event('server', verbosity)
     if auth_ip:
       if isinstance(auth_ip, tuple):
         self.auth_ip = (*auth_ip , socket.gethostbyname(socket.gethostname()), "127.0.0.1")
@@ -57,7 +274,7 @@ class ThreadedDualStackServer(socketserver.ThreadingMixIn, server.HTTPServer):
     
   def process_request_thread(self, request, client_address):
     self.conn_sockets.append(request)
-    self.logger.log('Connexion de %s:%s' % (client_address[0], client_address[1]), 2)
+    self.logger.log(2, 'connexion', *client_address)
     super().process_request_thread(request, client_address)
 
   def shutdown(self):
@@ -122,7 +339,7 @@ class MediaProvider(threading.Thread):
 
   def __init__(self, ServerMode, MediaSrc, MediaSrcType=None, MediaStartFrom=None, MediaBuffer=None, MediaBufferAhead=None, MediaMuxContainer=None, MediaSubSrc=None, MediaSubSrcType=None, MediaSubLang=None, MediaSubBuffer=None, MediaProcessProfile=None, FFmpegPort=None, BuildFinishedEvent=None, verbosity=0):
     threading.Thread.__init__(self)
-    self.logger = log_event(verbosity)
+    self.logger = log_event('mediaprovider', verbosity)
     self.ServerMode = ServerMode if ServerMode in (MediaProvider.SERVER_MODE_SEQUENTIAL, MediaProvider.SERVER_MODE_RANDOM) else MediaProvider.SERVER_MODE_AUTO
     self.MediaSrc = MediaSrc
     self.MediaSrcType = MediaSrcType
@@ -734,7 +951,7 @@ class MediaProvider(threading.Thread):
         pass
     if not self.shutdown_requested:
       if self.MediaFeed:
-        self.logger.log('Ouverture de "%s" reconnu comme "%s" en mode "%s" - titre: %s' % (self.MediaSrc, self.MediaSrcType, MediaProvider.SERVER_MODES[self.ServerMode], self.MediaTitle), 1)
+        self.logger.log(1, 'opening', self.MediaSrc, LSTRINGS['mediaprovider'].get(self.MediaSrcType.lower(), self.MediaSrcType), MediaProvider.SERVER_MODES[self.ServerMode], self.MediaTitle)
         if self.MediaFeedExt:
           media_mime = mimetypes.guess_type('f' + self.MediaFeedExt)[0]
           if media_mime:
@@ -747,7 +964,7 @@ class MediaProvider(threading.Thread):
         if not self.MediaFeedExt and self.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
           if 'mp4' in self.MediaFeed.lower():
             self.MediaFeedExt = '.mp4'
-        self.logger.log('Extension de "%s" retenue comme "%s"' % (self.MediaSrc, self.MediaFeedExt), 2)
+        self.logger.log(2, 'extension', self.MediaSrc, self.MediaFeedExt)
         if self.MediaSubSrc:
           if self.MediaSubSrcType.lower() == 'ContentPath'.lower():
             try:
@@ -791,13 +1008,13 @@ class MediaProvider(threading.Thread):
             except:
               pass
           if self.MediaSubBuffer[0]:
-            self.logger.log('Ouverture des sous-titres "%s" reconnus comme "%s"' % (self.MediaSubSrc, self.MediaSubSrcType), 1)
-            self.logger.log('Extension des sous_titres retenue comme "%s"' % self.MediaSubBuffer[1], 2)
+            self.logger.log(1, 'subopening', self.MediaSubSrc, LSTRINGS['mediaprovider'].get(self.MediaSubSrcType.lower(), self.MediaSubSrcType))
+            self.logger.log(2, 'subextension', self.MediaSubBuffer[1])
           else:
-            self.logger.log('Échec de l\'ouverture des sous-titres "%s" en tant que "%s"' % (self.MediaSubSrc, self.MediaSubSrcType), 0)
+            self.logger.log(0, 'subfailure', self.MediaSubSrc, LSTRINGS['mediaprovider'].get(self.MediaSubSrcType.lower(), self.MediaSubSrcType))
         return True
       else:
-        self.logger.log('Échec de l\'ouverture de "%s" en tant que "%s"' % (self.MediaSrc, self.MediaSrcType), 0)
+        self.logger.log(0, 'failure', self.MediaSrc, LSTRINGS['mediaprovider'].get(self.MediaSrcType.lower(), self.MediaSrcType))
         return False
     else:
       return None
@@ -805,7 +1022,7 @@ class MediaProvider(threading.Thread):
   def MediaFeederS(self):
     if not self.MediaBuffer:
       return
-    self.logger.log('Début du chargement dans le tampon du contenu', 1)
+    self.logger.log(1, 'loadstart')
     self.MediaBuffer.w_index = 1
     while self.Status != MediaProvider.STATUS_ABORTED and not self.shutdown_requested and self.MediaBuffer.w_index > 0:
       while self.Status != MediaProvider.STATUS_ABORTED and not self.shutdown_requested and self.MediaBuffer.w_index <= max(max(self.MediaBuffer.r_indexes, default=0), 1) + self.MediaBufferAhead:
@@ -814,13 +1031,13 @@ class MediaProvider(threading.Thread):
           bloc = self.MediaFeed.read(self.MediaBuffer.bloc_size)
         except:
           self.Status = MediaProvider.STATUS_ABORTED
-          self.logger.log('Segment %d -> échec de lecture du contenu' % (self.MediaBuffer.w_index), 1)
+          self.logger.log(1, 'segmentfailure', self.MediaBuffer.w_index)
         if not bloc:
           self.MediaBuffer.w_index = - abs(self.MediaBuffer.w_index)
           break
         else:
           self.MediaBuffer.content[(self.MediaBuffer.w_index - 1) % self.MediaBufferSize] = bloc
-          self.logger.log('Segment %d -> placement dans la zone %d du tampon' % (self.MediaBuffer.w_index, (self.MediaBuffer.w_index - 1) % self.MediaBufferSize), 2)
+          self.logger.log(2, 'segmentbuffering', self.MediaBuffer.w_index, (self.MediaBuffer.w_index - 1) % self.MediaBufferSize)
           self.MediaBuffer.w_index += 1
           self.MediaBuffer.w_condition.acquire()
           self.MediaBuffer.w_condition.notify_all()
@@ -830,9 +1047,9 @@ class MediaProvider(threading.Thread):
         self.MediaBuffer.r_event.clear()
     if self.Status != MediaProvider.STATUS_ABORTED and not self.shutdown_requested:
       self.Status = MediaProvider.STATUS_COMPLETED
-      self.logger.log('Fin du chargement dans le tampon du contenu', 1)
+      self.logger.log(1, 'loadstop')
     else:
-      self.logger.log('Interruption du chargement dans le tampon du contenu', 1)
+      self.logger.log(1, 'loadinterrupt')
     self.MediaBuffer.w_condition.acquire()
     self.MediaBuffer.w_condition.notify_all()
     self.MediaBuffer.w_condition.release()
@@ -844,7 +1061,7 @@ class MediaProvider(threading.Thread):
   def MediaFeederR(self):
     if not self.MediaSize:
       return
-    self.logger.log('Début du chargement dans le tampon du contenu', 1)
+    self.logger.log(1, 'loadstart')
     header = {'User-Agent': 'Lavf'}
     header['Range'] = 'bytes=0-'
     header['Connection'] = 'keep-alive'
@@ -859,7 +1076,7 @@ class MediaProvider(threading.Thread):
       self.Connection.request('HEAD', self.MediaSrcURL, headers=header)
       rep = self.Connection.getresponse()
       self.Persistent = not rep.will_close
-      self.logger.log('Connexion pour diffusion de "%s": persistente=%s - requêtes partielles=%s' % (self.MediaFeed, 'vrai' if self.Persistent else 'faux', 'vrai' if self.AcceptRanges else 'faux'), 2)
+      self.logger.log(2, 'connexion', self.MediaFeed, LSTRINGS['boolean'][self.Persistent], LSTRINGS['boolean'][self.AcceptRanges])
     except:
       self.Status = MediaProvider.STATUS_ABORTED
     if rep:
@@ -881,14 +1098,14 @@ class MediaProvider(threading.Thread):
       if t_index != None:
         if self.MediaBuffer.t_index != t_index:
           self.MediaBuffer.t_index = t_index
-          self.logger.log('Indexation du tampon sur la connexion %d' % (self.MediaBuffer.t_index + 1), 2)
+          self.logger.log(2, 'indexation', self.MediaBuffer.t_index + 1)
           self.MediaBuffer.w_condition.acquire()
           self.MediaBuffer.w_condition.notify_all()
           self.MediaBuffer.w_condition.release()
         r_index = self.MediaBuffer.r_indexes[t_index]
       elif self.MediaBuffer.t_index != None:
         self.MediaBuffer.t_index = None
-        self.logger.log('Désindexation du tampon', 2)
+        self.logger.log(2, 'deindexation')
       if r_index and (r_index -1) * self.MediaBuffer.bloc_size < self.MediaSize:
         if r_index < self.MediaBuffer.w_index or ((r_index if self.AcceptRanges else 1) > self.MediaBuffer.w_index + self.MediaBuffer.len):
           self.MediaBuffer.w_condition.acquire()
@@ -899,7 +1116,7 @@ class MediaProvider(threading.Thread):
           self.MediaBuffer.w_index = r_index if self.AcceptRanges else 1
           self.MediaBuffer.len = 0
           self.MediaBuffer.w_condition.release()
-          self.logger.log('Translation du tampon vers la position %d' % self.MediaBuffer.w_index, 2)
+          self.logger.log(2, 'translation', self.MediaBuffer.w_index)
           if rep:
             try:
               rep.close()
@@ -910,7 +1127,7 @@ class MediaProvider(threading.Thread):
           if self.MediaBuffer.len < self.MediaBufferSize:
             if self.MediaBuffer.content[self.MediaBuffer.len] and self.AcceptRanges and not rep:
               self.MediaBuffer.len += 1
-              self.logger.log('Segment %d -> déjà présent dans la zone %d du tampon' % (self.MediaBuffer.w_index + self.MediaBuffer.len - 1, self.MediaBuffer.len), 2)
+              self.logger.log(2, 'present', self.MediaBuffer.w_index + self.MediaBuffer.len - 1, self.MediaBuffer.len)
               self.MediaBuffer.w_condition.acquire()
               self.MediaBuffer.w_condition.notify_all()
               self.MediaBuffer.w_condition.release()
@@ -964,7 +1181,7 @@ class MediaProvider(threading.Thread):
               bloc = None
           if not bloc:
             self.Status = MediaProvider.STATUS_ABORTED
-            self.logger.log('Segment %d -> échec de lecture du contenu' % (self.MediaBuffer.w_index + self.MediaBuffer.len), 1)
+            self.logger.log(1, 'segmentfailure', self.MediaBuffer.w_index + self.MediaBuffer.len)
             try:
               self.Connection.close()
             except:
@@ -985,9 +1202,9 @@ class MediaProvider(threading.Thread):
             else:
               self.MediaBuffer.w_index += 1
               del self.MediaBuffer.content[0]
-              self.logger.log('Translation du tampon vers la position %d' % self.MediaBuffer.w_index, 2)
+              self.logger.log(2, 'translation', self.MediaBuffer.w_index)
               self.MediaBuffer.content += [bloc]
-            self.logger.log('Segment %d -> placement dans la zone %d du tampon' % (self.MediaBuffer.w_index + self.MediaBuffer.len - 1, self.MediaBuffer.len), 2)
+            self.logger.log(2, 'segmentbuffering', self.MediaBuffer.w_index + self.MediaBuffer.len - 1, self.MediaBuffer.len)
             self.MediaBuffer.w_condition.notify_all()
             self.MediaBuffer.w_condition.release()
         elif self.Status != MediaProvider.STATUS_ABORTED and not self.shutdown_requested:
@@ -1002,9 +1219,9 @@ class MediaProvider(threading.Thread):
       pass
     if self.Status != MediaProvider.STATUS_ABORTED and not self.shutdown_requested:
       self.Status = MediaProvider.STATUS_COMPLETED
-      self.logger.log('Fin du chargement dans le tampon du contenu', 1)
+      self.logger.log(1, 'loadstop')
     else:
-      self.logger.log('Interruption du chargement dans le tampon du contenu', 1)
+      self.logger.log(1, 'loadinterrupt')
     self.MediaBuffer.t_index = -1
     self.MediaBuffer.w_condition.acquire()
     self.MediaBuffer.w_condition.notify_all()
@@ -1064,9 +1281,6 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
     self.MediaExt = MediaExt
     super().__init__(*args, **kwargs)
 
-  def log_message(self, format, *args):
-    self.server.logger.log(format%args, 1)
-  
   def send_head(self):
     if self.server.auth_ip:
       if not self.client_address[0] in self.server.auth_ip:
@@ -1178,11 +1392,11 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
     if source in ('mediasub', 'mediasubsmi'):
       try:
         outputfile.write(hex(len(self.MediaSubBuffer[0] if source == 'mediasub' else self.MediaSubBuffer[2])).encode("ISO-8859-1")[2:] + b"\r\n" + (self.MediaSubBuffer[0] if source == 'mediasub' else self.MediaSubBuffer[2]) + b"\r\n")
-        self.server.logger.log('Distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 2)
+        self.server.logger.log(2, 'subdelivery', *self.client_address)
       except:
-        self.server.logger.log('Échec de distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 1)
+        self.server.logger.log(1, 'subfailure', *self.client_address)
     else:
-      self.server.logger.log('Connexion %d -> début de la distribution du contenu à %s:%s' % (self.MediaBufferId + 1, self.client_address[0], self.client_address[1]), 1)
+      self.server.logger.log(1, 'deliverystart', self.MediaBufferId + 1, *self.client_address)
       self.MediaBuffer.r_indexes[self.MediaBufferId] = 1
       while not self.MediaBuffer.r_indexes[self.MediaBufferId] == - self.MediaBuffer.w_index:
         self.MediaBuffer.w_condition.acquire()
@@ -1196,20 +1410,20 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
         if self.MediaBuffer.r_indexes[self.MediaBufferId] != - self.MediaBuffer.w_index:
           bloc = self.MediaBuffer.content[(self.MediaBuffer.r_indexes[self.MediaBufferId] -1) % self.MediaBufferSize]
           if self.MediaBuffer.r_indexes[self.MediaBufferId] <= abs(self.MediaBuffer.w_index) - self.MediaBufferSize:
-            self.server.logger.log('Connexion %d -> segment %d -> la zone %d a été dépassée par la queue du tampon' % (self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId], (self.MediaBuffer.r_indexes[self.MediaBufferId] - 1) % self.MediaBufferSize), 2)
-            self.server.logger.log('Connexion %d -> segment %d -> échec de distribution du contenu' % (self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId]), 1)
+            self.server.logger.log(2, 'exceeded', self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId], (self.MediaBuffer.r_indexes[self.MediaBufferId] - 1) % self.MediaBufferSize)
+            self.server.logger.log(1, 'failure', self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId])
             break
           else:
             try:
               outputfile.write(hex(len(bloc)).encode("ISO-8859-1")[2:] + b"\r\n" + bloc + b"\r\n")
-              self.server.logger.log('Connexion %d -> segment %d -> distribution à partir de la zone %d du tampon' % (self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId], (self.MediaBuffer.r_indexes[self.MediaBufferId] - 1) % self.MediaBufferSize), 2)
+              self.server.logger.log(2, 'delivery1', self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId], (self.MediaBuffer.r_indexes[self.MediaBufferId] - 1) % self.MediaBufferSize)
               self.MediaBuffer.r_indexes[self.MediaBufferId] += 1
               self.MediaBuffer.r_event.set()
             except:
-               self.server.logger.log('Connexion %d -> segment %d -> échec de distribution du contenu' % (self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId]), 1)
+               self.server.logger.log(1, 'failure', self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId])
                break
       self.MediaBuffer.r_indexes[self.MediaBufferId] = - self.MediaBuffer.r_indexes[self.MediaBufferId]
-      self.server.logger.log('Connexion %d -> fin de la distribution du contenu' % (self.MediaBufferId + 1), 1)
+      self.server.logger.log(1, 'deliverystop', self.MediaBufferId + 1)
     try:
       outputfile.write(b"0\r\n\r\n")
     except:
@@ -1250,9 +1464,6 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
     self.MediaSize = MediaSize
     self.AcceptRanges = AcceptRanges
     super().__init__(*args, **kwargs)
-
-  def log_message(self, format, *args):
-    self.server.logger.log(format%args, 1)
 
   def send_head(self):
     if self.server.auth_ip:
@@ -1391,7 +1602,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         self.MediaBufferId = len(self.MediaBuffer.r_indexes)
         self.MediaBuffer.r_indexes.append(0)
         self.MediaBuffer.create_lock.release()
-        self.server.logger.log('Connexion %d -> début de la distribution du contenu à %s:%s' % (self.MediaBufferId + 1, self.client_address[0], self.client_address[1]), 1)
+        self.server.logger.log(1, 'deliverystart', self.MediaBufferId + 1, *self.client_address)
         try:
           f = open(self.MediaSrc, 'rb')
           if req_start:
@@ -1399,7 +1610,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
           self.end_headers()
         except:
           self.close_connection = True
-          self.server.logger.log('Connexion %d -> échec de distribution du contenu' % (self.MediaBufferId + 1), 1)
+          self.server.logger.log(1, 'deliveryfailure', self.MediaBufferId + 1)
           try:
             f.close()
           except:
@@ -1412,7 +1623,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
               bloc = None
               bloc = f.read(min(self.MediaBuffer.bloc_size, req_end - index))
               outputfile.write(bloc)
-              self.server.logger.log('Connexion %d -> segment %d- -> distribution' % (self.MediaBufferId + 1, index), 2)
+              self.server.logger.log(2, 'delivery2', self.MediaBufferId + 1, index)
               index = index + min(self.MediaBuffer.bloc_size, req_end - index)
             else:
               break
@@ -1424,9 +1635,9 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         except:
           pass
         if index < 0:
-          self.server.logger.log('Connexion %d -> échec de distribution du contenu' % (self.MediaBufferId + 1), 1)
+          self.server.logger.log(1, 'deliveryfailure', self.MediaBufferId + 1)
         else:
-          self.server.logger.log('Connexion %d -> fin de la distribution du contenu' % (self.MediaBufferId + 1), 1)
+          self.server.logger.log(1, 'deliverystop', self.MediaBufferId + 1)
       elif self.MediaSrcType in ('ContentURL', 'WebPageURL'):
         self.MediaBuffer.create_lock.acquire()
         self.MediaBufferId = len(self.MediaBuffer.r_indexes)
@@ -1436,12 +1647,12 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         self.MediaBuffer.r_event.set()
         bloc = None
         first_loop = True
-        self.server.logger.log('Connexion %d -> début de la distribution du contenu à %s:%s' % (self.MediaBufferId + 1, self.client_address[0], self.client_address[1]), 1)
+        self.server.logger.log(1, 'deliverystart', self.MediaBufferId + 1, *self.client_address)
         while not self.server.__dict__['_BaseServer__is_shut_down'].is_set():
           self.MediaBuffer.w_condition.acquire()
           while r_index < self.MediaBuffer.w_index or r_index >= self.MediaBuffer.w_index + self.MediaBuffer.len - (1 if first_loop and r_index * self.MediaBuffer.bloc_size < req_end else 0):
             if self.MediaBufferId < (self.MediaBuffer.t_index if self.MediaBuffer.t_index !=None else 0) and r_index != self.MediaBuffer.w_index + self.MediaBuffer.len:
-              self.server.logger.log('Connexion %d -> segment %d -> expulsion du tampon' % (self.MediaBufferId + 1, r_index), 2)  
+              self.server.logger.log(2, 'expulsion', self.MediaBufferId + 1, r_index)  
               r_index = 0
               break
             if self.MediaBuffer.t_index == -1:
@@ -1469,7 +1680,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
               self.MediaBuffer.r_indexes[self.MediaBufferId] += 1
               self.MediaBuffer.r_event.set()
               outputfile.write(bloc)
-            self.server.logger.log('Connexion %d -> segment %d -> distribution à partir du tampon' % (self.MediaBufferId + 1, r_index), 2)
+            self.server.logger.log(2, 'delivery3', self.MediaBufferId + 1, r_index)
             r_index += 1
           except:
             r_index = 0
@@ -1477,7 +1688,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
           if (r_index - 1) * self.MediaBuffer.bloc_size >= req_end:
             break
         if r_index == 0:
-          self.server.logger.log('Connexion %d -> segment %d -> échec de distribution du contenu' % (self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId]), 1)
+          self.server.logger.log(1, 'deliveryfailure', self.MediaBufferId + 1, self.MediaBuffer.r_indexes[self.MediaBufferId])
           self.close_connection = True
           if first_loop and not self.server.__dict__['_BaseServer__is_shut_down']:
             try:
@@ -1486,7 +1697,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
               pass
         else:
           r_index = 0
-          self.server.logger.log('Connexion %d -> fin de la distribution du contenu' % (self.MediaBufferId + 1), 1)
+          self.server.logger.log(1, 'deliverystop', self.MediaBufferId + 1)
         self.MediaBuffer.r_indexes[self.MediaBufferId] = 0
         self.MediaBuffer.r_event.set()
     elif source in ('mediasub', 'mediasubsmi'):
@@ -1494,14 +1705,14 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         self.end_headers()
       except:
         self.close_connection = True
-        self.server.logger.log('Échec de distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 1)
+        self.server.logger.log(1, 'subfailure', *self.client_address)
         return
-      self.server.logger.log('Distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 2)
+      self.server.logger.log(2, 'subdelivery', *self.client_address)
       try:
         outputfile.write(self.MediaSubBuffer[0] if source == 'mediasub' else self.MediaSubBuffer[2])
       except:
         self.close_connection = True
-        self.server.logger.log('Échec de distribution des sous-titres à %s:%s' % (self.client_address[0], self.client_address[1]), 1)
+        self.server.logger.log(1, 'subfailure', *self.client_address)
     else:
       self.close_connection = True
       try:
@@ -1536,7 +1747,7 @@ class MediaServer(threading.Thread):
     threading.Thread.__init__(self)
     self.verbosity = verbosity
     self.auth_ip = auth_ip
-    self.logger = log_event(verbosity)
+    self.logger = log_event('mediaserver', verbosity)
     self.MediaServerMode = MediaServerMode
     self.MediaServerAddress = MediaServerAddress
     self.MediaSrc = MediaSrc
@@ -1582,7 +1793,7 @@ class MediaServer(threading.Thread):
             return
           with ThreadedDualStackServer(self.MediaServerAddress, self.MediaRequestBoundHandler, verbosity=self.verbosity, auth_ip=self.auth_ip) as self.MediaServerInstance:
             if self.is_running:
-              self.logger.log('Démarrage du serveur de diffusion en mode %s%s' % ({MediaProvider.SERVER_MODE_SEQUENTIAL: 'séquentiel', MediaProvider.SERVER_MODE_RANDOM: 'aléatoire'}.get(self.MediaProviderInstance.ServerMode,''), '' if self.MediaProviderInstance.ServerMode==MediaProvider.SERVER_MODE_SEQUENTIAL else ('' if self.MediaProviderInstance.AcceptRanges else ' non supporté par la source')), 1)
+              self.logger.log(1, 'start', LSTRINGS['mediaserver'].get({MediaProvider.SERVER_MODE_SEQUENTIAL: 'sequential', MediaProvider.SERVER_MODE_RANDOM: 'random'}.get(self.MediaProviderInstance.ServerMode, ''), ''), '' if self.MediaProviderInstance.ServerMode==MediaProvider.SERVER_MODE_SEQUENTIAL else ('' if self.MediaProviderInstance.AcceptRanges else LSTRINGS['mediaserver'].get('unsupported', 'unsupported')))
               self.MediaServerInstance.serve_forever()
       self.is_running = None
 
@@ -1597,7 +1808,7 @@ class MediaServer(threading.Thread):
     if was_running:
       try:
         self.MediaServerInstance.shutdown()
-        self.logger.log('Fermeture du serveur de diffusion', 1)
+        self.logger.log(1, 'shutdown')
         for sock in self.MediaServerInstance.conn_sockets:
           try:
             sock.shutdown(socket.SHUT_RDWR)
@@ -2024,7 +2235,7 @@ class DLNAEventNotificationHandler(socketserver.StreamRequestHandler):
       dlna_event = DLNAEvent()
       time_receipt = time.localtime()
       seq = resp.header('SEQ', '')
-      self.server.logger.log('DLNA Renderer %s -> service %s -> réception de la notification d\'événement %s' % (self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq), 1)
+      self.server.logger.log(1, 'receipt', self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq)
       seq = int(seq)
       if not self.EventListener.CurrentSEQ:
         self.EventListener.CurrentSEQ = 0
@@ -2057,7 +2268,7 @@ class DLNAEventNotificationHandler(socketserver.StreamRequestHandler):
             prop_nvalue = _XMLGetNodeText(child_node)
           except:
             continue
-          self.server.logger.log('DLNA Renderer %s -> Service %s -> notification d\'événement %s -> %s est passé à %s' % (self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq, prop_name, prop_nvalue), 2)
+          self.server.logger.log(2, 'notification', self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
           if prop_name.upper() == 'LastChange'.upper():
             lc_xml = minidom.parseString(prop_nvalue)
             for node in lc_xml.documentElement.childNodes:
@@ -2091,12 +2302,12 @@ class DLNAEventNotificationHandler(socketserver.StreamRequestHandler):
                   warn_update = False
               if warn_update:
                 if not warning.WatchedValues:
-                  self.server.logger.log('DLNA Renderer %s -> Service %s -> notification d\'événement %s -> alerte: %s est passé à %s' % (self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq, prop_name, prop_nvalue), 2)
+                  self.server.logger.log(2, 'alert', self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
                   warning.TriggerLastValue = prop_nvalue
                   warning.ReferenceSEQ = seq
                   warning.WarningEvent.set()
                 elif prop_nvalue in warning.WatchedValues:
-                  self.server.logger.log('DLNA Renderer %s -> Service %s -> notification d\'événement %s -> alerte: %s est passé à %s' % (self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq, prop_name, prop_nvalue), 2)
+                  self.server.logger.log(2, 'alert', self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
                   warning.TriggerLastValue = prop_nvalue
                   warning.ReferenceSEQ = seq
                   warning.WarningEvent.set()
@@ -2111,7 +2322,7 @@ class DLNAAdvertisementServer(socketserver.ThreadingMixIn, socketserver.UDPServe
   allow_reuse_address = True
   
   def __init__(self, *args, verbosity, **kwargs):
-    self.logger = log_event(verbosity)
+    self.logger = log_event('dlnaadvertisement', verbosity)
     socketserver.UDPServer.__init__(self, *args, **kwargs)
 
   def server_bind(self):
@@ -2146,7 +2357,7 @@ class DLNAAdvertisementHandler(socketserver.DatagramRequestHandler):
       usn = resp.header('USN', '')
       udn = usn[0:6] + usn[6:].split(':', 1)[0]
       desc_url = resp.header('Location','')
-      self.server.logger.log('Réception d\'une publicité du périphérique %s (%s:%s): %s' % (usn, self.client_address[0], self.client_address[1], nts), 2)
+      self.server.logger.log(2, 'receipt', usn, self.client_address[0], self.client_address[1], nts)
       for handler in self.Handlers:
         if not ('Media' + handler.DEVICE_TYPE).lower() in nt.lower():
           continue
@@ -2163,7 +2374,7 @@ class DLNAAdvertisementHandler(socketserver.DatagramRequestHandler):
               if handler._update_devices(desc_url, time_resp):
                 handler.advert_status_change.set()
             else:
-              self.server.logger.log('Publicité du périphérique %s (%s:%s) ignorée en raison de la discordance d\'adresse de l\'URL de description' % (usn, self.client_address[0], self.client_address[1]), 2)
+              self.server.logger.log(2, 'ignored', usn, self.client_address[0], self.client_address[1])
         elif 'byebye' in nts.lower():
           for dev in handler.Devices:
             if dev.UDN == udn:
@@ -2183,7 +2394,7 @@ class DLNAAdvertisementListener():
       handler.advertisement_listener = self
     self.is_advert_receiver_running = None
     self.verbosity = verbosity
-    self.logger = log_event(verbosity)
+    self.logger = log_event('dlnaadvertisement', verbosity)
 
   def _start_advertisement_receiver(self):
     self.DLNAAdvertisementBoundHandler = partial(DLNAAdvertisementHandler, Handlers=self.DLNAHandlers)
@@ -2208,13 +2419,13 @@ class DLNAAdvertisementListener():
 
   def start(self):
     if self.is_advert_receiver_running:
-      self.logger.log('Écoute des publicités de périphérique DLNA déjà activée', 1)
+      self.logger.log(1, 'alreadyactivated')
       return False
     else:
       self.is_advert_receiver_running = True
       for handler in self.DLNAHandlers:
         handler.is_advert_receiver_running = True
-      self.logger.log('Démarrage du serveur d\'écoute des publicités de périphérique DLNA', 1)
+      self.logger.log(1, 'start')
       for handler in self.DLNAHandlers:
         if not isinstance(handler.advert_status_change, threading.Event):
           handler.advert_status_change = threading.Event()
@@ -2224,7 +2435,7 @@ class DLNAAdvertisementListener():
   
   def stop(self):
     if self.is_advert_receiver_running:
-      self.logger.log('Arrêt du serveur d\'écoute des publicités de périphérique DLNA', 1)
+      self.logger.log(1, 'stop')
       self._shutdown_advertisement_receiver()
 
   def wait(self, handler, timeout=None):
@@ -2245,7 +2456,7 @@ class DLNAHandler:
   def __init__(self, verbosity=0):
     self.Devices = []
     self.verbosity = verbosity
-    self.logger = log_event(verbosity)
+    self.logger = log_event('dlnahandler', verbosity)
     self.advertisement_listener = None
     self.is_advert_receiver_running = None
     self.advert_status_change = None
@@ -2342,7 +2553,7 @@ class DLNAHandler:
     device.StatusAlive = True
     device.StatusTime = time_resp
     device.StatusAliveLastTime = time_resp
-    self.logger.log('Enregistrement du %s %s' % (self.DEVICE_TYPE.lower(), device.FriendlyName), 1)
+    self.logger.log(1, 'registering', self.DEVICE_TYPE.lower(), device.FriendlyName)
     self.Devices.append(device)
     self.update_devices.release()
     for node in root_xml.getElementsByTagName('service'):
@@ -2416,7 +2627,7 @@ class DLNAHandler:
 
   def discover(self, uuid=None, timeout=2, alive_persistence=0, from_polling=False):
     if uuid:
-      self.logger.log('Envoi d\'un message de recherche de uuid:%s' % (uuid), 2)
+      self.logger.log(2, 'msearch1', uuid)
       msg = \
       'M-SEARCH * HTTP/1.1\r\n' \
       'HOST: 239.255.255.250:1900\r\n' \
@@ -2425,7 +2636,7 @@ class DLNAHandler:
       'MAN: "ssdp:discover"\r\n' \
       '\r\n'
     elif self.DEVICE_TYPE == 'Device':
-      self.logger.log('Envoi d\'un message de recherche de périphérique DLNA', 2)
+      self.logger.log(2, 'msearch2')
       msg = \
       'M-SEARCH * HTTP/1.1\r\n' \
       'HOST: 239.255.255.250:1900\r\n' \
@@ -2434,7 +2645,7 @@ class DLNAHandler:
       'MAN: "ssdp:discover"\r\n' \
       '\r\n' % self.DEVICE_TYPE
     else:
-      self.logger.log('Envoi d\'un message de recherche de %s DLNA' % self.DEVICE_TYPE.lower(), 2)
+      self.logger.log(2, 'msearch3', self.DEVICE_TYPE.lower())
       msg = \
       'M-SEARCH * HTTP/1.1\r\n' \
       'HOST: 239.255.255.250:1900\r\n' \
@@ -2463,14 +2674,14 @@ class DLNAHandler:
           ready = selector.select(0.5)
           if ready:
             resp, addr = sock.recvfrom(65507)
-            self.logger.log('Réception d\'une réponse au message de recherche de %s:%s' % (addr[0], addr[1]), 2)
+            self.logger.log(2, 'receipt', *addr)
             time_resp = time.localtime()
             try:
               loca = resp[resp.upper().find(b'LOCATION:')+10:].split(b'\r',1)[0].decode("ISO-8859-1")
               if (urllib.parse.urlparse(loca)).netloc.split(':',1)[0] == addr[0]:
                 loca_time.append((loca,time_resp))
               else:
-                self.logger.log('Réponse de %s:%s ignorée en raison de la discordance d\'adresse de l\'URL de description' % (addr[0], addr[1]), 2)
+                self.logger.log(2, 'ignored', *addr)
             except:
               pass
     except:
@@ -2548,9 +2759,9 @@ class DLNAHandler:
 
   def start_discovery_polling(self, timeout=2, alive_persistence=0, polling_period=30, DiscoveryEvent=None):
     if self.is_discovery_polling_running:
-      self.logger.log('Recherche de %s DLNA déjà activée' % self.DEVICE_TYPE.lower(), 1)
+      self.logger.log(1, 'alreadyactivated', self.DEVICE_TYPE.lower())
     else:
-      self.logger.log('Démarrage de la recherche de %s DLNA' % self.DEVICE_TYPE.lower(), 1)
+      self.logger.log(1, 'start', self.DEVICE_TYPE.lower())
       if isinstance(DiscoveryEvent, threading.Event):
         self.discovery_status_change = DiscoveryEvent
       else:
@@ -2566,7 +2777,7 @@ class DLNAHandler:
     except:
       pass
     if self.is_discovery_polling_running:
-      self.logger.log('Fin de la recherche de %s DLNA' % self.DEVICE_TYPE.lower(), 1)
+      self.logger.log(1, 'stop', self.DEVICE_TYPE.lower())
       self.is_discovery_polling_running = False
       self.discovery_status_change.set()
 
@@ -2639,27 +2850,27 @@ class DLNAHandler:
       return None
     cturl_headers_body_oargs = self._build_soap_msg(device, service, action, **arguments)
     if not cturl_headers_body_oargs:
-      self.logger.log('%s %s -> service %s -> abandon de l\'envoi de la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 1)
+      self.logger.log(1, 'commandabandonment', self.DEVICE_TYPE, device.FriendlyName, service, action)
       return None
-    self.logger.log('%s %s -> service %s -> envoi de la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 2)
+    self.logger.log(2, 'commandsending', self.DEVICE_TYPE, device.FriendlyName, service, action)
     resp = HTTPRequest(cturl_headers_body_oargs[0], method='POST', headers=cturl_headers_body_oargs[1], data=cturl_headers_body_oargs[2], timeout=3, max_length=104857600, max_time=soap_timeout+1, stop=soap_stop)
     if not resp:
-      self.logger.log('%s %s -> service %s -> échec de l\'envoi de la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 1)
+      self.logger.log(1, 'commandfailure', self.DEVICE_TYPE, device.FriendlyName, service, action)
       return None
-    self.logger.log('%s %s -> service %s -> succès de l\'envoi de la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 1)    
+    self.logger.log(1, 'commandsuccess', self.DEVICE_TYPE, device.FriendlyName, service, action)
     try:
       root_xml = minidom.parseString(resp.body)
     except:
-      self.logger.log('%s %s -> service %s -> échec du traitement de la réponse à la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 2)
+      self.logger.log(2, 'responsefailure', self.DEVICE_TYPE, device.FriendlyName, service, action)
       return None
     out_args = cturl_headers_body_oargs[3]
     try:
       for arg in out_args:
         out_args[arg] = _XMLGetNodeText(root_xml.getElementsByTagName(arg)[0])
     except:
-      self.logger.log('%s %s -> service %s -> échec du traitement de la réponse à la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 2)
+      self.logger.log(2, 'responsefailure', self.DEVICE_TYPE, device.FriendlyName, service, action)
       return None
-    self.logger.log('%s %s -> service %s -> succès de la réception de la réponse à la commande %s' % (self.DEVICE_TYPE, device.FriendlyName, service, action), 2)
+    self.logger.log(2, 'responsesuccess', self.DEVICE_TYPE, device.FriendlyName, service, action)
     if out_args:
       return out_args
     else:
@@ -2667,10 +2878,10 @@ class DLNAHandler:
 
   def start_advertisement_listening(self, AdvertisementEvent=None):
     if self.is_advert_receiver_running:
-      self.logger.log('Écoute des publicités de %s déjà activée' % self.DEVICE_TYPE.lower(), 1)
+      self.logger.log(1, 'advertalreadyactivated', self.DEVICE_TYPE.lower())
     else:
       self.is_advert_receiver_running = True
-      self.logger.log('Démarrage de l\'écoute des publicités de %s' % self.DEVICE_TYPE.lower(), 1)
+      self.logger.log(1, 'advertstart', self.DEVICE_TYPE.lower())
       if isinstance(AdvertisementEvent, threading.Event):
         self.advert_status_change = AdvertisementEvent
       else:
@@ -2681,7 +2892,7 @@ class DLNAHandler:
   
   def stop_advertisement_listening(self):
     if self.is_advert_receiver_running:
-      self.logger.log('Fin de l\'écoute des publicités de %s' % self.DEVICE_TYPE.lower(), 1)
+      self.logger.log(1, 'advertstop', self.DEVICE_TYPE.lower())
       self.advertisement_listener.stop()
 
   def wait_for_advertisement(self, timeout=None):
@@ -2839,7 +3050,7 @@ class DLNARendererControler (DLNAHandler):
   def _start_event_notification_receiver(self, EventListener, verbosity):
     EventListener.DLNAEventNotificationBoundHandler = partial(DLNAEventNotificationHandler, EventListener=EventListener)
     with socketserver.TCPServer((self.ip, EventListener.port), EventListener.DLNAEventNotificationBoundHandler) as EventListener.DLNAEventNotificationReceiver:
-      EventListener.DLNAEventNotificationReceiver.logger = log_event(verbosity)
+      EventListener.DLNAEventNotificationReceiver.logger = log_event('dlnanotification', verbosity)
       EventListener.DLNAEventNotificationReceiver.serve_forever()
     EventListener.is_running = None
 
@@ -2870,7 +3081,7 @@ class DLNARendererControler (DLNAHandler):
     'Timeout': 'Second-%s' % timeout
     }
     if EventListener.is_running:
-      self.logger.log('Renderer %s -> service %s -> souscription au serveur d\'événements déjà en place' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:]), 1)
+      self.logger.log(1, 'subscralreadyactivated', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:])
       return None
     EventListener.is_running = True
     receiver_thread = threading.Thread(target=self._start_event_notification_receiver, args=(EventListener, self.verbosity))
@@ -2880,18 +3091,18 @@ class DLNARendererControler (DLNAHandler):
       resp = urllib.request.urlopen(requ, timeout=5)
     except:
       self._shutdown_event_notification_receiver(EventListener)
-      self.logger.log('Renderer %s -> service %s -> échec de la demande de souscription au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:]), 1)
+      self.logger.log(1, 'subscrfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:])
       return None
     EventListener.SID = resp.getheader('SID', '')
     if resp.status != HTTPStatus.OK or not EventListener.SID:
       self._shutdown_event_notification_receiver(EventListener)
-      self.logger.log('Renderer %s -> service %s -> échec de la demande de souscription au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:]), 1)
+      self.logger.log(1, 'subscrfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:])
       return None
     if EventListener.is_running:
-      self.logger.log('Renderer %s -> service %s -> souscription au serveur d\'événements sous le SID %s pour une durée de %s' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.getheader('TIMEOUT', '')), 1)
+      self.logger.log(1, 'subscrsuccess', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.getheader('TIMEOUT', ''))
       return True
     else:
-      self.logger.log('Renderer %s -> service %s -> échec de la demande de souscription au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:]), 1)
+      self.logger.log(1, 'subscrfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:])
       return None
     
   def renew_event_subscription(self, EventListener, timeout):
@@ -2906,12 +3117,12 @@ class DLNARendererControler (DLNAHandler):
     try:
       resp = urllib.request.urlopen(requ, timeout=5)
     except:
-      self.logger.log('Renderer %s -> service %s -> échec de la demande de renouvellement de souscription de SID %s au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID), 1)
+      self.logger.log(1, 'subscrrenewfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
       return None
     if resp.status != HTTPStatus.OK:
-      self.logger.log('Renderer %s -> service %s -> échec de la demande de renouvellement de souscription de SID %s au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID), 1)
+      self.logger.log(1, 'subscrrenewfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
       return None
-    self.logger.log('Renderer %s -> service %s -> renouvellement de la souscription de SID %s au serveur d\'événements pour une durée de %s' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.getheader('TIMEOUT', '')), 1)
+    self.logger.log(1, 'subscrrenewsuccess', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.getheader('TIMEOUT', ''))
     return True
     
   def send_event_unsubscription(self, EventListener):
@@ -2925,15 +3136,15 @@ class DLNARendererControler (DLNAHandler):
     try:
       resp = urllib.request.urlopen(requ, timeout=5)
     except:
-      self.logger.log('Renderer %s -> service %s -> échec de la demande de fin de souscription de SID %s au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID), 1)
+      self.logger.log(1, 'subscrunsubscrfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
       self._shutdown_event_notification_receiver(EventListener)
       return None
     if resp.status != HTTPStatus.OK:
-      self.logger.log('Renderer %s -> service %s -> échec de la demande de fin de souscription de SID %s au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID), 1)
+      self.logger.log(1, 'subscrunsubscrfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
       self._shutdown_event_notification_receiver(EventListener)
       return None
     self._shutdown_event_notification_receiver(EventListener)
-    self.logger.log('Renderer %s -> service %s -> fin de la souscription de SID %s au serveur d\'événements' % (EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID), 1)
+    self.logger.log(1, 'subscrunsubscrsuccess', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
     return True
 
   def add_event_warning(self, EventListener, property, *values, WarningEvent=None):
@@ -3369,18 +3580,18 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
           if self.CloseData == None:
             self.CloseData = b''
           if self.send_close(self.CloseData[0:2]):
-            self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de l\'accusé de réception de l\'avis de fin de connexion' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+            self.server.logger.log(2, 'endacksuccess', *self.server.Address, *self.client_address)
           else:
-            self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de l\'accusé de réception de l\'avis de fin de connexion' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+            self.server.logger.log(2, 'endackfailure', *self.server.Address, *self.client_address)
         self.CloseData = None
         self.Closed = True
         break
       if self.Error:
-        self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> envoi d\'avis de fin de connexion pour cause d\'erreur %s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1], self.Error), 2)
+        self.server.logger.log(2, 'errorendnotification', *self.server.Address, *self.client_address, self.Error)
         if self.send_close(struct.pack('!H', self.Error)):
-          self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de l\'avis de fin de connexion' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+          self.server.logger.log(2, 'errorendnotificationsuccess', *self.server.Address, *self.client_address)
         else:
-          self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de l\'avis de fin de connexion' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+          self.server.logger.log(2, 'errorendnotificationfailure', *self.server.Address, *self.client_address)
         self.Closed = True
         break
       if self.PingData != None:
@@ -3395,15 +3606,15 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
           if shutdown_value:
             if self.send_data(shutdown_value):
               self.ShutdownMessageTime = time.time()
-              self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de la donnée de terminaison %s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1], shutdown_value), 2)
+              self.server.logger.log(2, 'terminationdatasuccess', *self.server.Address, *self.client_address, shutdown_value)
             else:
               shutdown_value = False
-              self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de la donnée de terminaison %s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1], shutdown_value), 2)
+              self.server.logger.log(2, 'terminationdatafailure', *self.server.Address, *self.client_address, shutdown_value)
         if not shutdown_value:
           if self.send_close():
-            self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de l\'avis de fin de connexion' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+            self.server.logger.log(2, 'endnotificationsuccess', *self.server.Address, *self.client_address)
           else:
-            self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de l\'avis de fin de connexion' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+            self.server.logger.log(2, 'endnotificationfailure', *self.server.Address, *self.client_address)
           self.CloseMessageTime = time.time()
           break
       if not self.ServerClosing and self.server.DataStore.outgoing_seq != self.OutgoingSeq:
@@ -3421,9 +3632,9 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
           if seq_value != self.OutgoingSeq[i]:
             if data_value != None:
               if self.send_data(data_value):
-                self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> envoi de la donnée %s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1], data_value), 2)
+                self.server.logger.log(2, 'datasuccess', *self.server.Address, *self.client_address, data_value)
               else:
-                self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de la donnée %s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1], data_value), 2)
+                self.server.logger.log(2, datafailure, *self.server.Address, *self.client_address, data_value)
                 self.Error = 1002
                 continue
             self.OutgoingSeq[i] = seq_value
@@ -3451,7 +3662,7 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
   def handle(self):
     if self.server.__dict__['_BaseServer__shutdown_request'] or self.server.__dict__['_BaseServer__is_shut_down'].is_set():
       return
-    self.server.logger.log('WebSocket serveur %s:%s -> demande de connexion du WebSocket %s:%s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+    self.server.logger.log(2, 'connexionrequest', *self.server.Address, *self.client_address)
     resp_err_br = \
       'HTTP/1.1 400 Bad Request\r\n' \
       'Connection: close\r\n' \
@@ -3460,7 +3671,7 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
     if req.method != 'GET' or not 'websocket' in req.header('Upgrade', '').lower() or not 'upgrade' in req.header('Connection', '').lower() or not req.header('Sec-WebSocket-Key', ''):
       try:
         self.request.sendall(resp_err_br.encode('ISO-8859-1'))
-        self.server.logger.log('WebSocket serveur %s:%s -> demande de connexion du WebSocket %s:%s invalide' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+        self.server.logger.log(2, 'connexionrequestinvalid', *self.server.Address, *self.client_address)
       except:
         pass
       return
@@ -3476,9 +3687,9 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
     try:
       self.request.sendall(resp.encode('ISO-8859-1'))
     except:
-      self.server.logger.log('WebSocket serveur %s:%s -> échec de l\'envoi de la réponse à la demande de connexion du WebSocket %s:%s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+      self.server.logger.log(2, 'connexionresponsefailure', *self.server.Address, *self.client_address)
       return
-    self.server.logger.log('WebSocket serveur %s:%s -> connexion au WebSocket %s:%s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 1)
+    self.server.logger.log(1, 'connexion', *self.server.Address, *self.client_address)
     self.LastReceptionTime = time.time()
     out_handler_thread = threading.Thread(target=self.handle_out)
     out_handler_thread.start()
@@ -3547,10 +3758,10 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
         if self.FrameType == 'close':
           if self.CloseMessageTime:
             self.Closed = True
-            self.server.logger.log('WebSocket serveur %s:%s -> accusé de réception de fin de connexion du WebSocket %s:%s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+            self.server.logger.log(2, 'endack', *self.server.Address, *self.client_address)
             break
           else:
-            self.server.logger.log('WebSocket serveur %s:%s -> avis de fin de connexion du WebSocket %s:%s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 2)
+            self.server.logger.log(2, 'endnotification', *self.server.Address, *self.client_address)
             self.ClientClosing = True
             self.SendEvent.set()
             break
@@ -3568,7 +3779,7 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
               self.Error = 1003
               self.SendEvent.set()
               break
-            self.server.logger.log('WebSocket serveur %s:%s -> WebSocket %s:%s -> réception de la donnée %s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1], self.MessageData), 2)
+            self.server.logger.log(2, 'datareceipt', *self.server.Address, *self.client_address, self.MessageData)
             self.server.DataStore.add_incoming(self.MessageData)
             self.MessageData = None
             self.MessageReady = False
@@ -3579,7 +3790,7 @@ class WebSocketRequestHandler(socketserver.StreamRequestHandler):
         out_handler_thread.join()
       except:
         pass
-    self.server.logger.log('WebSocket serveur %s:%s -> fin de connexion au WebSocket %s:%s' % (self.server.Address[0], self.server.Address[1], self.client_address[0], self.client_address[1]), 1)
+    self.server.logger.log(1, 'connexionend', *self.server.Address, *self.client_address)
 
 
 class ThreadedWebSocketServer(socketserver.ThreadingTCPServer):
@@ -3610,8 +3821,8 @@ class WebSocketServer(threading.Thread):
       return
     self.is_running = True
     with ThreadedWebSocketServer(self.Address, WebSocketRequestHandler) as self.WebSocketServerInstance:
-      self.WebSocketServerInstance.logger = log_event(self.verbosity)
-      self.WebSocketServerInstance.logger.log('Démarrage du serveur pour Websocket à l\'adresse %s:%s' % (self.Address[0], self.Address[1]), 2)
+      self.WebSocketServerInstance.logger = log_event('websocket', self.verbosity)
+      self.WebSocketServerInstance.logger.log(2, 'start', *self.Address)
       self.WebSocketServerInstance.Address = self.Address
       self.WebSocketServerInstance.DataStore = self.DataStore
       self.shutdown_lock.release()
@@ -3623,7 +3834,7 @@ class WebSocketServer(threading.Thread):
     if self.is_running:
       self.is_running = False
       try:
-        self.WebSocketServerInstance.logger.log('Fermeture du serveur pour Websocket à l\'adresse %s:%s' % (self.Address[0], self.Address[1]), 2)
+        self.WebSocketServerInstance.logger.log(2, 'shutdown', *self.Address)
         self.WebSocketServerInstance.shutdown()
       except:
         pass
@@ -3860,15 +4071,18 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
   '</body>\r\n' \
   '</html>'
 
-  def log_message(self, format, *args):
-    self.server.logger.log(format%args, 1)
+  def log_message(self, *args, **kwargs):
+    if self.server.logger.verbosity < 2:
+      pass
+    else:
+      super().log_message(*args, **kwargs)
 
   def send_head(self):
     if self.server.Interface.Status == DLNAWebInterfaceServer.INTERFACE_NOT_RUNNING :
       self.close_connection = True
       self.send_error(HTTPStatus.NOT_FOUND, "File not found")
       return None
-    self.server.logger.log('Réponse à l\'interface de contrôle %s:%s' % self.client_address, 1)
+    self.server.logger.log(1, 'response', *self.client_address, self.raw_requestline)
     if not self.server.Interface.html_ready:
       nb_wait = 0
       while self.server.Interface.Status != DLNAWebInterfaceServer.INTERFACE_NOT_RUNNING and not self.server.Interface.html_ready and nb_wait < 8:
@@ -4024,7 +4238,7 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
       self.do_GET()
     elif self.path == '/start.html':
       qs = self.rfile.read(int(self.headers.get("Content-Length")))
-      self.server.logger.log('Réception de la donnée de formulaire %s de %s:%s' % (qs, *self.client_address), 2)
+      self.server.logger.log(2, 'formdatareceipt', qs, *self.client_address)
       media_src = ''
       media_startfrom = '0:00:00'
       media_subsrc = ''
@@ -4045,7 +4259,7 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
       if media_src and renderer:
         self.server.post_lock.acquire()
         if self.server.Interface.TargetStatus == DLNAWebInterfaceServer.INTERFACE_START:
-          self.server.logger.log('Prise en compte de la demande de lecture de %s%s à partir de %s sur %s de %s:%s' % (media_src, ' et media_subsrc' if media_subsrc else '', media_startfrom, renderer.FriendlyName, *self.client_address), 1)
+          self.server.logger.log(1, 'playbackaccept', media_src, LSTRINGS['server'].get('playbacksub', 'playbacksub %s') % media_subsrc if media_subsrc else '', media_startfrom, renderer.FriendlyName, *self.client_address)
           self.server.Interface.Renderer = renderer
           self.server.Interface.Renderer_uuid = renderer.UDN[5:]
           self.server.Interface.Renderer_name = renderer.FriendlyName
@@ -4055,14 +4269,14 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
           self.server.Interface.TargetStatus = DLNAWebInterfaceServer.INTERFACE_CONTROL
           self.server.Interface.html_ready = False
         else:
-          self.server.logger.log('Rejet de la demande de lecture de %s à partir de %s sur %s de %s:%s' % (media_src, media_startfrom, renderer.FriendlyName, *self.client_address), 1)
+          self.server.logger.log(1, 'playbackreject', media_src, LSTRINGS['server'].get('playbacksub', 'playbacksub %s') % media_subsrc if media_subsrc else '', media_startfrom, renderer.FriendlyName, *self.client_address)
         self.server.post_lock.release()
         self.send_response(HTTPStatus.SEE_OTHER)
         self.send_header("Location", "/control.html")
         self.send_header("Content-Length", 0)
         self.end_headers()
       else:
-        self.server.logger.log('Rejet de la donnée de formulaire %s de %s:%s' % (qs, *self.client_address), 2)
+        self.server.logger.log(2, 'formdatareject', qs, *self.client_address)
         self.do_GET()
     else:
       self.close_connection = True
@@ -4182,7 +4396,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        try {\r\n' \
   '          socket = new WebSocket("ws://" + location.hostname + ":" + String(parseInt(location.port,10)+2) + "/websocket");\r\n' \
   '        } catch(exception) {\r\n' \
-  '          window.alert("Échec de l\'établissement de la connexion WebSocket");\r\n' \
+  '          window.alert("{#jmwebsocketfailure#}");\r\n' \
   '        }\r\n' \
   '        socket.onerror = function(event) {\r\n' \
   '          window.location.reload(true);\r\n' \
@@ -4191,7 +4405,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '           if (event.data == "close") {\r\n' \
   '            socket.onclose = function(event) {};\r\n' \
   '            socket.close();\r\n' \
-  '            document.getElementById("table").innerHTML = "Renderers - interface close";\r\n' \
+  '            document.getElementById("table").innerHTML = "{#jmrenderersclosed#}";\r\n' \
   '            document.getElementById("play").style.display = "none";\r\n' \
   '            document.getElementById("reset").style.display = "none";\r\n' \
   '            upnp_cancel();\r\n' \
@@ -4348,19 +4562,19 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        document.getElementById("URL").value=url_lines[0];\r\n' \
   '        if (!document.getElementById("URL").checkValidity()) {\r\n' \
   '          url_ok = false;\r\n' \
-  '          window.alert("Saisissez une URL valide");\r\n' \
+  '          window.alert("{#jmentervalidurl#}");\r\n' \
   '        } else {\r\n' \
   '          if (url_lines.length >= 2) {\r\n' \
   '            document.getElementById("SUBURL").value=url_lines[1];\r\n' \
   '            if (!document.getElementById("SUBURL").checkValidity()) {\r\n' \
   '              url_ok = false;\r\n' \
-  '              window.alert("Saisissez une URL de sous-titres valide");\r\n' \
+  '              window.alert("{#jmentervalidsuburl#}");\r\n' \
   '            }\r\n' \
   '         }\r\n' \
   '        }\r\n' \
   '        if (url_ok) {\r\n' \
   '          if (selected == "") {\r\n' \
-  '            window.alert("Sélectionnez d\'abord un renderer");\r\n' \
+  '            window.alert("{#jmselectrenderer#}");\r\n' \
   '          } else {\r\n' \
   '          document.getElementById("form").submit();\r\n' \
   '          }\r\n' \
@@ -4533,7 +4747,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '    </style>\r\n' \
   '  </head>\r\n' \
   '  <body style="background-color:rgb(40,45,50);color:rgb(225,225,225);font-size:32px;">\r\n' \
-  '    <h1 style="line-height:20px;font-size:180%;">PlayOn&nbsp;&nbsp;&nbsp;&nbsp;Interface de démarrage<br></h1>\r\n' \
+  '    <h1 style="line-height:20px;font-size:180%;">PlayOn&nbsp;&nbsp;&nbsp;&nbsp;{#jstart#}<br></h1>\r\n' \
   '    <div id="upnp_nav" class="modal">\r\n' \
   '      <span id="upnp_back" style="cursor:pointer;margin-left:10px;" onclick="upnp_back()">&larr;</span>&nbsp;&nbsp;<span id="upnp_validate" style="color:rgb(5,60,50);">&check;</span>&nbsp;&nbsp;<span id="upnp_cancel" style="cursor:pointer;color:rgb(250,220,200);" onclick="upnp_cancel()">&cross;</span>&nbsp;&nbsp;<div id="upnp_loading" style="color:rgb(40,45,50);animation-duration:1s;animation-iteration-count:infinite;animation-timing-function:linear;display:inline-block">&orarr;</div>&nbsp;&nbsp;<div id="upnp_bc" style="font-size:20px;display:inline-block"></div>\r\n' \
   '      <iframe id="upnp_content" src="about:blank" title="navigation UPnP" style="border:none;width:100%;height:80%;" onload="upnp_load()"> </iframe>\r\n' \
@@ -4545,7 +4759,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      <input type="URL" id="URL" name="MediaSrc" value="" style="display:none;" required>\r\n' \
   '      <input type="URL" id="SUBURL" name="MediaSubSrc" value="" style="display:none;">\r\n' \
   '      <br>\r\n' \
-  '      <label for="StartFrom">Position de lecture :</label>\r\n' \
+  '      <label for="StartFrom">{#jplaybackposition#} :</label>\r\n' \
   '      <input type="time" id="StartFrom" name="MediaStartFrom" step="1" value="0##STARTFROM##" style="height:50px;font-size:70%;">\r\n' \
   '      <input type="hidden" id="Renderer" name="RendererInd" value="" required>\r\n' \
   '    </form>\r\n' \
@@ -4554,8 +4768,8 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      URL_set = document.getElementById("URL-").value;\r\n' \
   '      StartFrom_set = document.getElementById("StartFrom").value;\r\n' \
   '    </script>\r\n' \
-  '    <button id="play" style="background-color:rgb(200,250,240);" onclick="play_button()">Lire</button>\r\n' \
-  '    <button id="reset" style="background-color:rgb(250,220,200);" onclick="reset_button()">Réinitialiser</button>\r\n' \
+  '    <button id="play" style="background-color:rgb(200,250,240);" onclick="play_button()">{#jplay#}</button>\r\n' \
+  '    <button id="reset" style="background-color:rgb(250,220,200);" onclick="reset_button()">{#jreset#}</button>\r\n' \
   '    <br><br>\r\n' \
   '    <table id="Renderers" style="display:none;">\r\n' \
   '      <colgroup>\r\n' \
@@ -4565,7 +4779,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      </colgroup>\r\n' \
   '      <thead>\r\n' \
   '          <tr>\r\n' \
-  '              <th colspan="3" id="table">Renderers</th>\r\n' \
+  '              <th colspan="3" id="table">{#jrenderers#}</th>\r\n' \
   '          </tr>\r\n' \
   '      </thead>\r\n' \
   '      <tbody>\r\n' \
@@ -4574,6 +4788,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '    <br>\r\n' \
   '  </body>\r\n' \
   '</html>'
+  HTML_START_TEMPLATE = HTML_START_TEMPLATE.replace('{', '{{').replace('}', '}}').replace('{{#', '{').replace('#}}', '}').format_map(LSTRINGS['webinterface']).replace('{{', '{').replace('}}', '}')
   HTML_CONTROL_TEMPLATE = \
   '<!DOCTYPE html>\r\n' \
   '<html lang="fr-FR">\r\n' \
@@ -4585,7 +4800,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '        try {\r\n' \
   '          socket = new WebSocket("ws://" + location.hostname + ":" + String(parseInt(location.port,10)+1) + "/websocket");\r\n' \
   '        } catch(exception) {\r\n' \
-  '          window.alert("Échec de l\'établissement de la connexion WebSocket");\r\n' \
+  '          window.alert("{#jmwebsocketfailure#}");\r\n' \
   '        }\r\n' \
   '        socket.onerror = function(event) {\r\n' \
   '          window.location.reload(true);\r\n' \
@@ -4594,7 +4809,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '          if (event.data == "close") {\r\n' \
   '            socket.onclose = function(event) {};\r\n' \
   '            socket.close();\r\n' \
-  '            document.getElementById("status").innerHTML = "interface close";\r\n' \
+  '            document.getElementById("status").innerHTML = "{#jinterfaceclosed#}";\r\n' \
   '            document.getElementById("play-pause").style.display = "none";\r\n' \
   '            document.getElementById("stop").style.display = "none";\r\n' \
   '            document.getElementById("mute").style.display = "none";\r\n' \
@@ -4603,23 +4818,23 @@ class DLNAWebInterfaceServer(threading.Thread):
   '            seektarget.style.display = "none";\r\n' \
   '            document.getElementById("seektarget").style.display = "none";\r\n' \
   '          } else if (event.data == "redirect") {\r\n' \
-  '            document.getElementById("status").innerHTML = "retour";\r\n' \
+  '            document.getElementById("status").innerHTML = "{#jback#}";\r\n' \
   '            window.location.replace("##START-URL##");\r\n' \
   '          } else if (event.data == "initialisation") {\r\n' \
-  '            document.getElementById("status").innerHTML = "initialisation";\r\n' \
-  '            document.getElementById("play-pause").innerHTML = "Lecture";\r\n' \
+  '            document.getElementById("status").innerHTML = "{#jinitialization#}";\r\n' \
+  '            document.getElementById("play-pause").innerHTML = "{#jplayback#}";\r\n' \
   '          } else if (event.data == "prêt") {\r\n' \
-  '            document.getElementById("status").innerHTML = "prêt";\r\n' \
+  '            document.getElementById("status").innerHTML = "{#jready#}";\r\n' \
   '          } else if (event.data == "prêt (lecture à partir du début)") {\r\n' \
-  '            document.getElementById("status").innerHTML = "prêt (lecture à partir du début)";\r\n' \
+  '            document.getElementById("status").innerHTML = "{#jreadyfromstart#}";\r\n' \
   '          } else if (event.data == "en cours...") {\r\n' \
-  '            document.getElementById("status").innerHTML = "en cours...";\r\n' \
+  '            document.getElementById("status").innerHTML = "{#jinprogress#}...";\r\n' \
   '          } else if (event.data == "Lecture") {\r\n' \
-  '            document.getElementById("status").innerHTML = "lecture";\r\n' \
-  '            document.getElementById("play-pause").innerHTML = "Pause";\r\n' \
+  '            document.getElementById("status").innerHTML = "{#jinplayback#}";\r\n' \
+  '            document.getElementById("play-pause").innerHTML = "{#jpause#}";\r\n' \
   '          } else if (event.data == "Pause") {\r\n' \
-  '            document.getElementById("status").innerHTML = "pause";\r\n' \
-  '            document.getElementById("play-pause").innerHTML = "Lecture";\r\n' \
+  '            document.getElementById("status").innerHTML = "{#jinpause#}";\r\n' \
+  '            document.getElementById("play-pause").innerHTML = "{#jplayback#}";\r\n' \
   '          } else if (event.data.substring(0,13) == "Showstartfrom") {\r\n' \
   '            if (event.data.substring(14) == "true") {\r\n' \
   '              startfrom.value = "0" + document.getElementById("position").innerHTML;\r\n' \
@@ -4631,8 +4846,8 @@ class DLNAWebInterfaceServer(threading.Thread):
   '              startfrom.style.display = "none";\r\n' \
   '            }\r\n' \
   '          } else if (event.data == "Arrêt") {\r\n' \
-  '            document.getElementById("status").innerHTML = "arrêt";\r\n' \
-  '            document.getElementById("play-pause").innerHTML = "Lecture";\r\n' \
+  '            document.getElementById("status").innerHTML = "{#jinstop#}";\r\n' \
+  '            document.getElementById("play-pause").innerHTML = "{#jplayback#}";\r\n' \
   '          } else if (event.data.substring(0,8) == "Duration") {\r\n' \
   '            duration = parseInt(event.data.substring(9),10);\r\n' \
   '            let seekduration_d = new Date(duration*1000);\r\n' \
@@ -4712,13 +4927,13 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      duration = 0;\r\n' \
   '      seekongoing = false;\r\n' \
   '      function play_pause_button() {\r\n' \
-  '        if (document.getElementById("status").innerHTML != "initialisation") {\r\n' \
-  '          if (document.getElementById("status").innerHTML == "arrêt" && duration != 0) {socket.send("Seek:" + seekposition.innerHTML);}\r\n' \
-  '          socket.send(document.getElementById(\'play-pause\').innerHTML);\r\n' \
+  '        if (document.getElementById("status").innerHTML != "{#jinitialization#}") {\r\n' \
+  '          if (document.getElementById("status").innerHTML == "{#jinstop#}" && duration != 0) {socket.send("Seek:" + seekposition.innerHTML);}\r\n' \
+  '          socket.send(document.getElementById("play-pause").innerHTML=="{#jplayback#}"?"Lecture":"Pause");\r\n' \
   '        }\r\n' \
   '      }\r\n' \
   '      function stop_button() {\r\n' \
-  '        conf = window.confirm("Arrêter la lecture ?");\r\n' \
+  '        conf = window.confirm("{#jmstop#}");\r\n' \
   '        if (conf) {socket.send(\'Arrêt\');}\r\n' \
   '      }\r\n' \
   '      function jump() {\r\n' \
@@ -4740,26 +4955,26 @@ class DLNAWebInterfaceServer(threading.Thread):
   '    </script>\r\n' \
   '  </head>\r\n' \
   '  <body style="background-color:rgb(40,45,50);color:rgb(225,225,225);font-size:32px;">\r\n' \
-  '    <h1 style="line-height:20px;font-size:180%;">PlayOn&nbsp;&nbsp;&nbsp;&nbsp;Interface de contrôle<br></h1>\r\n' \
+  '    <h1 style="line-height:20px;font-size:180%;">PlayOn&nbsp;&nbsp;&nbsp;&nbsp;{#jcontrol#}<br></h1>\r\n' \
   '    <img id="renderer_icon" src="data:;base64,##RENDERERICON##" alt=" " style="height:36px;width:auto;vertical-align:middle;">\r\n' \
   '    <span id="renderer_name" style="font-size:130%;">&nbsp;&nbsp;##RENDERERNAME##</span>\r\n' \
   '    <br style="line-height:100px;">\r\n' \
   '    <select id="playlist" onchange="jump()" style="background-color:rgb(40,45,50);color:rgb(225,225,225);font-size:50%;width:91%;display:none;">\r\n' \
-  '    <option value="0" disabled hidden>Liste de lecture</option>\r\n' \
+  '    <option value="0" disabled hidden>{#jplaylist#}</option>\r\n' \
   '    </select>&nbsp;<button id="shuffle" style="border:none;vertical-align:middle;display:none;" onclick="shuffle_button()"><svg xmlns="http://www.w3.org/2000/svg" width="15px" height="23px" style="font-size:30px;font-weight:bold;"><text x="-5" y="21" >&nesear;</text></svg></button>\r\n' \
-  '    <p style="margin-bottom:0px;">URL du média : </p>\r\n' \
+  '    <p style="margin-bottom:0px;">{#jurl#} : </p>\r\n' \
   '    <p id="media_src" style="margin-left:30px;margin-top:10px;font-size:50%;word-wrap:break-word;height:110px;width:90%;overflow-y:auto;white-space:pre-wrap;">##URL##</p>\r\n' \
-  '    <p style="line-height:60px;">Statut :&nbsp;&nbsp;&nbsp;<span id="status" style="color:rgb(200,250,240);">initialisation</span></p>\r\n' \
-  '    <p style="line-height:60px;">Position de lecture :&nbsp;&nbsp;&nbsp;<span id="position" style="color:rgb(200,250,240);">-</span></p>\r\n' \
+  '    <p style="line-height:60px;">{#jstatus#}&nbsp;&nbsp;&nbsp;<span id="status" style="color:rgb(200,250,240);">{#jinitialization#}</span></p>\r\n' \
+  '    <p style="line-height:60px;">{#jplaybackposition#} :&nbsp;&nbsp;&nbsp;<span id="position" style="color:rgb(200,250,240);">-</span></p>\r\n' \
   '    <br>\r\n' \
-  '    <button id="play-pause" style="background-color:rgb(200,250,240);border:none;padding-top:20px;padding-bottom:20px;margin-left:50px;margin-right:75px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="play_pause_button()">Lecture</button>\r\n' \
-  '    <button id="stop" style="background-color:rgb(250,220,200);border:none;padding-top:20px;padding-bottom:20px;margin-left:75px;margin-right:150px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="stop_button()">Arrêt</button>\r\n' \
+  '    <button id="play-pause" style="background-color:rgb(200,250,240);border:none;padding-top:20px;padding-bottom:20px;margin-left:50px;margin-right:75px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="play_pause_button()">{#jplayback#}</button>\r\n' \
+  '    <button id="stop" style="background-color:rgb(250,220,200);border:none;padding-top:20px;padding-bottom:20px;margin-left:75px;margin-right:150px;width:200px;font-size:100%;font-weight:bold;cursor:pointer;" onclick="stop_button()">{#jstop#}</button>\r\n' \
   '    <span id="mute" style="color:red;word-spacing:-30px;cursor:pointer;display:none;" onclick="mute_button()">🔈 <strong style="visibility:hidden;">&setmn;</strong></span>&nbsp;<input type="range" min="0" max="100" value="100" id="volume" style="width:100px;cursor:pointer;display:none;" onchange="volume_range()">\r\n' \
   '    <br>\r\n' \
   '    <br>\r\n' \
   '    <input type="range" min="0" max="10000" value="0" id="seekbar" style="margin-left:50px;margin-right:50px;width:80%;cursor:pointer;display:none;">\r\n' \
-  '    <p id="seektarget" style="margin-left:50px;font-size:75%;display:none;"> Position cible: <span id="seekposition">0:00:00</span> / <span id="seekduration">0:00:00</span></p>\r\n' \
-  '    <label for="StartFrom" id="lStartFrom" style="margin-left:50px;font-size:75%;display:none;">Position cible :</label>\r\n' \
+  '    <p id="seektarget" style="margin-left:50px;font-size:75%;display:none;"> {#jtargetposition#} : <span id="seekposition">0:00:00</span> / <span id="seekduration">0:00:00</span></p>\r\n' \
+  '    <label for="StartFrom" id="lStartFrom" style="margin-left:50px;font-size:75%;display:none;">{#jtargetposition#} :</label>\r\n' \
   '    <input type="time" id="StartFrom" step="1" value="00:00:00" style="height:40px;font-size:70%;border: none;background-color:rgb(30,30,35);color:rgb(200,250,240);display:none;">\r\n' \
   '    <script>\r\n' \
   '      new_socket();\r\n' \
@@ -4801,11 +5016,12 @@ class DLNAWebInterfaceServer(threading.Thread):
   '    </script>\r\n' \
   '  </body>\r\n' \
   '</html>'
+  HTML_CONTROL_TEMPLATE = HTML_CONTROL_TEMPLATE.replace('{', '{{').replace('}', '}}').replace('{{#', '{').replace('#}}', '}').format_map(LSTRINGS['webinterface']).replace('{{', '{').replace('}}', '}')
 
   def __init__(self, DLNAWebInterfaceServerAddress=None, Launch=INTERFACE_NOT_RUNNING, Renderer_uuid=None, Renderer_name=None, MediaServerMode=None, MediaSrc='', MediaStartFrom='0:00:00', MediaBufferSize=75, MediaBufferAhead=25, MediaMuxContainer=None, OnReadyPlay=False, MediaSubSrc='', MediaSubLang=None, SlideshowDuration=None, EndLess=False, verbosity=0):
     threading.Thread.__init__(self)
     self.verbosity = verbosity
-    self.logger = log_event(verbosity)
+    self.logger = log_event('webinterface', verbosity)
     self.DLNARendererControlerInstance = DLNARendererControler(verbosity)
     self.RenderersEvent = None
     if not DLNAWebInterfaceServerAddress:
@@ -4896,10 +5112,10 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.RenderersDataStore.reinit()
     self.SlideshowDuration = None
     if self.Status == DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS:
-      self.logger.log('Démarrage du gestionnaire d\'affichage de renderer pour serveur d\'interface Web', 2)
+      self.logger.log(2, 'rendererstart')
       self.html_start = DLNAWebInterfaceServer.HTML_START_TEMPLATE.replace('##CONTROL-URL##', 'http://%s:%s/control.html' % self.DLNAWebInterfaceServerAddress).replace('##DISPLAY##', 'none').encode('utf-8')
     elif self.Status == DLNAWebInterfaceServer.INTERFACE_START:
-      self.logger.log('Démarrage du gestionnaire d\'affichage de renderer dans le formulaire de lancement pour serveur d\'interface Web', 2)
+      self.logger.log(2, 'launchrendererstart')
       self.html_start = DLNAWebInterfaceServer.HTML_START_TEMPLATE.replace('##CONTROL-URL##', 'http://%s:%s/control.html' % self.DLNAWebInterfaceServerAddress).replace('##UPNP-URL##', 'http://%s:%s/upnp.html' % self.DLNAWebInterfaceServerAddress).replace('##DISPLAY##', 'inline-block').replace('##URL##', html.escape(self.MediaSrc) + ('\r\n' + html.escape(self.MediaSubSrc) if self.MediaSubSrc else '')).replace('##STARTFROM##', self.MediaPosition).encode('utf-8')
     else:
       return
@@ -4948,7 +5164,7 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.DLNARendererControlerInstance.stop_discovery_polling()
     if self.Status != DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS:
       self.DLNAClientInstance.is_discovery_polling_running = False
-    self.logger.log('Arrêt du gestionnaire d\'affichage de renderer pour serveur d\'interface Web', 2)
+    self.logger.log(2, 'rendererstop')
     if self.Status == DLNAWebInterfaceServer.INTERFACE_START and not self.shutdown_requested:
       self.RenderersDataStore.Redirect = True
     self.WebSocketServerRenderersInstance.shutdown()
@@ -4959,7 +5175,7 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.ControlDataStore.reinit()
     self.ControlDataStore.Status = 'initialisation'
     self.ControlDataStore.Position = '0:00:00'
-    self.logger.log('Démarrage du gestionnaire de contrôleur de lecture pour serveur d\'interface Web', 2)
+    self.logger.log(2, 'controlstart')
     if not self.Renderer :
       nb_search = 0
       renderer = None
@@ -4978,7 +5194,7 @@ class DLNAWebInterfaceServer(threading.Thread):
       renderer = self.Renderer
       self.RendererNotFound = False
     if self.shutdown_requested or not renderer:
-      self.logger.log('Interruption du gestionnaire de contrôleur de lecture pour serveur d\'interface Web', 2)
+      self.logger.log(2, 'controlinterrupt')
       return
     renderer_icon = b''
     if renderer.IconURL:
@@ -5009,7 +5225,7 @@ class DLNAWebInterfaceServer(threading.Thread):
     incoming_event = self.ControlDataStore.IncomingEvent
     self.ControlDataStore.IncomingEvent = spare_event
     if not prep_success or self.shutdown_requested or self.ControlDataStore.Command == 'Arrêt':
-      self.logger.log('Interruption du gestionnaire de contrôleur de lecture pour serveur d\'interface Web', 2)
+      self.logger.log(2, 'controlinterrupt')
       self.html_ready = False
       if not self.shutdown_requested:
         self.ControlDataStore.Redirect = True
@@ -5074,12 +5290,12 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.ControlDataStore.IncomingEvent = incoming_event
     if playlist != False:
       if playlist:
-        self.logger.log('Liste de lecture générée depuis l\'adresse %s: %s contenus média' % (self.MediaSrc, len(playlist)), 1)
+        self.logger.log(1, 'playlist', self.MediaSrc, len(playlist))
         self.ControlDataStore.Playlist = titles
         random.seed()
         order = list(range(len(playlist)))
       else:
-        self.logger.log('Absence de contenu média sous l\'adresse %s' % self.MediaSrc, 0)
+        self.logger.log(0, 'nocontent', self.MediaSrc)
       if self.SlideshowDuration:
         self.MediaPosition = self.SlideshowDuration
     cmd_stop = not self.OnReadyPlay
@@ -5237,7 +5453,7 @@ class DLNAWebInterfaceServer(threading.Thread):
           except:
             pass
         if not playlist or self.shutdown_requested:
-          self.logger.log('Interruption du gestionnaire de contrôleur de lecture pour serveur d\'interface Web', 2)
+          self.logger.log(2, 'controlinterrupt')
           self.html_ready = False
           if not self.shutdown_requested:
             self.ControlDataStore.Redirect = True
@@ -5260,14 +5476,14 @@ class DLNAWebInterfaceServer(threading.Thread):
             except:
               pass
             if not rep:
-              self.logger.log('Absence de réponse du renderer %s' % self.Renderer.FriendlyName, 1)
+              self.logger.log(1, 'norendereranswer', self.Renderer.FriendlyName)
               break
             try:
               rep.close()
             except:
               pass
           continue
-      self.logger.log('Prêt pour lecture de "%s"%s, par %s, sur le renderer "%s"' % (media_title, ', sous-titrée' if suburi else '', 'transmission directe de l\'adresse' if server_mode == DLNAWebInterfaceServer.SERVER_MODE_NONE else {MediaProvider.SERVER_MODE_RANDOM: 'diffusion via serveur en mode accès aléatoire', MediaProvider.SERVER_MODE_SEQUENTIAL: 'diffusion via serveur en mode accès séquentiel%s' % ((', remuxé en %s' % self.MediaServerInstance.MediaMuxContainer.lstrip('!')) if self.MediaServerInstance.MediaProviderInstance.FFmpeg_process else '')}.get(server_mode,''), self.Renderer.FriendlyName), 0)
+      self.logger.log(0, 'ready', media_title, LSTRINGS['webinterface'].get('subtitled', 'subtitled') if suburi else '', LSTRINGS['webinterface'].get('direct', 'direct') if server_mode == DLNAWebInterfaceServer.SERVER_MODE_NONE else {MediaProvider.SERVER_MODE_RANDOM: LSTRINGS['webinterface'].get('random', 'random'), MediaProvider.SERVER_MODE_SEQUENTIAL: LSTRINGS['webinterface'].get('sequential', 'sequential%s') % ((LSTRINGS['webinterface'].get('remuxed', 'remuxed %s') % self.MediaServerInstance.MediaMuxContainer.lstrip('!')) if self.MediaServerInstance.MediaProviderInstance.FFmpeg_process else '')}.get(server_mode,''), self.Renderer.FriendlyName)
       status_dict = {'PLAYING': 'Lecture', 'PAUSED_PLAYBACK': 'Pause', 'STOPPED': 'Arrêt'}
       old_value = None
       new_value = None
@@ -5592,21 +5808,21 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.DLNARendererControlerInstance.send_event_unsubscription(event_listener)
     if event_listener_rc:
       self.DLNARendererControlerInstance.send_event_unsubscription(event_listener_rc)
-    self.logger.log('Arrêt du gestionnaire de contrôleur de lecture pour serveur d\'interface Web%s%s%s%s' % (' - statut ' if transport_status or stop_reason else '', transport_status, ':' if transport_status and stop_reason else '', stop_reason), 2)
+    self.logger.log(2, 'controlstop', LSTRINGS['webinterface'].get('status', 'status') if transport_status or stop_reason else '', transport_status, ':' if transport_status and stop_reason else '', stop_reason)
     if not self.shutdown_requested:
       self.ControlDataStore.Redirect = True
     self.WebSocketServerControlInstance.shutdown()
 
   def _start_webserver(self):
     with ThreadedDualStackServer(self.DLNAWebInterfaceServerAddress, DLNAWebInterfaceRequestHandler, verbosity=self.verbosity) as self.DLNAWebInterfaceServerInstance:
-      self.logger.log('Démarrage du serveur d\'interface Web', 0)
+      self.logger.log(0, 'start')
       self.DLNAWebInterfaceServerInstance.Interface = self
       self.DLNAWebInterfaceServerInstance.post_lock = threading.Lock()
       self.DLNAWebInterfaceServerInstance.serve_forever()
 
   def run(self):
     if self.Status != None:
-      self.logger.log('Serveur d\'interface Web déjà en place', 1)
+      self.logger.log(1, 'alreadyrunning')
       return
     webserver_thread = threading.Thread(target=self._start_webserver)
     webserver_thread.start()
@@ -5636,7 +5852,7 @@ class DLNAWebInterfaceServer(threading.Thread):
 
   def shutdown(self):
     if not self.shutdown_requested:
-      self.logger.log('Fermeture du serveur d\'interface Web', 0)
+      self.logger.log(0, 'shutdown')
       self.shutdown_requested = True
       if self.Status == DLNAWebInterfaceServer.INTERFACE_CONTROL:
         self.ControlDataStore.IncomingEvent.set()
@@ -5659,42 +5875,44 @@ class DLNAWebInterfaceServer(threading.Thread):
 
 if __name__ == '__main__':
   
-  formatter = lambda prog: argparse.HelpFormatter(prog, max_help_position=50, width=119)
-  CustomArgumentParser = partial(argparse.ArgumentParser, formatter_class=formatter)
+  formatter = lambda prog: argparse.HelpFormatter(prog, max_help_position=65, width=119)
+  CustomArgumentParser = partial(argparse.ArgumentParser, formatter_class=formatter, add_help=False)
   parser = CustomArgumentParser()
+  parser.add_argument('--help', '-h', action='help', default=argparse.SUPPRESS, help=LSTRINGS['parser']['help'])
   subparsers = parser.add_subparsers(dest='command', parser_class=CustomArgumentParser)
   
-  common_parser = CustomArgumentParser(add_help=False)
-  common_parser.add_argument('--ip', '-i', metavar='SERVER_IP_ADDRESS', help='adresse IP du serveur [adresse sur le réseau par défaut]', default='')
-  common_parser.add_argument('--port', '-p', metavar='SERVER_TCP_PORT', help='port TCP du serveur [8000 par défaut]', default=8000, type=int)
-  common_parser.add_argument('--uuid', '-u', metavar='RENDERER_UUID', help='uuid du renderer [premier renderer sans sélection sur l\'uuid par défaut]', default=None)
-  common_parser.add_argument('--name', '-n', metavar='RENDERER_NAME', help='nom du renderer [premier renderer sans sélection sur le nom par défaut]', default=None)
+  common_parser = CustomArgumentParser()
+  common_parser.add_argument('--help', '-h', action='help', default=argparse.SUPPRESS, help=LSTRINGS['parser']['help'])
+  common_parser.add_argument('--ip', '-i', metavar='SERVER_IP_ADDRESS', help=LSTRINGS['parser']['ip'], default='')
+  common_parser.add_argument('--port', '-p', metavar='SERVER_TCP_PORT', help=LSTRINGS['parser']['port'], default=8000, type=int)
+  common_parser.add_argument('--uuid', '-u', metavar='RENDERER_UUID', help=LSTRINGS['parser']['rendereruuid'], default=None)
+  common_parser.add_argument('--name', '-n', metavar='RENDERER_NAME', help=LSTRINGS['parser']['renderername'], default=None)
   
-  server_parser = CustomArgumentParser(add_help=False)
-  server_parser.add_argument('--typeserver', '-t', metavar='TYPE_SERVER', help='type de serveur (a:auto, s:séquentiel, r:aléatoire, n:aucun) [a par défaut]', choices=['a', 's', 'r', 'n'], default='a')
-  server_parser.add_argument('--buffersize', '-b', metavar='BUFFER_SIZE', help='taille du tampon en blocs de 1 Mo [75 par défaut]', default=75, type=int)
-  server_parser.add_argument('--bufferahead', '-a', metavar='BUFFER_AHEAD', help='taille du sous-tampon de chargement par anticipation en blocs de 1 Mo [25 par défaut]', default=25, type=int)
-  server_parser.add_argument('--muxcontainer', '-m', metavar='MUX_CONTAINER', help='type de conteneur de remuxage précédé de ! pour qu\'il soit systématique [MP4 par défaut]', choices=['MP4', 'MPEGTS', '!MP4', '!MPEGTS'], default='MP4', type=str.upper)
-  server_parser.add_argument('--onreadyplay', '-o', help='lecture directe dès que le contenu média et le renderer sont prêts [désactivé par défaut]', action='store_true')
+  server_parser = CustomArgumentParser()
+  server_parser.add_argument('--typeserver', '-t', metavar='TYPE_SERVER', help=LSTRINGS['parser']['servertype'], choices=['a', 's', 'r', 'n'], default='a')
+  server_parser.add_argument('--buffersize', '-b', metavar='BUFFER_SIZE', help=LSTRINGS['parser']['buffersize'], default=75, type=int)
+  server_parser.add_argument('--bufferahead', '-a', metavar='BUFFER_AHEAD', help=LSTRINGS['parser']['bufferahead'], default=25, type=int)
+  server_parser.add_argument('--muxcontainer', '-m', metavar='MUX_CONTAINER', help=LSTRINGS['parser']['muxcontainer'], choices=['MP4', 'MPEGTS', '!MP4', '!MPEGTS'], default='MP4', type=str.upper)
+  server_parser.add_argument('--onreadyplay', '-o', help=LSTRINGS['parser']['onreadyplay'], action='store_true')
   
-  subparser_display_renderers = subparsers.add_parser('display_renderers', aliases=['r'], parents=[common_parser], help='Affiche les renderers présents sur le réseau')
-  subparser_display_renderers.add_argument('--verbosity', '-v', metavar='VERBOSE', help='niveau de verbosité de 0 à 2 [0 par défaut]', type=int, choices=[0, 1, 2], default=0)
+  subparser_display_renderers = subparsers.add_parser('display_renderers', aliases=['r'], parents=[common_parser], help=LSTRINGS['parser']['displayrenderers'])
+  subparser_display_renderers.add_argument('--verbosity', '-v', metavar='VERBOSE', help=LSTRINGS['parser']['verbosity'], type=int, choices=[0, 1, 2], default=0)
 
-  subparser_start = subparsers.add_parser('start', aliases=['s'], parents=[common_parser, server_parser], help='Démarre l\'interface à partir de la page de lancement')
-  subparser_start.add_argument('--mediasrc', '-c', metavar='MEDIA_ADDRESS', help='adresse du contenu multimédia [aucune par défaut]', default='')
-  subparser_start.add_argument('--mediasubsrc', '-s', metavar='MEDIA_SUBADDRESS', help='adresse du contenu de sous-titres [aucun par défaut]', default='')
-  subparser_start.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help='langue de sous-titres, . pour pas de sélection [fr,fre,fra,fr.* par défaut]', default='fr,fre,fra,fr.*')
-  subparser_start.add_argument('--mediastartfrom', '-f', metavar='MEDIA_START_FROM', help='position temporelle de démarrage ou durée d\'affichage au format H:MM:SS [début/indéfinie par défaut]', default=None)
-  subparser_start.add_argument('--verbosity', '-v', metavar='VERBOSE', help='niveau de verbosité de 0 à 2 [0 par défaut]', type=int, choices=[0, 1, 2], default=0)
+  subparser_start = subparsers.add_parser('start', aliases=['s'], parents=[common_parser, server_parser], help=LSTRINGS['parser']['start'])
+  subparser_start.add_argument('--mediasrc', '-c', metavar='MEDIA_ADDRESS', help=LSTRINGS['parser']['mediasrc1'], default='')
+  subparser_start.add_argument('--mediasubsrc', '-s', metavar='MEDIA_SUBADDRESS', help=LSTRINGS['parser']['mediasubsrc'], default='')
+  subparser_start.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help=LSTRINGS['parser']['mediasublang'], default='fr,fre,fra,fr.*')
+  subparser_start.add_argument('--mediastartfrom', '-f', metavar='MEDIA_START_FROM', help=LSTRINGS['parser']['mediastartfrom'], default=None)
+  subparser_start.add_argument('--verbosity', '-v', metavar='VERBOSE', help=LSTRINGS['parser']['verbosity'], type=int, choices=[0, 1, 2], default=0)
 
-  subparser_control = subparsers.add_parser('control', aliases=['c'], parents=[common_parser, server_parser], help='Démarre l\'interface à partir de la page de contrôle')
-  subparser_control.add_argument('mediasrc', metavar='MEDIA_ADDRESS', help='adresse du contenu multimédia')
-  subparser_control.add_argument('--mediasubsrc', '-s', metavar='MEDIA_SUBADDRESS', help='adresse du contenu de sous-titres [aucun par défaut]', default='')
-  subparser_control.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help='langue de sous-titres, . pour pas de sélection [fr,fre,fra,fr.* par défaut]', default='fr,fre,fra,fr.*')
-  subparser_control.add_argument('--mediastartfrom', '-f', metavar='MEDIA_START_FROM', help='position temporelle de démarrage ou durée d\'affichage au format H:MM:SS [début/indéfinie par défaut]', default=None)
-  subparser_control.add_argument('--slideshowduration', '-d', metavar='SLIDESHOW_DURATION', help='durée d\'affichage des images, si mediastrartfrom non défini, au format H:MM:SS [aucune par défaut]', default=None)
-  subparser_control.add_argument('--endless', '-e', help='lecture en boucle [désactivé par défaut, toujours actif en mode lecture aléatoire de liste]', action='store_true')
-  subparser_control.add_argument('--verbosity', '-v', metavar='VERBOSE', help='niveau de verbosité de 0 à 2 [0 par défaut]', type=int, choices=[0, 1, 2], default=0)
+  subparser_control = subparsers.add_parser('control', aliases=['c'], parents=[common_parser, server_parser], help=LSTRINGS['parser']['control'])
+  subparser_control.add_argument('mediasrc', metavar='MEDIA_ADDRESS', help=LSTRINGS['parser']['mediasrc2'])
+  subparser_control.add_argument('--mediasubsrc', '-s', metavar='MEDIA_SUBADDRESS', help=LSTRINGS['parser']['mediasubsrc'], default='')
+  subparser_control.add_argument('--mediasublang', '-l', metavar='MEDIA_SUBLANG', help=LSTRINGS['parser']['mediasublang'], default='fr,fre,fra,fr.*')
+  subparser_control.add_argument('--mediastartfrom', '-f', metavar='MEDIA_START_FROM', help=LSTRINGS['parser']['mediastartfrom'], default=None)
+  subparser_control.add_argument('--slideshowduration', '-d', metavar='SLIDESHOW_DURATION', help=LSTRINGS['parser']['slideshowduration'], default=None)
+  subparser_control.add_argument('--endless', '-e', help=LSTRINGS['parser']['endless'], action='store_true')
+  subparser_control.add_argument('--verbosity', '-v', metavar='VERBOSE', help=LSTRINGS['parser']['verbosity'], type=int, choices=[0, 1, 2], default=0)
 
 
   args = parser.parse_args()
@@ -5711,14 +5929,14 @@ if __name__ == '__main__':
 
   DLNAWebInterfaceServerInstance.start()
   webbrowser.open('http://%s:%s/' % DLNAWebInterfaceServerInstance.DLNAWebInterfaceServerAddress)
-  print('Appuyez sur "S" pour stopper')
+  print(LSTRINGS['parser']['stopkey'])
   remux_list = ('MP4', 'MPEGTS', '!MP4', '!MPEGTS')
-  server_modes = {MediaProvider.SERVER_MODE_AUTO: 'auto', MediaProvider.SERVER_MODE_SEQUENTIAL: 'séquentiel', MediaProvider.SERVER_MODE_RANDOM: 'aléatoire'}
+  server_modes = {MediaProvider.SERVER_MODE_AUTO: LSTRINGS['parser']['auto'], MediaProvider.SERVER_MODE_SEQUENTIAL: LSTRINGS['parser']['sequential'], MediaProvider.SERVER_MODE_RANDOM: LSTRINGS['parser']['random']}
   if DLNAWebInterfaceServerInstance.Status in (DLNAWebInterfaceServer.INTERFACE_START, DLNAWebInterfaceServer.INTERFACE_CONTROL):
     if args.typeserver != 'n':
-      print('Appuyez sur "!" et "M" pour alterner entre les modes de remuxage (MP4, MPEGTS, !MP4, !MPEGTS) pour la prochaine session de lecture - mode actuel: %s' % args.muxcontainer)
-      print('Appuyez sur "T" pour alterner entre les types de serveur (auto, séquentiel, aléatoire) pour la prochaine session de lecture - mode actuel: %s' % server_modes.get({'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM}.get(args.typeserver,''),''))
-    print('Appuyez sur "E" pour activer/désactiver la lecture en boucle - mode actuel: %s' % ('activé' if DLNAWebInterfaceServerInstance.EndLess else 'désactivé'))
+      print(LSTRINGS['parser']['remuxkey'] % args.muxcontainer)
+      print(LSTRINGS['parser']['servertypekey'] % server_modes.get({'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM}.get(args.typeserver,''),''))
+    print(LSTRINGS['parser']['endlesskey'] % LSTRINGS['parser']['enabled' if DLNAWebInterfaceServerInstance.EndLess else 'disabled'])
   while DLNAWebInterfaceServerInstance.Status != DLNAWebInterfaceServer.INTERFACE_NOT_RUNNING:
     k = msvcrt.getch()
     if k == b'\xe0':
@@ -5729,14 +5947,14 @@ if __name__ == '__main__':
     if DLNAWebInterfaceServerInstance.Status in (DLNAWebInterfaceServer.INTERFACE_START, DLNAWebInterfaceServer.INTERFACE_CONTROL) and args.typeserver != 'n':
       if k.upper() == b'M':
         DLNAWebInterfaceServerInstance.MediaMuxContainer = remux_list[(remux_list.index(DLNAWebInterfaceServerInstance.MediaMuxContainer)+1)%2+remux_list.index(DLNAWebInterfaceServerInstance.MediaMuxContainer)//2*2]
-        print('Mode de remuxage pour la prochaine session de lecture: %s' % DLNAWebInterfaceServerInstance.MediaMuxContainer)
+        print(LSTRINGS['parser']['remuxnext'] % DLNAWebInterfaceServerInstance.MediaMuxContainer)
       elif k.upper() == b'!' :
         DLNAWebInterfaceServerInstance.MediaMuxContainer = remux_list[(remux_list.index(DLNAWebInterfaceServerInstance.MediaMuxContainer)+2)%4]
-        print('Mode de remuxage pour la prochaine session de lecture: %s' % DLNAWebInterfaceServerInstance.MediaMuxContainer)
+        print(LSTRINGS['parser']['remuxnext'] % DLNAWebInterfaceServerInstance.MediaMuxContainer)
       elif k.upper() == b'T':
         DLNAWebInterfaceServerInstance.MediaServerMode = (DLNAWebInterfaceServerInstance.MediaServerMode + 1) % 3
-        print('Type de serveur pour la prochaine session de lecture: %s' % server_modes.get(DLNAWebInterfaceServerInstance.MediaServerMode,None))
+        print(LSTRINGS['parser']['servertypenext'] % server_modes.get(DLNAWebInterfaceServerInstance.MediaServerMode,None))
     if DLNAWebInterfaceServerInstance.Status in (DLNAWebInterfaceServer.INTERFACE_START, DLNAWebInterfaceServer.INTERFACE_CONTROL) and k.upper() == b'E':
       DLNAWebInterfaceServerInstance.EndLess = not DLNAWebInterfaceServerInstance.EndLess
-      print('Lecture en boucle: %s' % ('activé' if DLNAWebInterfaceServerInstance.EndLess else 'désactivé'))
+      print(LSTRINGS['parser']['endlessstatus'  ] % LSTRINGS['parser']['enabled' if DLNAWebInterfaceServerInstance.EndLess else 'disabled'])
   DLNAWebInterfaceServerInstance.shutdown()
