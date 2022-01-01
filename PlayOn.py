@@ -160,14 +160,15 @@ FR_STRINGS = {
     'jrenderers': 'Renderers',
     'jmwebsocketfailure': 'Échec de l\'établissement de la connexion WebSocket',
     'jmrenderersclosed': 'Renderers - interface close',
-    'jmentervalidurl': 'Saisissez une URL valide',
+    'jmentervalidurl': 'Saisissez une URL de contenu média valide',
     'jmentervalidsuburl': 'Saisissez une URL de sous-titres valide',
     'jmselectrenderer': 'Sélectionnez d\'abord un renderer',
     'jplaybackposition': 'Position de lecture',
-    'jplay': 'Lire',
+    'jgoplay': 'Lire',
+    'jreset': 'Réinitialiser',
+    'jplay': 'Lecture',
     'jpause': 'Pause',
     'jstop': 'Arrêt',
-    'jreset': 'Réinitialiser',
     'jinterfaceclosed': 'interface close',
     'jback': 'retour',
     'jinitialization': 'initialisation',
@@ -357,14 +358,15 @@ EN_STRINGS = {
     'jrenderers': 'Renderers',
     'jmwebsocketfailure': 'Failure of the establishment of the WebSocket connection',
     'jmrenderersclosed': 'Renderers - interface closed',
-    'jmentervalidurl': 'Enter a valid URL',
+    'jmentervalidurl': 'Enter a valid media content URL',
     'jmentervalidsuburl': 'Enter a valid subtitles URL',
     'jmselectrenderer': 'First select a renderer',
     'jplaybackposition': 'Playback position',
+    'jgoplay': 'Play',    
+    'jreset': 'Reset',
     'jplay': 'Play',
     'jpause': 'Pause',
     'jstop': 'Stop',
-    'jreset': 'Reset',
     'jinterfaceclosed': 'interface closed',
     'jback': 'back',
     'jinitialization': 'initialization',
@@ -419,7 +421,7 @@ EN_STRINGS = {
 }
 LSTRINGS = EN_STRINGS
 try:
-  if locale.getdefaultlocale()[0][:2].lower() == 'fr':
+  if locale.getdefaultlocale()[0][:2].lower() == 'frd':
     LSTRINGS = FR_STRINGS
 except:
   pass
@@ -4981,7 +4983,7 @@ class DLNAWebInterfaceServer(threading.Thread):
   '      URL_set = document.getElementById("URL-").value;\r\n' \
   '      StartFrom_set = document.getElementById("StartFrom").value;\r\n' \
   '    </script>\r\n' \
-  '    <button id="play" style="background-color:rgb(200,250,240);" onclick="play_button()">{#jplay#}</button>\r\n' \
+  '    <button id="play" style="background-color:rgb(200,250,240);" onclick="play_button()">{#jgoplay#}</button>\r\n' \
   '    <button id="reset" style="background-color:rgb(250,220,200);" onclick="reset_button()">{#jreset#}</button>\r\n' \
   '    <br><br>\r\n' \
   '    <table id="Renderers" style="display:none;">\r\n' \
