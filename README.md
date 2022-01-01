@@ -85,7 +85,6 @@ Some more infos:
 
 What remains to be done:
 - improve the web interface appearance
-- translate in other languages than French
 - add wider compatibility with renderers of other model and manufacturers (requires packet sniffing as documentation usually is scarce)
 
 Enjoy !
