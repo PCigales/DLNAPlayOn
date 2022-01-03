@@ -1483,6 +1483,12 @@ class MediaRequestHandlerS(server.SimpleHTTPRequestHandler):
     self.MediaExt = MediaExt
     super().__init__(*args, **kwargs)
 
+  def log_message(self, *args, **kwargs):
+    if self.server.logger.verbosity < 2:
+      pass
+    else:
+      super().log_message(*args, **kwargs)
+
   def send_head(self):
     if self.server.auth_ip:
       if not self.client_address[0] in self.server.auth_ip:
@@ -1666,6 +1672,12 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
     self.MediaSize = MediaSize
     self.AcceptRanges = AcceptRanges
     super().__init__(*args, **kwargs)
+
+  def log_message(self, *args, **kwargs):
+    if self.server.logger.verbosity < 2:
+      pass
+    else:
+      super().log_message(*args, **kwargs)
 
   def send_head(self):
     if self.server.auth_ip:
