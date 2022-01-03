@@ -224,10 +224,10 @@ FR_STRINGS = {
 EN_STRINGS = {
   'mediaprovider': {
     'opening': 'Opening of "%s" recognized as "%s" in "%s" mode - title: %s',
-    'extension': 'Extension of "%s" recognized as "%s"',
+    'extension': 'Extension of "%s" retained as "%s"',
     'failure': 'Failure of the opening of "%s" as "%s"',
     'subopening': 'Opening of the subtitles "%s" recognized as "%s"',
-    'subextension': 'Extension of the subtitles recognized as "%s"',
+    'subextension': 'Extension of the subtitles retained as "%s"',
     'subfailure': 'Failure of the opening of the subtitles "%s" as "%s"',
     'contentpath': 'content path',
     'contenturl': 'content url',
@@ -256,7 +256,7 @@ EN_STRINGS = {
     'failure': 'Connection %d -> segment %d -> failure of the delivery of the content',
     'deliveryfailure': 'Connection %d -> failure of the delivery of the content',
     'deliverystop': 'Connection %d -> end of the delivery of the content',
-    'subdelivery': 'delivery of the subtitles to %s:%s',
+    'subdelivery': 'Delivery of the subtitles to %s:%s',
     'subfailure': 'Failure of the delivery of the subtitles to %s:%s',
     'start': 'Start of the delivery server in %s mode%s',
     'sequential': 'sequential',
@@ -399,7 +399,7 @@ EN_STRINGS = {
     'mediasrc1': 'adress of the multimedia content [none by default]',
     'mediasrc2': 'adress of the multimedia content',
     'mediasubsrc': 'adress of the subtitles content [none by default]',
-    'mediasublang': 'language of the subtitles, . for no selection [fr,fre,fra,fr.* by default]',
+    'mediasublang': 'language of the subtitles, . for no selection [en,eng,en.* by default]',
     'mediasublangcode': 'en,eng,en.*',
     'mediastartfrom': 'start time position or display duration in format H:MM:SS [start/indefinite by default]',
     'slideshowduration': 'display duration of the pictures, if mediastrartfrom not defined, in the format H:MM:SS [none by default]',
@@ -451,10 +451,17 @@ class ThreadedDualStackServer(socketserver.ThreadingMixIn, server.HTTPServer):
   def __init__(self, *args, kmod, verbosity, auth_ip=None, **kwargs):
     self.logger = log_event(kmod, verbosity)
     if auth_ip:
+      try:
+        ip = socket.gethostbyname(socket.gethostname())
+      except:
+        try:
+          ip = socket.gethostbyname(socket.getfqdn())
+        except:
+          ip = ''
       if isinstance(auth_ip, tuple):
-        self.auth_ip = (*auth_ip , socket.gethostbyname(socket.gethostname()), "127.0.0.1")
+        self.auth_ip = (*auth_ip , ip, '127.0.0.1')
       else:
-        self.auth_ip = (auth_ip, socket.gethostbyname(socket.gethostname()), "127.0.0.1")
+        self.auth_ip = (auth_ip, ip, '127.0.0.1')
     else:
       self.auth_ip = None
     server.HTTPServer.__init__(self, *args, **kwargs)
@@ -2672,7 +2679,16 @@ class DLNAHandler:
     self.is_discovery_polling_running = None
     self.discovery_status_change = None
     self.discovery_polling_shutdown = None
-    self.ip = socket.gethostbyname(socket.gethostname())
+    try:
+      self.ip = socket.gethostbyname(socket.gethostname())
+    except:
+      try:
+        self.ip = socket.gethostbyname(socket.getfqdn())
+      except:
+        s = socket.socket(type=socket.SOCK_DGRAM)
+        s.connect(('239.255.255.250', 1900))
+        self.ip = s.getsockname()[0]
+        s.close()
     self.update_devices = threading.Lock()
 
   def _update_devices(self, desc_url, time_resp):
