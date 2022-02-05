@@ -1,8 +1,10 @@
 # PlayOn
 A script in Python 3 to play, and control through a web interface, local and remote contents to a DLNA/UPnP renderer
 
-PlayOn is an application written in Python 3 designed to play media contents on a DLNA/UPnP renderer from a computer running under Windows, and to allow control through a web interface from any device connected to the network. The script does not need any other package, but to enable all the features, ffmpeg and youtube-dl must be installed.
-The application has been tested on a Samsung UE40F8000 TV, but should work on any DLNA compliant renderer, except for some manufacturer/model dependent protocols, such as subtitle instructions.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with this program. If not, see https://www.gnu.org/licenses/.
+
+PlayOn is an application written in Python 3 designed to play media contents on a DLNA/UPnP renderer from a computer running under Windows, and to allow control through a web interface from any device connected to the network. The script does not need any other package, but to enable all the features, ffmpeg and youtube-dl (or youtube-dlp) must be installed.
+The application has been tested on a Samsung UE40F8000 TV, and with Windows Media Player, DLNAmpcRenderer, DLNAmpvRenderer, but should work on any DLNA compliant renderer, except for some manufacturer/model dependent protocols, such as subtitle instructions.
 
 The usable media sources are:
 - local files (on the computer where the application is running)
@@ -20,7 +22,7 @@ To install the application:
 - copy PlayOn.py, ffmpeg.bat and youtube-dl.bat in the same folder
 - install ffmpeg (https://ffmpeg.org/download.html#build-windows) and youtube-dl (https://youtube-dl.org/)
 - open ffmpeg.bat and put the location of ffmpeg executable in the first line (more customization can be made later on)
-- open youtube-dl.bat and put the location of youtube-dl executable in the first line (more customization can be made later on)
+- open youtube-dl.bat and put the location of youtube-dl (or youtube-dlp, but the batch file must remains named youtube-dl.bat) executable in the first line (more customization can be made later on)
 - allow ffmpeg and python to communicate through the firewall (for more precise needs, see below)
 
 To simply launch the application: PlayOn s
