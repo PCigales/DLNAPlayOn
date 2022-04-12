@@ -6203,6 +6203,10 @@ class DLNAWebInterfaceServer(threading.Thread):
                 prep_success = self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
             if prep_success:
               gapless_status = 2
+              self.NextMediaServerInstance.MediaBufferInstance.create_lock.acquire()
+              self.NextMediaServerInstance.MediaBufferInstance.r_indexes.append(1)
+              self.NextMediaServerInstance.MediaBufferInstance.create_lock.release()
+              self.NextMediaServerInstance.MediaBufferInstance.r_event.set()
             else:
               gapless_status = -1
         if gapless_status == 2:
