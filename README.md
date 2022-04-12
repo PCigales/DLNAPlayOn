@@ -58,11 +58,11 @@ Exemples (let's suppose the IP address of the computer is 192.168.1.10):
 - PlayOn c C:\video.mkv: will play the local file in "random" mode, with its subtitles if the file contains some, or an external subtitle file with the same name is in the same folder
 - PlayOn c -t s C:\video.mkv -s C:\video.mkv: will play the local file in "sequential" mode, with its subtitles if the file contains some
 - PlayOn c https://www.youtube.com/watch?v=XXXXXXX -s https://www.youtube.com/watch?v=XXXXXXX -l en: will play the YT video with its subtitles in English
-- PlayOn -c C:\videos\holidays -d 0:00:05: will play the content of the folder and its subfolders, displaying pictures during 5s
-- PlayOn -c C:\videos\holidays.m3u8 -d 0:00:08: will play the content of the playlist (and its subfolders or subplaylists), displaying pictures during 8s
+- PlayOn c C:\videos\holidays -d 0:00:05: will play the content of the folder and its subfolders, displaying pictures during 5s
+- PlayOn c C:\videos\holidays.m3u8 -d 0:00:08: will play the content of the playlist (and its subfolders or subplaylists), displaying pictures during 8s
 - PlayOn c https://vimeo.com/channels/XXXXX -s https://vimeo.com/channels/XXXXX -l en: will play the content of playlist with substitles if any
-- PlayOn -c C:\videos\movies -s c:\videos\st: will play the content of the movies folder and subfolders, loading subtitles from the st folder and identical subfolders
-- PlayOn -c C:\videos\movies -s c:\videos\st -t g: will play the content of the movies folder and subfolders, loading subtitles from the st folder and identical subfolders, in random mode trying to achieve gapless playback
+- PlayOn c C:\videos\movies -s c:\videos\st: will play the content of the movies folder and subfolders, loading subtitles from the st folder and identical subfolders
+- PlayOn c C:\videos\movies -s c:\videos\st -t g: will play the content of the movies folder and subfolders, loading subtitles from the st folder and identical subfolders, in random mode trying to achieve gapless playback
 
 Tips to make the application easier to use:
 - in %appdata%\Microsoft\Windows\SendTo, create a shortcut with 'C:\Windows\py.exe "C:\...\PlayOn.py" c -n "[TV]Samsung LED40" -d 0:00:05' where obviously '...' must be replaced with the path to the script, and '[TV]Samsung LED40' by the name of the renderer
