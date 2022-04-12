@@ -3271,6 +3271,12 @@ class DLNARendererControler (DLNAHandler):
       return None
     return out_args['MediaDuration']
 
+  def get_Duration_Fallback(self, renderer):
+    out_args = self.send_soap_msg(renderer, 'AVTransport', 'GetPositionInfo', soap_timeout=3, InstanceID=0)
+    if not out_args:
+      return None
+    return out_args['TrackDuration']
+
   def get_TransportInfo(self, renderer):
     out_args = self.send_soap_msg(renderer, 'AVTransport', 'GetTransportInfo', InstanceID=0)
     if not out_args:
@@ -5919,12 +5925,17 @@ class DLNAWebInterfaceServer(threading.Thread):
                 renderer_position = renderer_new_position
           else:
             renderer_position = renderer_new_position
-          if gapless_status >= 1 and accept_ranges and self.ControlDataStore.Duration == '0' and _position_to_seconds(renderer_position) <= 5:
+          if accept_ranges and self.ControlDataStore.Duration == '0' and _position_to_seconds(renderer_position) <= 5:
             try:
               new_duration = self.DLNARendererControlerInstance.get_Duration(self.Renderer)
               if new_duration:
                 if _position_to_seconds(new_duration):
                   self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
+              if self.ControlDataStore.Duration == '0':
+                new_duration = self.DLNARendererControlerInstance.get_Duration_Fallback(self.Renderer)
+                if new_duration:
+                  if _position_to_seconds(new_duration):
+                    self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
             except:
               pass
           if _position_to_seconds(renderer_position) > _position_to_seconds(max_renderer_position):
