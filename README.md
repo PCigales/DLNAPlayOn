@@ -4,7 +4,7 @@ A script in Python 3 to play, and control through a web interface, local and rem
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with this program. If not, see https://www.gnu.org/licenses/.
 
 PlayOn is an application written in Python 3 designed to play media contents on a DLNA/UPnP renderer from a computer running under Windows, and to allow control through a web interface from any device connected to the network. The script does not need any other package, but to enable all the features, ffmpeg and youtube-dl (or youtube-dlp) must be installed.
-The application has been tested on a Samsung UE40F8000 TV, and with Windows Media Player, DLNAmpcRenderer, DLNAmpvRenderer, but should work on any DLNA compliant renderer, except for some manufacturer/model dependent protocols, such as subtitle instructions.
+The application has been tested on a Samsung UE40F8000 TV, and with Windows Media Player, DLNAmpcRenderer, DLNAmpvRenderer, but should work on any DLNA compliant renderer, except for some manufacturer/model dependent protocols, such as subtitle instructions. Gapless playback is possible for audio and video contents, excepted those embedded in a web page, with renderers supporting this feature, but is subject to compatibility as this functionality is not standardized.
 
 The usable media sources are:
 - local files (on the computer where the application is running)
@@ -14,7 +14,7 @@ The usable media sources are:
 - content from a DLNA server
 
 The application runs a server that can operate in two modes (except if 'typeserver' is set as 'n': the URI will directly be sent to the renderer):
-- a random mode, where the content is loaded into a buffer to be distributed to the renderer, and time seeking is allowed during playing from the renderer or from the web interface (provided the source can be accessed in random mode)
+- a random mode, where the content is loaded into a buffer to be distributed to the renderer, and time seeking is allowed during playing from the renderer or from the web interface (provided the source can be accessed in random mode); gapless playback can be set in that mode
 - a sequential mode, where the content can be muxed/remuxed in live time with ffmpeg to be delivered, and no time seeking is possible, but a start position can be defined: HLS and video+audio contents can this way be sent to the renderer, which must be able to play either fMp4 or MpegTS streams
 
 To install the application:
@@ -35,7 +35,7 @@ To launch the application with more options (PlayOn -h to display the complete s
 where:  
   --ip SERVER_IP_ADDRESS, -i SERVER_IP_ADDRESS                  IP address to be used for the web server [default: computer address on the network]  
   --port SERVER_TCP_PORT, -p SERVER_TCP_PORT                    TCP port to be used for the web server [default: 8000]  
-  --typeserver TYPE_SERVER, -t TYPE_SERVER                      server type (a:auto, s:sequential, r:random, n:none) [default: a]  
+  --typeserver TYPE_SERVER, -t TYPE_SERVER                      server type (a:auto, s:sequential, r:random, g:gapless/random, n:none) [default: a]  
   --buffersize BUFFER_SIZE, -b BUFFER_SIZE                      buffer size in MB [default: 75]  
   --bufferahead BUFFER_AHEAD, -a BUFFER_AHEAD                   load ahead buffer size in MB [default: 25]  
   --muxcontainer MUX_CONTAINER, -m MUX_CONTAINER                remux container type, preceded by ! for systematic remux [default: MP4]  
@@ -62,6 +62,7 @@ Exemples (let's suppose the IP address of the computer is 192.168.1.10):
 - PlayOn -c C:\videos\holidays.m3u8 -d 0:00:08: will play the content of the playlist (and its subfolders or subplaylists), displaying pictures during 8s
 - PlayOn c https://vimeo.com/channels/XXXXX -s https://vimeo.com/channels/XXXXX -l en: will play the content of playlist with substitles if any
 - PlayOn -c C:\videos\movies -s c:\videos\st: will play the content of the movies folder and subfolders, loading subtitles from the st folder and identical subfolders
+- PlayOn -c C:\videos\movies -s c:\videos\st -t g: will play the content of the movies folder and subfolders, loading subtitles from the st folder and identical subfolders, in random mode trying to achieve gapless playback
 
 Tips to make the application easier to use:
 - in %appdata%\Microsoft\Windows\SendTo, create a shortcut with 'C:\Windows\py.exe "C:\...\PlayOn.py" c -n "[TV]Samsung LED40" -d 0:00:05' where obviously '...' must be replaced with the path to the script, and '[TV]Samsung LED40' by the name of the renderer
