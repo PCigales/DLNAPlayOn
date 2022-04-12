@@ -143,6 +143,9 @@ FR_STRINGS = {
     'controlinterrupt': 'Interruption du gestionnaire de contrôleur de lecture pour serveur d\'interface Web',
     'playlist': 'Liste de lecture générée depuis l\'adresse %s: %s contenus média',
     'nocontent': 'Absence de contenu média sous l\'adresse %s',
+    'nonegapless': 'Absence de support de la lecture sans blanc par le renderer %s',
+    'gapless': 'Lecture sans blanc des contenus média depuis l\'adresse %s activée',
+    'nogapless': 'Adresse %s incompatible avec la lecture sans blanc',
     'norendereranswer': 'Absence de réponse du renderer %s',
     'ready': 'Prêt pour lecture de "%s"%s, par %s, sur le renderer "%s"',
     'subtitled': ', sous-titrée',
@@ -190,7 +193,7 @@ FR_STRINGS = {
     'port': 'port TCP du serveur [8000 par défaut]',
     'rendereruuid': 'uuid du renderer [premier renderer sans sélection sur l\'uuid par défaut]',
     'renderername': 'nom du renderer [premier renderer sans sélection sur le nom par défaut]',
-    'servertype': 'type de serveur (a:auto, s:séquentiel, r:aléatoire, n:aucun) [a par défaut]',
+    'servertype': 'type de serveur (a:auto, s:séquentiel, r:aléatoire, g:sans-blanc/aléatoire, n:aucun) [a par défaut]',
     'buffersize': 'taille du tampon en blocs de 1 Mo [75 par défaut]',
     'bufferahead': 'taille du sous-tampon de chargement par anticipation en blocs de 1 Mo [25 par défaut]',
     'muxcontainer': 'type de conteneur de remuxage précédé de ! pour qu\'il soit systématique [MP4 par défaut]',
@@ -341,6 +344,9 @@ EN_STRINGS = {
     'controlinterrupt': 'Interruption of the playback controller manager for Web interface server',
     'playlist': 'Playlist generated from the address %s: %s media contents',
     'nocontent': 'Absence of media content under the address %s',
+    'nonegapless': 'Absence of support of gapless playback by the renderer %s',
+    'gapless': 'Gapless playback of the media contents from the address %s enabled',
+    'nogapless': 'Address %s incompatible with gapless playback',
     'norendereranswer': 'Absence of response from the renderer %s',
     'ready': 'Ready for playback of "%s"%s, by %s, on the renderer "%s"',
     'subtitled': ', subtitled',
@@ -388,7 +394,7 @@ EN_STRINGS = {
     'port': 'TCP port of the server [8000 by default]',
     'rendereruuid': 'uuid of the renderer [first renderer without selection on the uuid by default]',
     'renderername': 'name of the renderer [first renderer without selection on the name by default]',
-    'servertype': 'type of server (a:auto, s:sequential, r:random, n:none) [a by default]',
+    'servertype': 'type of server (a:auto, s:sequential, r:random, g:gapless/random, n:none) [a by default]',
     'buffersize': 'size of the buffer in blocks of 1 MB [75 by default]',
     'bufferahead': 'size of the sub-buffer of loading in advance in blocks of 1 MB [25 by default]',
     'muxcontainer': 'type of remuxing container preceded by ! so that it is systematic [MP4 by default]',
@@ -3207,7 +3213,24 @@ class DLNARendererControler (DLNAHandler):
       return None
     else:
       return True
-  
+
+  def send_URI_Next(self, renderer, uri, title, kind=None, size=None, duration=None, suburi=None, stop=None):
+    didl_lite = self._build_didl(uri, title, kind, size, duration, suburi)
+    out_args = self.send_soap_msg(renderer, 'AVTransport', 'SetNextAVTransportURI', soap_timeout=20,  soap_stop=stop, InstanceID=0, NextURI=uri, NextURIMetaData=didl_lite)
+    if not out_args:
+      return None
+    else:
+      return True
+      
+  def send_Local_URI_Next(self, renderer, uri, title, kind=None, size=None, duration=None, suburi=None, stop=None):
+    didl_lite = self._build_didl(uri, title, kind, size, duration, suburi)
+    didl_lite = didl_lite.replace(' sec:URIType="public"', '').replace('DLNA.ORG_OP=00', 'DLNA.ORG_OP=01').replace('DLNA.ORG_FLAGS=017', 'DLNA.ORG_FLAGS=217')
+    out_args = self.send_soap_msg(renderer, 'AVTransport', 'SetNextAVTransportURI', soap_timeout=20, soap_stop=stop, InstanceID=0, NextURI=uri, NextURIMetaData=didl_lite)
+    if not out_args:
+      return None
+    else:
+      return True
+
   def send_Play(self, renderer):
     out_args = self.send_soap_msg(renderer, 'AVTransport', 'Play', InstanceID=0, Speed=1)
     if not out_args:
@@ -4565,7 +4588,8 @@ class DLNAWebInterfaceServer(threading.Thread):
   INTERFACE_START = 2
   INTERFACE_CONTROL = 3
   
-  SERVER_MODE_NONE = 3
+  SERVER_MODE_GAPLESS = 3
+  SERVER_MODE_NONE = 4
   
   HTML_UPNP_TEMPLATE = \
   '<!DOCTYPE html>\r\n' \
@@ -5301,7 +5325,13 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.MediaSubSrc = MediaSubSrc
     self.MediaSubLang = MediaSubLang
     self.TargetStatus = Launch
-    self.MediaServerMode = MediaServerMode
+    self.MediaServerMode = MediaServerMode if MediaServerMode != None else MediaProvider.SERVER_MODE_AUTO
+    if self.MediaServerMode == DLNAWebInterfaceServer.SERVER_MODE_GAPLESS:
+      self.Gapless = True
+      self.MediaServerMode = MediaProvider.SERVER_MODE_RANDOM
+    else:
+      self.Gapless = False
+    self.NextMediaServerInstance = None
     if self.MediaServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL and not MediaMuxContainer:
       self.MediaPosition = '0:00:00'
     self.SlideshowDuration = SlideshowDuration if self.MediaPosition == '0:00:00' else None
@@ -5449,6 +5479,15 @@ class DLNAWebInterfaceServer(threading.Thread):
           renderer_icon = base64.b64encode(renderer_icon)
       except:
         pass
+    gapless = self.Gapless
+    if gapless:
+      serv = next((serv for serv in self.Renderer.Services if serv.Id == 'urn:upnp-org:serviceId:AVTransport'), None)
+      if serv:
+        gapless = next((act for act in serv.Actions if act.Name == 'SetNextAVTransportURI'), None) != None
+      else:
+        gapless = None
+      if not gapless:
+        self.logger.log(0, 'nonegapless', self.Renderer.FriendlyName)
     self.html_control = DLNAWebInterfaceServer.HTML_CONTROL_TEMPLATE.replace('##START-URL##', 'http://%s:%s/start.html' % self.DLNAWebInterfaceServerAddress).replace('##URL##', html.escape(self.MediaSrc) + ('<br>' + html.escape(self.MediaSubSrc) if self.MediaSubSrc else '')).replace('##RENDERERNAME##', html.escape(renderer.FriendlyName)).encode('utf-8').replace(b'##RENDERERICON##', renderer_icon)
     self.WebSocketServerControlInstance = WebSocketServer((self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+1), self.ControlDataStore, self.verbosity)
     self.WebSocketServerControlInstance.start()
@@ -5541,6 +5580,32 @@ class DLNAWebInterfaceServer(threading.Thread):
         self.logger.log(0, 'nocontent', self.MediaSrc)
       if self.SlideshowDuration:
         self.MediaPosition = self.SlideshowDuration
+    if gapless:
+      if self.MediaSrc[:7].lower() != 'upnp://':
+        ind = 0
+        mediakinds = []
+        while (ind < (len(playlist) if playlist != False else 1)):
+          media_src = playlist[ind] if playlist != False else self.MediaSrc
+          media_mime = mimetypes.guess_type(media_src)[0] or ''
+          media_kind = media_mime[0:5]
+          if not media_kind in ('video', 'audio'):
+            gapless = False
+            break
+          mediakinds.append(media_kind)
+          ind += 1
+        if playlist == False and self.MediaSubSrc:
+          sub_ext = (''.join(self.MediaSubSrc.rstrip().rpartition('.')[-2:])).lower() if '.' in self.MediaSubSrc else ''
+          if r'://' in self.MediaSubSrc:
+            if '?' in sub_ext:
+              sub_ext = sub_ext.rpartition('?')[0]
+            if not sub_ext in ('.ttxt', '.txt', '.smi', '.srt', '.sub', '.ssa', '.ass', '.vtt', '.m3u8'):
+              gapless = False
+      if 'image' in mediakinds:
+        gapless = False
+      if gapless:
+        self.logger.log(1, 'gapless', self.MediaSrc)
+      else:
+        self.logger.log(0, 'nogapless', self.MediaSrc)
     cmd_stop = not self.OnReadyPlay
     playlist_stop = False
     media_kind = None
@@ -5550,11 +5615,17 @@ class DLNAWebInterfaceServer(threading.Thread):
     warning_e = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'TransportStatus', 'ERROR_OCCURRED')
     warning_d = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'CurrentMediaDuration')
     server_mode = None
+    if gapless:
+      gapless_status = 0
+      warning_n = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'AVTransportURI')
+    else:
+      gapless_status = -1
+    self.NextMediaServerInstance = None
     while (ind < (len(playlist) - 1 if playlist != False else 0)) or jump_ind != None or self.ControlDataStore.Shuffle or self.EndLess:
       if self.shutdown_requested or playlist_stop:
         break
       if jump_ind == None:
-        ind +=1
+        ind += 1
         if playlist:
           if ind == len(playlist):
             ind = 0
@@ -5574,22 +5645,24 @@ class DLNAWebInterfaceServer(threading.Thread):
             media_sub_src = ''
         else:
           media_sub_src = media_src if self.MediaSubSrc == self.MediaSrc else ''
-        self.ControlDataStore.Status = 'initialisation'
-        self.ControlDataStore.Position = '0:00:00'
+        if gapless_status < 3:
+          self.ControlDataStore.Status = 'initialisation'
+          self.ControlDataStore.Position = '0:00:00'
         self.ControlDataStore.Duration = '0'
         self.ControlDataStore.URL = media_src + ('\r\n' + media_sub_src if media_sub_src else '')
         self.ControlDataStore.Current = order[ind]
         media_start_from = '0:00:00' if not restart_from else restart_from
         restart_from = None
       else:
-        self.ControlDataStore.Status = 'initialisation'
         media_sub_src = self.MediaSubSrc
-        if self.EndLess and self.ControlDataStore.Position != None:
-          self.ControlDataStore.Position = '0:00:00'
-        else:
-          cmd_stop = not self.OnReadyPlay and (restart_from == None or restart_from == '')
+        if gapless_status < 3:
+          self.ControlDataStore.Status = 'initialisation'
+          if self.EndLess and self.ControlDataStore.Position != None:
+            self.ControlDataStore.Position = '0:00:00'
+          else:
+            cmd_stop = not self.OnReadyPlay and (restart_from == None or restart_from == '')
       prev_media_kind = media_kind
-      if self.MediaSrc[:7].lower()=='upnp://':
+      if self.MediaSrc[:7].lower() == 'upnp://' or gapless:
         media_kind = mediakinds[order[ind]]
       else:
         media_kind = 'video'
@@ -5609,8 +5682,25 @@ class DLNAWebInterfaceServer(threading.Thread):
       self.MediaServerInstance = None
       check_renderer = False
       if self.MediaServerMode != DLNAWebInterfaceServer.SERVER_MODE_NONE:
-        self.MediaServerInstance = MediaServer(self.MediaServerMode, (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(urllib.parse.urlparse(renderer.BaseURL)).netloc.split(':',1)[0])
-        self.MediaServerInstance.start()
+        if gapless:
+          if self.NextMediaServerInstance:
+            self.MediaServerInstance = self.NextMediaServerInstance
+            self.NextMediaServerInstance = None
+          nind = ind + 1
+          if self.EndLess or self.ControlDataStore.Shuffle:
+            if playlist:
+              if nind == len(playlist):
+                nind = 0
+            else:
+              nind = 0
+          elif playlist:
+            if nind == len(playlist):
+              nind = None
+          else:
+            nind = None
+        if not self.MediaServerInstance:
+          self.MediaServerInstance = MediaServer(self.MediaServerMode, (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(urllib.parse.urlparse(renderer.BaseURL)).netloc.split(':',1)[0])
+          self.MediaServerInstance.start()
         self.ControlDataStore.IncomingEvent = self.MediaServerInstance.BuildFinishedEvent
         if not self.shutdown_requested:
           self.MediaServerInstance.BuildFinishedEvent.wait()
@@ -5622,32 +5712,48 @@ class DLNAWebInterfaceServer(threading.Thread):
           suburi = None
           if self.MediaServerInstance.MediaProviderInstance.MediaSubBuffer:
             if self.MediaServerInstance.MediaProviderInstance.MediaSubBuffer[0]:
-              suburi = 'http://%s:%s/mediasub%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaSubBuffer[1])
+              suburi = 'http://%s:%s/mediasub%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaSubBuffer[1])
           server_mode = self.MediaServerInstance.MediaProviderInstance.ServerMode
           if playlist and self.MediaServerInstance.MediaProviderInstance.MediaSrcType == 'WebPageURL' and playlist[order[ind]][:MediaProvider.TITLE_MAX_LENGTH] == titles[order[ind]][:MediaProvider.TITLE_MAX_LENGTH]:
             titles[order[ind]] = self.MediaServerInstance.MediaProviderInstance.MediaTitle if len(self.MediaServerInstance.MediaProviderInstance.MediaTitle) <= MediaProvider.TITLE_MAX_LENGTH else self.MediaServerInstance.MediaProviderInstance.MediaTitle[:MediaProvider.TITLE_MAX_LENGTH] + '…'
             self.ControlDataStore.Playlist = titles
-          self.DLNARendererControlerInstance.wait_for_warning(warning, 0, True)
           if self.MediaSrc[:7].lower() == 'upnp://':
             media_title = titles[order[ind]]
           else:
             media_title = self.MediaServerInstance.MediaProviderInstance.MediaTitle
-          spare_event.clear()
-          self.ControlDataStore.IncomingEvent = spare_event
-          if server_mode == MediaProvider.SERVER_MODE_RANDOM and not self.shutdown_requested:
-            accept_ranges = self.MediaServerInstance.MediaProviderInstance.AcceptRanges
-            if accept_ranges:
-              prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi, stop=self.ControlDataStore.IncomingEvent)
+          if gapless_status < 3:
+            self.DLNARendererControlerInstance.wait_for_warning(warning, 0, True)
+            spare_event.clear()
+            self.ControlDataStore.IncomingEvent = spare_event
+            if server_mode == MediaProvider.SERVER_MODE_RANDOM and not self.shutdown_requested:
+              accept_ranges = self.MediaServerInstance.MediaProviderInstance.AcceptRanges
+              if accept_ranges:
+                prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi, stop=self.ControlDataStore.IncomingEvent)
+              else:
+                prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
+            elif server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL and not self.shutdown_requested:
+              accept_ranges = False
+              prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
             else:
-              prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
-          elif server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL and not self.shutdown_requested:
-            accept_ranges = False
-            prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+5, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
-          else:
-            prep_success = False
-          self.ControlDataStore.IncomingEvent = incoming_event
-          if not prep_success:
-            check_renderer = True
+              prep_success = False
+            self.ControlDataStore.IncomingEvent = incoming_event
+            if not prep_success:
+              check_renderer = True
+          if gapless:
+            if nind != None:
+              nmedia_src = playlist[order[nind]] if playlist != False else self.MediaSrc
+              if playlist:
+                if self.MediaSubSrc and os.path.isdir(self.MediaSrc):
+                  if os.path.isdir(self.MediaSubSrc):
+                    nmedia_sub_src = os.path.dirname(os.path.join(self.MediaSubSrc, os.path.normpath(nmedia_src)[len(os.path.normpath(self.MediaSrc)) + 1:]))
+                  else:
+                    nmedia_sub_src = ''
+                else:
+                  nmedia_sub_src = nmedia_src if self.MediaSubSrc == self.MediaSrc else ''
+              else:
+                nmedia_sub_src = self.MediaSubSrc
+              self.NextMediaServerInstance = MediaServer(self.MediaServerMode, (self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+(self.MediaServerInstance.MediaServerAddress[1]-self.DLNAWebInterfaceServerAddress[1]+2)%4+4), nmedia_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom='0:00:00', MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=nmedia_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(urllib.parse.urlparse(renderer.BaseURL)).netloc.split(':',1)[0])
+              self.NextMediaServerInstance.start()
       else:
         suburi = media_sub_src
         server_mode = DLNAWebInterfaceServer.SERVER_MODE_NONE
@@ -5678,23 +5784,30 @@ class DLNAWebInterfaceServer(threading.Thread):
           check_renderer = True
       if self.shutdown_requested:
         prep_success = False
-      wi_cmd = self.ControlDataStore.Command
-      if wi_cmd == 'Arrêt':
-        prep_success = False
-        playlist_stop = True
-      elif (wi_cmd or '')[:4] == 'Jump' and playlist:
-        if wi_cmd[5:].isdecimal():
-          jump_ind = int(wi_cmd[5:]) - 1
-        prep_success = False
+      if gapless_status < 3:
+        wi_cmd = self.ControlDataStore.Command
+        if wi_cmd == 'Arrêt':
+          prep_success = False
+          playlist_stop = True
+        elif (wi_cmd or '')[:4] == 'Jump' and playlist:
+          if wi_cmd[5:].isdecimal():
+            jump_ind = int(wi_cmd[5:]) - 1
+          prep_success = False
       if playlist:
         self.ControlDataStore.Current = order[ind]
       if not prep_success:
         if self.MediaServerInstance:
           try:
             self.MediaServerInstance.shutdown()
-            self.MediaServerInstance = None
           except:
             pass
+          self.MediaServerInstance = None
+        if self.NextMediaServerInstance:
+          try:
+            self.NextMediaServerInstance.shutdown()
+          except:
+            pass
+          self.NextMediaServerInstance = None
         if not playlist or self.shutdown_requested:
           self.logger.log(2, 'controlinterrupt')
           self.html_ready = False
@@ -5728,13 +5841,9 @@ class DLNAWebInterfaceServer(threading.Thread):
           continue
       self.logger.log(0, 'ready', media_title, LSTRINGS['webinterface'].get('subtitled', 'subtitled') if suburi else '', LSTRINGS['webinterface'].get('direct', 'direct') if server_mode == DLNAWebInterfaceServer.SERVER_MODE_NONE else {MediaProvider.SERVER_MODE_RANDOM: LSTRINGS['webinterface'].get('random', 'random'), MediaProvider.SERVER_MODE_SEQUENTIAL: LSTRINGS['webinterface'].get('sequential', 'sequential%s') % ((LSTRINGS['webinterface'].get('remuxed', 'remuxed %s') % self.MediaServerInstance.MediaMuxContainer.lstrip('!')) if self.MediaServerInstance.MediaProviderInstance.FFmpeg_process else '')}.get(server_mode,''), self.Renderer.FriendlyName)
       status_dict = {'PLAYING': 'Lecture', 'PAUSED_PLAYBACK': 'Pause', 'STOPPED': 'Arrêt'}
-      old_value = None
-      new_value = None
-      is_paused = True
       new_duration = None
       transport_status = ''
       stop_reason = ''
-      renderer_position = '0:00:00'
       max_renderer_position = '0:00:00'
       if server_mode != DLNAWebInterfaceServer.SERVER_MODE_NONE:
         renderer_stopped_position = self.MediaServerInstance.MediaProviderInstance.MediaStartFrom
@@ -5742,26 +5851,41 @@ class DLNAWebInterfaceServer(threading.Thread):
         renderer_stopped_position = media_start_from
       if not renderer_stopped_position or renderer_stopped_position == '0:00:00':
         renderer_stopped_position = None
-      self.ControlDataStore.Position = media_start_from
-      if server_mode == MediaProvider.SERVER_MODE_RANDOM:
-        if accept_ranges or media_kind == 'image':
-          self.ControlDataStore.Status = 'prêt'
-        else:
-          self.ControlDataStore.Status = 'prêt (lecture à partir du début)'
-      elif server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL:
-        if self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer or media_kind == 'image':
-          self.ControlDataStore.Status = 'prêt'
-        else:
-          self.ControlDataStore.Status = 'prêt (lecture à partir du début)'
-      else:
-        self.ControlDataStore.Status = 'prêt'
       wi_cmd = None
-      if not cmd_stop:
-        wi_cmd = 'Lecture'
+      if gapless_status < 3:
+        old_value = None
+        is_paused = True
+        renderer_position = '0:00:00'
+        self.ControlDataStore.Position = media_start_from
+        if server_mode == MediaProvider.SERVER_MODE_RANDOM:
+          if accept_ranges or media_kind == 'image':
+            self.ControlDataStore.Status = 'prêt'
+          else:
+            self.ControlDataStore.Status = 'prêt (lecture à partir du début)'
+        elif server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL:
+          if self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer or media_kind == 'image':
+            self.ControlDataStore.Status = 'prêt'
+          else:
+            self.ControlDataStore.Status = 'prêt (lecture à partir du début)'
+        else:
+          self.ControlDataStore.Status = 'prêt'
+        if not cmd_stop:
+          wi_cmd = 'Lecture'
+          self.ControlDataStore.IncomingEvent.set()
+        self.DLNARendererControlerInstance.wait_for_warning(warning_d, 0, True)
+        self.DLNARendererControlerInstance.wait_for_warning(warning_e, 0, True)
+        gapless_status = 0 if self.NextMediaServerInstance else -1
+      else:
+        old_value = new_value
+        try:
+          renderer_position = self.DLNARendererControlerInstance.get_Position(renderer).rsplit('.')[0]
+        except:
+          renderer_position = '0:00:00'
+        self.ControlDataStore.Position = renderer_position
         self.ControlDataStore.IncomingEvent.set()
+        gapless_status = 1 if self.NextMediaServerInstance else -1
+      new_value = None
       cmd_stop = False
-      self.DLNARendererControlerInstance.wait_for_warning(warning_d, 0, True)
-      self.DLNARendererControlerInstance.wait_for_warning(warning_e, 0, True)
       if event_listener_rc:
         vol_seq = warning_v.ReferenceSEQ
         mut_seq = warning_m.ReferenceSEQ
@@ -5795,6 +5919,14 @@ class DLNAWebInterfaceServer(threading.Thread):
                 renderer_position = renderer_new_position
           else:
             renderer_position = renderer_new_position
+          if gapless_status >= 1 and accept_ranges and self.ControlDataStore.Duration == '0' and _position_to_seconds(renderer_position) <= 5:
+            try:
+              new_duration = self.DLNARendererControlerInstance.get_Duration(self.Renderer)
+              if new_duration:
+                if _position_to_seconds(new_duration):
+                  self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
+            except:
+              pass
           if _position_to_seconds(renderer_position) > _position_to_seconds(max_renderer_position):
             max_renderer_position = renderer_position
         if media_kind == 'image' and image_duration and self.ControlDataStore.Status != 'Arrêt':
@@ -5819,10 +5951,10 @@ class DLNAWebInterfaceServer(threading.Thread):
                 media_start_from = '0:00:00'
                 if accept_ranges:
                   try:
-                    duration = self.DLNARendererControlerInstance.get_Duration(self.Renderer)
-                    if duration:
-                      if _position_to_seconds(duration):
-                        self.ControlDataStore.Duration = str(_position_to_seconds(duration))
+                    new_duration = self.DLNARendererControlerInstance.get_Duration(self.Renderer)
+                    if new_duration:
+                      if _position_to_seconds(new_duration):
+                        self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
                   except:
                     pass
           if new_value != 'STOPPED' and not old_value and server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL:
@@ -5832,6 +5964,8 @@ class DLNAWebInterfaceServer(threading.Thread):
             is_paused = False
             if media_kind == 'image' and image_duration:
               image_start = time.time()
+            if gapless_status == 0:
+              gapless_status = 1
           elif new_value == 'PAUSED_PLAYBACK':
             is_paused = True
             if media_kind == 'image' and image_duration and image_start:
@@ -5950,6 +6084,18 @@ class DLNAWebInterfaceServer(threading.Thread):
                   except:
                     pass
                 new_value = 'STOPPED'
+                if self.NextMediaServerInstance:
+                  if gapless_status == 2:
+                    if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
+                      self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
+                    else:
+                      self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+                  gapless_status = -1
+                  try:
+                    self.NextMediaServerInstance.shutdown()
+                  except:
+                    pass
+                  self.NextMediaServerInstance = None
             if restart_from != None:
               self.ControlDataStore.ShowStartFrom = False
               if media_kind == 'image' and jump_ind == order[ind]:
@@ -5976,6 +6122,18 @@ class DLNAWebInterfaceServer(threading.Thread):
                 except:
                   pass
                 new_value = 'STOPPED'
+            if self.NextMediaServerInstance:
+              if gapless_status == 2:
+                if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
+                  self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
+                else:
+                  self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+              gapless_status = -1
+              try:
+                self.NextMediaServerInstance.shutdown()
+              except:
+                pass
+              self.NextMediaServerInstance = None
           elif (wi_cmd or '')[:4] == 'Seek':
             if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and accept_ranges and media_kind != 'image':
               if not renderer_stopped_position:
@@ -6015,16 +6173,48 @@ class DLNAWebInterfaceServer(threading.Thread):
                 new_value = 'STOPPED'
           if wi_cmd:
             self.ControlDataStore.IncomingEvent.set()
+        if gapless_status == 1 and not self.shutdown_requested and new_value != 'STOPPED':
+          if self.NextMediaServerInstance.BuildFinishedEvent.is_set():
+            prep_success = (self.NextMediaServerInstance.is_running == True) and self.NextMediaServerInstance.MediaProviderInstance.Status in (MediaProvider.STATUS_RUNNING, MediaProvider.STATUS_COMPLETED)
+            if prep_success and not self.shutdown_requested:
+              nsuburi = None
+              if self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer:
+                if self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer[0]:
+                  nsuburi = 'http://%s:%s/mediasub%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer[1])
+              if self.MediaSrc[:7].lower() == 'upnp://':
+                nmedia_title = titles[order[nind]]
+              else:
+                nmedia_title = self.NextMediaServerInstance.MediaProviderInstance.MediaTitle
+              self.DLNARendererControlerInstance.wait_for_warning(warning_n, 0, True)
+              if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
+                prep_success = self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
+              else:
+                prep_success = self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
+            if prep_success:
+              gapless_status = 2
+            else:
+              gapless_status = -1
+        if gapless_status == 2:
+          if not self.shutdown_requested and new_value != 'STOPPED':
+            if self.DLNARendererControlerInstance.wait_for_warning(warning_n, 0):
+              gapless_status = 3
+              accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
+              new_value = 'STOPPED'
       if self.MediaServerInstance:
         try:
           self.MediaServerInstance.shutdown()
-          self.MediaServerInstance = None
         except:
           pass
+        self.MediaServerInstance = None
       if event_listener_rc:
         self.ControlDataStore.Mute = ''
-    transport_status = ""
-    stop_reason = ""
+      if gapless_status == 2:
+        if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
+          self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
+        else:
+          self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+    transport_status = ''
+    stop_reason = ''
     if not self.shutdown_requested and self.verbosity == 2:
       try:
         transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[1]
@@ -6044,9 +6234,15 @@ class DLNAWebInterfaceServer(threading.Thread):
     if self.MediaServerInstance:
       try:
         self.MediaServerInstance.shutdown()
-        self.MediaServerInstance = None
       except:
         pass
+      self.MediaServerInstance = None
+    if self.NextMediaServerInstance:
+      try:
+        self.NextMediaServerInstance.shutdown()
+      except:
+        pass
+      self.NextMediaServerInstance = None
     self.html_ready = False
     self.DLNARendererControlerInstance.send_event_unsubscription(event_listener)
     if event_listener_rc:
@@ -6132,7 +6328,7 @@ if __name__ == '__main__':
   common_parser.add_argument('--name', '-n', metavar='RENDERER_NAME', help=LSTRINGS['parser']['renderername'], default=None)
   
   server_parser = CustomArgumentParser()
-  server_parser.add_argument('--typeserver', '-t', metavar='TYPE_SERVER', help=LSTRINGS['parser']['servertype'], choices=['a', 's', 'r', 'n'], default='a')
+  server_parser.add_argument('--typeserver', '-t', metavar='TYPE_SERVER', help=LSTRINGS['parser']['servertype'], choices=['a', 's', 'r', 'g', 'n'], default='a')
   server_parser.add_argument('--buffersize', '-b', metavar='BUFFER_SIZE', help=LSTRINGS['parser']['buffersize'], default=75, type=int)
   server_parser.add_argument('--bufferahead', '-a', metavar='BUFFER_AHEAD', help=LSTRINGS['parser']['bufferahead'], default=25, type=int)
   server_parser.add_argument('--muxcontainer', '-m', metavar='MUX_CONTAINER', help=LSTRINGS['parser']['muxcontainer'], choices=['MP4', 'MPEGTS', '!MP4', '!MPEGTS'], default='MP4', type=str.upper)
@@ -6166,9 +6362,9 @@ if __name__ == '__main__':
   if args.command in ('display_renderers', 'r'):
     DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS, verbosity=args.verbosity)
   elif args.command in ('start', 's'):
-    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_START, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None) , MediaSrc=os.path.abspath(args.mediasrc) if args.mediasrc and not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if (args.mediasublang and args.mediasublang != '.') else ('' if args.mediasublang == '.' else LSTRINGS['parser'].get('mediasublangcode', '')), verbosity=args.verbosity)
+    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_START, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'g':DLNAWebInterfaceServer.SERVER_MODE_GAPLESS, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None) , MediaSrc=os.path.abspath(args.mediasrc) if args.mediasrc and not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if (args.mediasublang and args.mediasublang != '.') else ('' if args.mediasublang == '.' else LSTRINGS['parser'].get('mediasublangcode', '')), verbosity=args.verbosity)
   elif args.command in ('control', 'c'):
-    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None), MediaSrc=os.path.abspath(args.mediasrc) if not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if (args.mediasublang and args.mediasublang != '.') else ('' if args.mediasublang == '.' else LSTRINGS['parser'].get('mediasublangcode', '')), SlideshowDuration=args.slideshowduration, EndLess=args.endless, verbosity=args.verbosity)
+    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), Launch=DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'g':DLNAWebInterfaceServer.SERVER_MODE_GAPLESS, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None), MediaSrc=os.path.abspath(args.mediasrc) if not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if (args.mediasublang and args.mediasublang != '.') else ('' if args.mediasublang == '.' else LSTRINGS['parser'].get('mediasublangcode', '')), SlideshowDuration=args.slideshowduration, EndLess=args.endless, verbosity=args.verbosity)
 
   DLNAWebInterfaceServerInstance.start()
   webbrowser.open('http://%s:%s/' % DLNAWebInterfaceServerInstance.DLNAWebInterfaceServerAddress)
@@ -6176,7 +6372,7 @@ if __name__ == '__main__':
   remux_list = ('MP4', 'MPEGTS', '!MP4', '!MPEGTS')
   server_modes = {MediaProvider.SERVER_MODE_AUTO: LSTRINGS['parser']['auto'], MediaProvider.SERVER_MODE_SEQUENTIAL: LSTRINGS['parser']['sequential'], MediaProvider.SERVER_MODE_RANDOM: LSTRINGS['parser']['random']}
   if DLNAWebInterfaceServerInstance.Status in (DLNAWebInterfaceServer.INTERFACE_START, DLNAWebInterfaceServer.INTERFACE_CONTROL):
-    if args.typeserver != 'n':
+    if not args.typeserver in ('g', 'n'):
       print(LSTRINGS['parser']['remuxkey'] % args.muxcontainer)
       print(LSTRINGS['parser']['servertypekey'] % server_modes.get({'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM}.get(args.typeserver,''),''))
     print(LSTRINGS['parser']['endlesskey'] % LSTRINGS['parser']['enabled' if DLNAWebInterfaceServerInstance.EndLess else 'disabled'])
@@ -6187,7 +6383,7 @@ if __name__ == '__main__':
       k = b''
     if k.upper() == b'S':
         break
-    if DLNAWebInterfaceServerInstance.Status in (DLNAWebInterfaceServer.INTERFACE_START, DLNAWebInterfaceServer.INTERFACE_CONTROL) and args.typeserver != 'n':
+    if DLNAWebInterfaceServerInstance.Status in (DLNAWebInterfaceServer.INTERFACE_START, DLNAWebInterfaceServer.INTERFACE_CONTROL) and not args.typeserver in ('g', 'n'):
       if k.upper() == b'M':
         DLNAWebInterfaceServerInstance.MediaMuxContainer = remux_list[(remux_list.index(DLNAWebInterfaceServerInstance.MediaMuxContainer)+1)%2+remux_list.index(DLNAWebInterfaceServerInstance.MediaMuxContainer)//2*2]
         print(LSTRINGS['parser']['remuxnext'] % DLNAWebInterfaceServerInstance.MediaMuxContainer)
@@ -6199,5 +6395,5 @@ if __name__ == '__main__':
         print(LSTRINGS['parser']['servertypenext'] % server_modes.get(DLNAWebInterfaceServerInstance.MediaServerMode,None))
     if DLNAWebInterfaceServerInstance.Status in (DLNAWebInterfaceServer.INTERFACE_START, DLNAWebInterfaceServer.INTERFACE_CONTROL) and k.upper() == b'E':
       DLNAWebInterfaceServerInstance.EndLess = not DLNAWebInterfaceServerInstance.EndLess
-      print(LSTRINGS['parser']['endlessstatus'  ] % LSTRINGS['parser']['enabled' if DLNAWebInterfaceServerInstance.EndLess else 'disabled'])
+      print(LSTRINGS['parser']['endlessstatus'] % LSTRINGS['parser']['enabled' if DLNAWebInterfaceServerInstance.EndLess else 'disabled'])
   DLNAWebInterfaceServerInstance.shutdown()
