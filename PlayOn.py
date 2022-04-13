@@ -5623,7 +5623,7 @@ class DLNAWebInterfaceServer(threading.Thread):
     server_mode = None
     if gapless:
       gapless_status = 0
-      warning_n = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'AVTransportURI')
+      warning_n = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'AVTransportURI', WarningEvent=incoming_event)
     else:
       gapless_status = -1
     self.NextMediaServerInstance = None
@@ -5654,7 +5654,6 @@ class DLNAWebInterfaceServer(threading.Thread):
         if gapless_status < 3:
           self.ControlDataStore.Status = 'initialisation'
           self.ControlDataStore.Position = '0:00:00'
-        self.ControlDataStore.Duration = '0'
         self.ControlDataStore.URL = media_src + ('\r\n' + media_sub_src if media_sub_src else '')
         self.ControlDataStore.Current = order[ind]
         media_start_from = '0:00:00' if not restart_from else restart_from
@@ -5667,6 +5666,7 @@ class DLNAWebInterfaceServer(threading.Thread):
             self.ControlDataStore.Position = '0:00:00'
           else:
             cmd_stop = not self.OnReadyPlay and (restart_from == None or restart_from == '')
+      self.ControlDataStore.Duration = '0'
       prev_media_kind = media_kind
       if self.MediaSrc[:7].lower() == 'upnp://' or gapless:
         media_kind = mediakinds[order[ind]]
@@ -5925,7 +5925,9 @@ class DLNAWebInterfaceServer(threading.Thread):
                 renderer_position = renderer_new_position
           else:
             renderer_position = renderer_new_position
-          if accept_ranges and self.ControlDataStore.Duration == '0' and _position_to_seconds(renderer_position) <= 5:
+          if _position_to_seconds(renderer_position) > _position_to_seconds(max_renderer_position):
+            max_renderer_position = renderer_position
+        if media_kind != 'image' and accept_ranges and self.ControlDataStore.Duration == '0' and ((new_value and not old_value) or gapless_status in (0, 1)):
             try:
               new_duration = self.DLNARendererControlerInstance.get_Duration(self.Renderer)
               if new_duration:
@@ -5938,8 +5940,6 @@ class DLNAWebInterfaceServer(threading.Thread):
                     self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
             except:
               pass
-          if _position_to_seconds(renderer_position) > _position_to_seconds(max_renderer_position):
-            max_renderer_position = renderer_position
         if media_kind == 'image' and image_duration and self.ControlDataStore.Status != 'Arrêt':
           renderer_position = _seconds_to_position(int(max(0, image_duration - ((time.time() - image_start) if image_start else 0))))
         if not old_value and new_value == 'STOPPED':
@@ -5960,14 +5960,6 @@ class DLNAWebInterfaceServer(threading.Thread):
             if not old_value:
               if media_kind != 'image':
                 media_start_from = '0:00:00'
-                if accept_ranges:
-                  try:
-                    new_duration = self.DLNARendererControlerInstance.get_Duration(self.Renderer)
-                    if new_duration:
-                      if _position_to_seconds(new_duration):
-                        self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
-                  except:
-                    pass
           if new_value != 'STOPPED' and not old_value and server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL:
             if not self.MediaServerInstance.MediaProviderInstance.MediaMuxContainer and media_kind != 'image':
               media_start_from = '0:00:00'
@@ -6196,7 +6188,7 @@ class DLNAWebInterfaceServer(threading.Thread):
                 nmedia_title = titles[order[nind]]
               else:
                 nmedia_title = self.NextMediaServerInstance.MediaProviderInstance.MediaTitle
-              self.DLNARendererControlerInstance.wait_for_warning(warning_n, 0, True)
+              gap_seq = warning_n.ReferenceSEQ
               if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
                 prep_success = self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
               else:
@@ -6209,12 +6201,11 @@ class DLNAWebInterfaceServer(threading.Thread):
               self.NextMediaServerInstance.MediaBufferInstance.r_event.set()
             else:
               gapless_status = -1
-        if gapless_status == 2:
-          if not self.shutdown_requested and new_value != 'STOPPED':
-            if self.DLNARendererControlerInstance.wait_for_warning(warning_n, 0):
-              gapless_status = 3
-              accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
-              new_value = 'STOPPED'
+        if gapless_status == 2 and not self.shutdown_requested and new_value != 'STOPPED':
+          if gap_seq < warning_n.ReferenceSEQ:
+            gapless_status = 3
+            accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
+            new_value = 'STOPPED'
       if self.MediaServerInstance:
         try:
           self.MediaServerInstance.shutdown()
