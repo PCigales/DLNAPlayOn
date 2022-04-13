@@ -5928,18 +5928,18 @@ class DLNAWebInterfaceServer(threading.Thread):
           if _position_to_seconds(renderer_position) > _position_to_seconds(max_renderer_position):
             max_renderer_position = renderer_position
         if media_kind != 'image' and accept_ranges and self.ControlDataStore.Duration == '0' and ((new_value and not old_value) or gapless_status in (0, 1)):
-            try:
-              new_duration = self.DLNARendererControlerInstance.get_Duration(self.Renderer)
+          try:
+            new_duration = self.DLNARendererControlerInstance.get_Duration(self.Renderer)
+            if new_duration:
+              if _position_to_seconds(new_duration):
+                self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
+            if self.ControlDataStore.Duration == '0':
+              new_duration = self.DLNARendererControlerInstance.get_Duration_Fallback(self.Renderer)
               if new_duration:
                 if _position_to_seconds(new_duration):
                   self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
-              if self.ControlDataStore.Duration == '0':
-                new_duration = self.DLNARendererControlerInstance.get_Duration_Fallback(self.Renderer)
-                if new_duration:
-                  if _position_to_seconds(new_duration):
-                    self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
-            except:
-              pass
+          except:
+            pass
         if media_kind == 'image' and image_duration and self.ControlDataStore.Status != 'Arrêt':
           renderer_position = _seconds_to_position(int(max(0, image_duration - ((time.time() - image_start) if image_start else 0))))
         if not old_value and new_value == 'STOPPED':
