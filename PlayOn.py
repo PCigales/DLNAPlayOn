@@ -5594,9 +5594,16 @@ class DLNAWebInterfaceServer(threading.Thread):
           media_src = playlist[ind] if playlist != False else self.MediaSrc
           media_mime = mimetypes.guess_type(media_src)[0] or ''
           media_kind = media_mime[0:5]
-          if not media_kind in ('video', 'audio'):
-            gapless = False
-            break
+          if r'://' in media_src:
+            if not media_kind in ('video', 'audio'):
+              gapless = False
+              break
+          else:
+            if media_kind == 'image':
+              gapless = False
+              break
+            if not media_kind in ('video', 'audio'):
+              media_kind = 'video'
           mediakinds.append(media_kind)
           ind += 1
         if playlist == False and self.MediaSubSrc:
