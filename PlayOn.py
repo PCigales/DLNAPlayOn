@@ -6232,16 +6232,21 @@ class DLNAWebInterfaceServer(threading.Thread):
               self.NextMediaServerInstance.MediaBufferInstance.r_event.set()
             else:
               gapless_status = -1
-        if gapless_status == 2 and not self.shutdown_requested and new_value != 'STOPPED':
+        if gapless_status == 2 and not self.shutdown_requested:
           if gap_seq < warning_n.ReferenceSEQ:
-            if (warning_n.TriggerLastValue or '').split('/', 3)[2:3].count('%s:%s' % self.NextMediaServerInstance.MediaServerAddress):
-              gapless_status = 3
-              accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
-            else: 
-              try:
-                self.DLNARendererControlerInstance.send_Stop(renderer)
-              except:
-                pass
+            try:
+              transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[0]
+            except:
+              transport_status = ''
+            if transport_status.upper() in ('PLAYING', 'TRANSITIONING'):
+              if (warning_n.TriggerLastValue or '').split('/', 3)[2:3].count('%s:%s' % self.NextMediaServerInstance.MediaServerAddress):
+                gapless_status = 3
+                accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
+              else: 
+                try:
+                  self.DLNARendererControlerInstance.send_Stop(renderer)
+                except:
+                  pass
             new_value = 'STOPPED'
       if self.MediaServerInstance:
         try:
