@@ -6210,8 +6210,9 @@ class DLNAWebInterfaceServer(threading.Thread):
               gapless_status = -1
         if gapless_status == 2 and not self.shutdown_requested and new_value != 'STOPPED':
           if gap_seq < warning_n.ReferenceSEQ:
-            gapless_status = 3
-            accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
+            if (warning_n.TriggerLastValue or '').split('/', 3)[2:3].count('%s:%s' % self.NextMediaServerInstance.MediaServerAddress):
+              gapless_status = 3
+              accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
             new_value = 'STOPPED'
       if self.MediaServerInstance:
         try:
