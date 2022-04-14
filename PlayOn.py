@@ -5498,7 +5498,10 @@ class DLNAWebInterfaceServer(threading.Thread):
     self.WebSocketServerControlInstance = WebSocketServer((self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+1), self.ControlDataStore, self.verbosity)
     self.WebSocketServerControlInstance.start()
     self.html_ready = True
-    self.DLNARendererControlerInstance.send_Stop(renderer)
+    try:
+      self.DLNARendererControlerInstance.send_Stop(renderer)
+    except:
+      pass
     event_listener = self.DLNARendererControlerInstance.new_event_subscription(renderer, 'AVTransport', self.DLNAWebInterfaceServerAddress[1]+3)
     prep_success = True
     if not event_listener:
@@ -5691,7 +5694,10 @@ class DLNAWebInterfaceServer(threading.Thread):
         media_start_from = self.MediaPosition if not restart_from else restart_from
         restart_from = None
       if prev_media_kind == 'image' and media_kind != 'image':
-        self.DLNARendererControlerInstance.send_Stop(renderer)
+        try:
+          self.DLNARendererControlerInstance.send_Stop(renderer)
+        except:
+          pass
       self.MediaServerInstance = None
       check_renderer = False
       if self.MediaServerMode != DLNAWebInterfaceServer.SERVER_MODE_NONE:
@@ -5740,13 +5746,19 @@ class DLNAWebInterfaceServer(threading.Thread):
             self.ControlDataStore.IncomingEvent = spare_event
             if server_mode == MediaProvider.SERVER_MODE_RANDOM and not self.shutdown_requested:
               accept_ranges = self.MediaServerInstance.MediaProviderInstance.AcceptRanges
-              if accept_ranges:
-                prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi, stop=self.ControlDataStore.IncomingEvent)
-              else:
-                prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
+              try:
+                if accept_ranges:
+                  prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi, stop=self.ControlDataStore.IncomingEvent)
+                else:
+                  prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
+              except:
+                prep_success = False
             elif server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL and not self.shutdown_requested:
               accept_ranges = False
-              prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
+              try:
+                prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
+              except:
+                prep_success = False
             else:
               prep_success = False
             self.ControlDataStore.IncomingEvent = incoming_event
@@ -5786,11 +5798,14 @@ class DLNAWebInterfaceServer(threading.Thread):
           media_title = media_src
         spare_event.clear()
         self.ControlDataStore.IncomingEvent = spare_event
-        if (media_ip == '' or self.DLNAWebInterfaceServerAddress[0] == media_ip) and not self.shutdown_requested:
-          prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
-        elif not self.shutdown_requested:
-          prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
-        else:
+        try:
+          if (media_ip == '' or self.DLNAWebInterfaceServerAddress[0] == media_ip) and not self.shutdown_requested:
+            prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
+          elif not self.shutdown_requested:
+            prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
+          else:
+            prep_success = False
+        except:
           prep_success = False
         self.ControlDataStore.IncomingEvent = incoming_event
         if not prep_success:
@@ -6096,10 +6111,13 @@ class DLNAWebInterfaceServer(threading.Thread):
                 new_value = 'STOPPED'
                 if self.NextMediaServerInstance:
                   if gapless_status == 2:
-                    if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
-                      self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
-                    else:
-                      self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+                    try:
+                      if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
+                        self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
+                      else:
+                        self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+                    except:
+                      pass
                   gapless_status = -1
                   try:
                     self.NextMediaServerInstance.shutdown()
@@ -6134,10 +6152,13 @@ class DLNAWebInterfaceServer(threading.Thread):
                 new_value = 'STOPPED'
             if self.NextMediaServerInstance:
               if gapless_status == 2:
-                if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
-                  self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
-                else:
-                  self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+                try:
+                  if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
+                    self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
+                  else:
+                    self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+                except:
+                  pass
               gapless_status = -1
               try:
                 self.NextMediaServerInstance.shutdown()
@@ -6196,10 +6217,13 @@ class DLNAWebInterfaceServer(threading.Thread):
               else:
                 nmedia_title = self.NextMediaServerInstance.MediaProviderInstance.MediaTitle
               gap_seq = warning_n.ReferenceSEQ
-              if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
-                prep_success = self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
-              else:
-                prep_success = self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
+              try:
+                if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
+                  prep_success = self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
+                else:
+                  prep_success = self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
+              except:
+                prep_success = False
             if prep_success:
               gapless_status = 2
               self.NextMediaServerInstance.MediaBufferInstance.create_lock.acquire()
@@ -6213,6 +6237,11 @@ class DLNAWebInterfaceServer(threading.Thread):
             if (warning_n.TriggerLastValue or '').split('/', 3)[2:3].count('%s:%s' % self.NextMediaServerInstance.MediaServerAddress):
               gapless_status = 3
               accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
+            else: 
+              try:
+                self.DLNARendererControlerInstance.send_Stop(renderer)
+              except:
+                pass
             new_value = 'STOPPED'
       if self.MediaServerInstance:
         try:
@@ -6223,10 +6252,13 @@ class DLNAWebInterfaceServer(threading.Thread):
       if event_listener_rc:
         self.ControlDataStore.Mute = ''
       if gapless_status == 2:
-        if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
-          self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
-        else:
-          self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+        try:
+          if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
+            self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
+          else:
+            self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+        except:
+          pass
     transport_status = ''
     stop_reason = ''
     if not self.shutdown_requested and self.verbosity == 2:
