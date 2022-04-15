@@ -2430,6 +2430,7 @@ class DLNAEventListener:
     self.Renderer = None
     self.Service = None
     self.is_running = None
+    self.receiver_thread = None
     self.log = log
     self.EventsLog = []
     self.CurrentSEQ = None
@@ -2448,7 +2449,14 @@ class DLNAEventNotificationServer(socketserver.TCPServer):
     except:
       pass
     super().server_bind()
-    
+
+  def shutdown(self):
+    super().shutdown()
+    self.socket.close()
+
+  def server_close(self):
+    pass
+
 
 class DLNAEventNotificationHandler(socketserver.StreamRequestHandler):
 
@@ -3320,11 +3328,13 @@ class DLNARendererControler (DLNAHandler):
     EventListener.is_running = None
 
   def _shutdown_event_notification_receiver(self, EventListener):
-    EventListener.is_running = False
-    try:
-      EventListener.DLNAEventNotificationReceiver.shutdown()
-    except:
-      pass
+    if EventListener.is_running:
+      EventListener.is_running = False
+      try:
+        EventListener.DLNAEventNotificationReceiver.shutdown()
+        EventListener.receiver_thread.join()
+      except:
+        pass
 
   def new_event_subscription(self, renderer, service, port, log=False):
     if not renderer:
@@ -3351,8 +3361,8 @@ class DLNARendererControler (DLNAHandler):
       self.logger.log(1, 'subscralreadyactivated', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:])
       return None
     EventListener.is_running = True
-    receiver_thread = threading.Thread(target=self._start_event_notification_receiver, args=(EventListener, self.verbosity))
-    receiver_thread.start()
+    EventListener.receiver_thread = threading.Thread(target=self._start_event_notification_receiver, args=(EventListener, self.verbosity))
+    EventListener.receiver_thread.start()
     requ = urllib.request.Request(url=EventListener.Service.SubscrEventURL, headers=msg_headers, method='SUBSCRIBE')
     try:
       resp = urllib.request.urlopen(requ, timeout=5)
