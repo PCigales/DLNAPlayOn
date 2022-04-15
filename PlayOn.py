@@ -3320,9 +3320,11 @@ class DLNARendererControler (DLNAHandler):
     EventListener.is_running = None
 
   def _shutdown_event_notification_receiver(self, EventListener):
-    if EventListener.is_running:
-      EventListener.is_running = False
+    EventListener.is_running = False
+    try:
       EventListener.DLNAEventNotificationReceiver.shutdown()
+    except:
+      pass
 
   def new_event_subscription(self, renderer, service, port, log=False):
     if not renderer:
@@ -5941,9 +5943,7 @@ class DLNAWebInterfaceServer(threading.Thread):
                 transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[0]
               except:
                 transport_status = ''
-              if not transport_status:
-                transport_status = ''
-              if transport_status.upper() in ('PAUSED_PLAYBACK', 'PLAYING'):
+              if transport_status in ('PAUSED_PLAYBACK', 'PLAYING'):
                 renderer_position = renderer_new_position
           else:
             renderer_position = renderer_new_position
@@ -5996,7 +5996,7 @@ class DLNAWebInterfaceServer(threading.Thread):
             if media_kind == 'image' and image_duration and image_start:
               image_duration = max(0, image_duration - (time.time() - image_start))
               image_start = None
-          self.ControlDataStore.Status = status_dict[new_value.upper()]
+          self.ControlDataStore.Status = status_dict[new_value]
           if new_value == 'PAUSED_PLAYBACK' and (server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL or (server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and (not self.ControlDataStore.Duration or self.ControlDataStore.Duration == '0') and accept_ranges) or media_kind == 'image'):
             restart_from = ''
             self.ControlDataStore.ShowStartFrom = True
@@ -6008,7 +6008,7 @@ class DLNAWebInterfaceServer(threading.Thread):
             else:
               self.ControlDataStore.Position = renderer_position
           if new_value == 'STOPPED' and server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE):
-            self.ControlDataStore.Status = status_dict[new_value.upper()]
+            self.ControlDataStore.Status = status_dict[new_value]
             if (accept_ranges or media_kind == 'image') and not playlist and not self.EndLess:
               new_value = None
               if not renderer_stopped_position:
@@ -6080,20 +6080,22 @@ class DLNAWebInterfaceServer(threading.Thread):
               restart_from = None
               self.ControlDataStore.ShowStartFrom = False
             try:
-              transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[0]
+              transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[0] or ''
             except:
               transport_status = ''
-            if not transport_status:
-              transport_status = ''
-            try:
-              if transport_status.upper() in ('PAUSED_PLAYBACK', 'PLAYING', 'TRANSITIONING'):
-                old_value = 'STOPPED'
-                self.DLNARendererControlerInstance.send_Stop(renderer)
-                self.ControlDataStore.Status = 'Arrêt'
-              else:
+            if transport_status in ('PAUSED_PLAYBACK', 'PLAYING', 'TRANSITIONING'):
+              old_value = 'STOPPED'
+              try:
+                if not self.DLNARendererControlerInstance.send_Stop(renderer):
+                  raise
+              except:
                 new_value = 'STOPPED'
-            except:
-              pass
+                playlist_stop = True
+              self.ControlDataStore.Status = 'Arrêt'
+            else:
+              new_value = 'STOPPED'
+              if transport_status == '':
+                playlist_stop = True
           elif wi_cmd == 'Fin':
             try:
               self.DLNARendererControlerInstance.send_Stop(renderer)
@@ -6234,11 +6236,24 @@ class DLNAWebInterfaceServer(threading.Thread):
               gapless_status = -1
         if gapless_status == 2 and not self.shutdown_requested:
           if gap_seq < warning_n.ReferenceSEQ:
-            try:
-              transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[0]
-            except:
-              transport_status = ''
-            if transport_status.upper() in ('PLAYING', 'TRANSITIONING'):
+            if warning.TriggerLastValue == 'PLAYING':
+              transport_status = 'PLAYING'
+            else:
+              try:
+                transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[0]
+              except:
+                transport_status = ''
+            if transport_status == 'PAUSED_PLAYBACK':
+              try:
+                if not self.DLNARendererControlerInstance.send_Play(renderer):
+                  raise
+              except:
+                transport_status = ''
+                try:
+                  self.DLNARendererControlerInstance.send_Stop(renderer)
+                except:
+                  pass
+            if transport_status in ('PLAYING', 'TRANSITIONING', 'PAUSED_PLAYBACK'):
               if (warning_n.TriggerLastValue or '').split('/', 3)[2:3].count('%s:%s' % self.NextMediaServerInstance.MediaServerAddress):
                 gapless_status = 3
                 accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
