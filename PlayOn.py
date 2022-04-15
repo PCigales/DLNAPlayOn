@@ -1,3 +1,7 @@
+# DLNAPlayOn v1.7.0 (https://github.com/PCigales/DLNAPlayOn)
+# Copyright © 2022 PCigales
+# This program is licensed under the GNU GPLv3 copyleft license (see https://www.gnu.org/licenses)
+
 from functools import partial
 import threading
 import selectors
@@ -188,6 +192,7 @@ FR_STRINGS = {
     'jmstop': 'Arrêter la lecture ?'
   },
   'parser': {
+    'license': 'Ce programme est sous licence copyleft GNU GPLv3 (voir https://www.gnu.org/licenses)',
     'help': 'affichage du message d\'aide et interruption du script',
     'ip': 'adresse IP du serveur [adresse sur le réseau par défaut]',
     'port': 'port TCP du serveur [8000 par défaut]',
@@ -389,6 +394,7 @@ EN_STRINGS = {
     'jmstop': 'Stop the playback ?'
   },
   'parser': {
+    'license': 'This program is licensed under the GNU GPLv3 copyleft license (see https://www.gnu.org/licenses)',
     'help': 'display of the help message and interruption of the script',
     'ip': 'IP address of the server [address on the network by default]',
     'port': 'TCP port of the server [8000 by default]',
@@ -6389,7 +6395,11 @@ class DLNAWebInterfaceServer(threading.Thread):
 
 
 if __name__ == '__main__':
-  
+
+  print('DLNAPlayOn v1.7.0 (https://github.com/PCigales/DLNAPlayOn)    Copyright © 2022 PCigales')
+  print(LSTRINGS['parser']['license'])
+  print('');
+
   formatter = lambda prog: argparse.HelpFormatter(prog, max_help_position=65, width=119)
   CustomArgumentParser = partial(argparse.ArgumentParser, formatter_class=formatter, add_help=False)
   parser = CustomArgumentParser()
