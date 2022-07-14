@@ -22,6 +22,7 @@ import html
 import struct
 import hashlib
 import base64
+import re
 import webbrowser
 import mimetypes
 import random
@@ -1192,6 +1193,8 @@ class MediaProvider(threading.Thread):
                   if len(MediaSubBuffer) == 1000000:
                     MediaSubBuffer = b'' 
                   if MediaSubBuffer:
+                    if sub_ext == '.vtt':
+                      MediaSubBuffer = re.sub(b'((?<=\r) *\r\n?|(?<=\n) *(\r?\n|r)) *STYLE.*?(\r *(?=\r)|\n *(?=\r|\n))', b'', MediaSubBuffer, flags=re.DOTALL+re.IGNORECASE)
                     self._open_FFmpeg(sub='-', in_sub_buffer=MediaSubBuffer, out_sub_buffer=self.MediaSubBuffer)
                 else:
                   self._open_FFmpeg(sub=self.MediaSubSrc, in_sub_buffer=None, out_sub_buffer=self.MediaSubBuffer)
@@ -1215,6 +1218,8 @@ class MediaProvider(threading.Thread):
           elif MediaSubBuffer:
             try:
               if not sub_ext in ('.ttxt', '.txt', '.smi', '.srt', '.sub', '.ssa', '.ass') or (self.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL and (self.MediaStartFrom or self.MediaMuxAlways)):
+                if sub_ext == '.vtt':
+                  MediaSubBuffer = re.sub(b'((?<=\r) *\r\n?|(?<=\n) *(\r?\n|r)) *STYLE.*?(\r *(?=\r)|\n *(?=\r|\n))', b'', MediaSubBuffer, flags=re.DOTALL+re.IGNORECASE)
                 self._open_FFmpeg(sub='-', in_sub_buffer=MediaSubBuffer, out_sub_buffer=self.MediaSubBuffer)
               else:
                 self.MediaSubBuffer[0] = MediaSubBuffer
