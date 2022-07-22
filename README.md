@@ -29,12 +29,13 @@ To simply launch the application: PlayOn s
 The play session can be controlled from any device on the same network by opening in a browser the address of the web interface.
 
 To launch the application with more options (PlayOn -h to display the complete syntax of command line and abbreviated commands):
-- to only diplay the available renderers: PlayOn.py display_renderers [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--verbosity VERBOSE]
-- to open the web launch page to select the renderer, enter the content address and start playing: PlayOn.py start [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--onreadyplay] [--mediasrc MEDIA_ADDRESS] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--verbosity VERBOSE]
-- to directly start playing a content and open the web control page: PlayOn.py control [-h] [--ip SERVER_IP_ADDRESS] [--port SERVER_TCP_PORT] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--onreadyplay] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--slideshowduration SLIDESHOW_DURATION] [--endless] [--verbosity VERBOSE] MEDIA_ADDRESS  
+- to only diplay the available renderers: PlayOn.py display_renderers [-h] [--ip [INTERFACE_IP]] [--port INTERFACE_PORT] [--join [HANDLER_IP]] [--verbosity VERBOSE]
+- to open the web launch page to select the renderer, enter the content address and start playing: PlayOn.py start [-h] [--ip [INTERFACE_IP]] [--port INTERFACE_PORT] [--join [HANDLER_IP]] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--onreadyplay] [--mediasrc MEDIA_ADDRESS] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--verbosity VERBOSE]
+- to directly start playing a content and open the web control page: PlayOn.py control [-h] [--ip [INTERFACE_IP]] [--port INTERFACE_PORT] [--join [HANDLER_IP]] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--onreadyplay] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--slideshowduration SLIDESHOW_DURATION] [--endless] [--verbosity VERBOSE] MEDIA_ADDRESS  
 where:  
-  --ip SERVER_IP_ADDRESS, -i SERVER_IP_ADDRESS                  IP address to be used for the web server [default: computer address on the network]  
+  --ip INTERFACE_IP, -i INTERFACE_IP                            IP address to be used for the web server or blank to operate on all interfaces [default: set by system]  
   --port SERVER_TCP_PORT, -p SERVER_TCP_PORT                    TCP port to be used for the web server [default: 8000]  
+  --join [HANDLER_IP], -j [HANDLER_IP]                          IP address to be used for the DLNA controller/client or blank to operate on all interfaces [default: set by system]  
   --typeserver TYPE_SERVER, -t TYPE_SERVER                      server type (a:auto, s:sequential, r:random, g:gapless/random, n:none) [default: a]  
   --buffersize BUFFER_SIZE, -b BUFFER_SIZE                      buffer size in MB [default: 75]  
   --bufferahead BUFFER_AHEAD, -a BUFFER_AHEAD                   load ahead buffer size in MB [default: 25]  
@@ -63,6 +64,7 @@ Exemples (let's suppose the IP address of the computer is 192.168.1.10):
 - PlayOn c https://vimeo.com/channels/XXXXX -s https://vimeo.com/channels/XXXXX -l en: will play the content of playlist with substitles if any
 - PlayOn c C:\videos\movies -s c:\videos\st: will play the content of the movies folder and subfolders, loading subtitles from the st folder and identical subfolders
 - PlayOn c C:\videos\movies -s c:\videos\st -t g: will play the content of the movies folder and subfolders, loading subtitles from the st folder and identical subfolders, in random mode trying to achieve gapless playback
+- PlayOn r -i -j: will display the renderers accessible from all the interfaces, and the web interface can be reached on any interface (including 127.0.0.1 on the host)
 
 Tips to make the application easier to use:
 - in %appdata%\Microsoft\Windows\SendTo, create a shortcut with 'C:\Windows\py.exe "C:\...\PlayOn.py" c -n "[TV]Samsung LED40" -d 0:00:05' where obviously '...' must be replaced with the path to the script, and '[TV]Samsung LED40' by the name of the renderer
