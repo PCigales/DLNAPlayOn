@@ -2113,7 +2113,8 @@ def _XMLGetRTagText(node, tag):
 def _XMLGetSTagText(node, tag):
   return _XMLGetNodeText(_XMLGetSTagElements(node, tag)[0])
 
-class HTTPExplodedMessage():
+
+class HTTPExplodedMessage:
 
   __slots__ = ('method', 'path', 'version', 'code', 'message', 'headers', 'body')
 
@@ -2141,7 +2142,7 @@ class HTTPExplodedMessage():
       return '<HTTPExplodedMessage at %#x>\r\n<no message>' % id(self)
 
 
-class HTTPMessage():
+class HTTPMessage:
 
   @staticmethod
   def _read_headers(msg, http_message):
@@ -2367,7 +2368,7 @@ class HTTPMessage():
     return http_message
 
 
-class HTTPRequest():
+class HTTPRequest:
 
   SSLContext = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
   SSLContext.check_hostname = False
@@ -2763,7 +2764,7 @@ class DLNAEventNotificationListener:
       self.logger.log(1, 'stop', self.Handler.DEVICE_TYPE, self.Handler.ip, self.port)
 
 
-class DLNAAdvertisementServer():
+class DLNAAdvertisementServer:
 
   def __init__(self, handlers, verbosity):
     self.logger = log_event('dlnaadvertisement', verbosity)
@@ -2884,7 +2885,7 @@ class DLNAAdvertisementServer():
     pass
 
 
-class DLNAAdvertisementListener():
+class DLNAAdvertisementListener:
 
   def __init__(self, handlers=[], verbosity=0):
     self.DLNAHandlers = handlers
