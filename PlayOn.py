@@ -2609,7 +2609,6 @@ class DLNAEventNotificationHandler(socketserver.BaseRequestHandler):
     try:
       super().__init__(*args, **kwargs)
     except:
-      raise
       pass
   
   def handle(self):
@@ -3538,18 +3537,15 @@ class DLNAHandler:
       self.logger.log(1, 'subscralreadyactivated', EventListener.Device.FriendlyName, EventListener.Service.Id[23:])
       return None
     EventListener.is_running = True
-    if EventListener.event_notification_listener.private != False:
+    if EventListener.event_notification_listener.private:
       EventListener.event_notification_listener.start()
     resp = HTTPRequest(EventListener.Service.SubscrEventURL, method='SUBSCRIBE', headers=msg_headers, ip=EventListener.hip, timeout=5)
     if resp.code != '200':
       EventListener.is_running = None
-      self.logger.log(1, 'subscrfailure', EventListener.Device.FriendlyName, EventListener.Service.Id[23:])
-      return None
-    EventListener.SID = resp.header('SID', '')
-    if not EventListener.SID:
-      EventListener.is_running = None
-      self.logger.log(1, 'subscrfailure', EventListener.Device.FriendlyName, EventListener.Service.Id[23:])
-      return None
+    else:
+      EventListener.SID = resp.header('SID', '')
+      if not EventListener.SID:
+        EventListener.is_running = None
     if EventListener.is_running:
       self.logger.log(1, 'subscrsuccess', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.header('TIMEOUT', ''))
       return True
@@ -3580,7 +3576,7 @@ class DLNAHandler:
     }
     EventListener.event_notification_listener.unregister(EventListener)
     resp = HTTPRequest(EventListener.Service.SubscrEventURL, method='UNSUBSCRIBE', headers=msg_headers, ip=EventListener.hip, timeout=5)
-    if EventListener.event_notification_listener.private != False:
+    if EventListener.event_notification_listener.private:
       EventListener.event_notification_listener.stop()
     if resp.code != '200':
       self.logger.log(1, 'subscrunsubscrfailure', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
@@ -5937,7 +5933,7 @@ class DLNAWebInterfaceServer:
       self.WebSocketServerControlInstance.shutdown()
       if event_listener:
         self.DLNAControllerInstance.send_event_unsubscription(event_listener)
-        event_notification_listener.stop()
+      event_notification_listener.stop()
       return
     event_listener_rc = self.DLNAControllerInstance.new_event_subscription(renderer, 'RenderingControl', event_notification_listener)
     if event_listener_rc:
