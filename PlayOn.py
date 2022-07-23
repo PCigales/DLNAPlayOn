@@ -3596,7 +3596,6 @@ class DLNARendererControler(DLNAHandler):
   def _start_event_notification_receiver(self, EventListener, server_ready, verbosity):
     EventListener.DLNAEventNotificationBoundHandler = partial(DLNAEventNotificationHandler, EventListener=EventListener)
     try:
-      time.sleep(20)
       with DLNAEventNotificationServer((self.ip, EventListener.port), EventListener.DLNAEventNotificationBoundHandler, verbosity=verbosity) as EventListener.DLNAEventNotificationReceiver:
         server_ready.set()
         EventListener.DLNAEventNotificationReceiver.serve_forever()
