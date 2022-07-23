@@ -2633,11 +2633,11 @@ class DLNAEventNotificationHandler(socketserver.BaseRequestHandler):
       for node in root_xml.documentElement.childNodes:
         if node.nodeType != node.ELEMENT_NODE:
           continue
-        if node.tagName.split(':', 1)[-1].lower() != 'property':
+        if node.localName.lower() != 'property':
           continue
         for child_node in node.childNodes:
           try:
-            prop_name = child_node.tagName
+            prop_name = child_node.localName
           except:
             continue
           try:
@@ -2653,7 +2653,7 @@ class DLNAEventNotificationHandler(socketserver.BaseRequestHandler):
             if node.nodeType == node.ELEMENT_NODE:
               for p_node in node.childNodes:
                 if p_node.nodeType == p_node.ELEMENT_NODE:
-                  lc_prop_name = p_node.tagName
+                  lc_prop_name = p_node.localName
                   lc_prop_value = None
                   for att in p_node.attributes.items():
                     if att[0].lower() == 'val':
@@ -3593,10 +3593,15 @@ class DLNARendererControler(DLNAHandler):
       return None
     return out_args['StoppedReason'], out_args['StoppedReasonData']
 
-  def _start_event_notification_receiver(self, EventListener, verbosity):
+  def _start_event_notification_receiver(self, EventListener, server_ready, verbosity):
     EventListener.DLNAEventNotificationBoundHandler = partial(DLNAEventNotificationHandler, EventListener=EventListener)
-    with DLNAEventNotificationServer((self.ip, EventListener.port), EventListener.DLNAEventNotificationBoundHandler, verbosity=verbosity) as EventListener.DLNAEventNotificationReceiver:
-      EventListener.DLNAEventNotificationReceiver.serve_forever()
+    try:
+      time.sleep(20)
+      with DLNAEventNotificationServer((self.ip, EventListener.port), EventListener.DLNAEventNotificationBoundHandler, verbosity=verbosity) as EventListener.DLNAEventNotificationReceiver:
+        server_ready.set()
+        EventListener.DLNAEventNotificationReceiver.serve_forever()
+    except:
+      server_ready.set()
     EventListener.is_running = None
 
   def _shutdown_event_notification_receiver(self, EventListener):
@@ -3637,8 +3642,10 @@ class DLNARendererControler(DLNAHandler):
       self.logger.log(1, 'subscralreadyactivated', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:])
       return None
     EventListener.is_running = True
-    EventListener.receiver_thread = threading.Thread(target=self._start_event_notification_receiver, args=(EventListener, self.verbosity))
+    server_ready = threading.Event()
+    EventListener.receiver_thread = threading.Thread(target=self._start_event_notification_receiver, args=(EventListener, server_ready, self.verbosity))
     EventListener.receiver_thread.start()
+    server_ready.wait()
     resp = HTTPRequest(EventListener.Service.SubscrEventURL, method='SUBSCRIBE', headers=msg_headers, ip=EventListener.hip, timeout=5)
     if resp.code != '200':
       self._shutdown_event_notification_receiver(EventListener)
@@ -3720,7 +3727,7 @@ class DLNAClient(DLNAHandler):
           break
       if not obj_id:
         return None
-      obj_type = node.tagName
+      obj_type = node.localName
       obj_class = ''
       obj_title = ''
       obj_album = ''
