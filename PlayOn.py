@@ -74,6 +74,9 @@ FR_STRINGS = {
     'shutdown': 'Fermeture du serveur de diffusion'
   },
   'dlnanotification': {
+    'start': 'Démarrage du serveur d\'écoute des notifications d\'événement de %s DLNA à l\'adresse %s:%s',
+    'stop': 'Arrêt du serveur d\'écoute des notifications d\'événement de %s DLNA à l\'adresse %s:%s',
+    'alreadyactivated': 'Serveur d\'écoute des notifications d\'événement de %s DLNA à l\'adresse %s:%s déjà activée',
     'receipt': 'DLNA Renderer %s -> service %s -> réception de la notification d\'événement %s',
     'notification': 'DLNA Renderer %s -> Service %s -> notification d\'événement %s -> %s est passé à %s',
     'alert': 'DLNA Renderer %s -> Service %s -> notification d\'événement %s -> alerte: %s est passé à %s'
@@ -286,6 +289,9 @@ EN_STRINGS = {
     'shutdown': 'Shutdown of the delivery server'
   },
   'dlnanotification': {
+    'start': 'Start of the server of listening of event notifications from DLNA %s at the address %s:%s',
+    'stop': 'Shutdown of the server of listening of event notifications from DLNA %s at the address %s:%s',
+    'alreadyactivated': 'Server of listening of event notifications from DLNA %s at the address %s:%s already activated',
     'receipt': 'DLNA Renderer %s -> service %s -> receipt of the notification of event %s',
     'notification': 'DLNA Renderer %s -> Service %s -> notification of event %s -> %s is changed to %s',
     'alert': 'DLNA Renderer %s -> Service %s -> notification of event %s -> alerte: %s is changed to %s'
@@ -511,8 +517,8 @@ class ThreadedDualStackServer(socketserver.ThreadingMixIn, server.HTTPServer):
     super().process_request_thread(request, client_address)
 
   def shutdown(self):
-    super().shutdown()
     self.socket.close()
+    super().shutdown()
 
   def server_close(self):
     pass
@@ -2054,7 +2060,10 @@ class MediaServer(threading.Thread):
               self.logger.log(1, 'start', self.MediaServerAddress[0], LSTRINGS['mediaserver'].get({MediaProvider.SERVER_MODE_SEQUENTIAL: 'sequential', MediaProvider.SERVER_MODE_RANDOM: 'random'}.get(self.MediaProviderInstance.ServerMode, ''), ''), '' if self.MediaProviderInstance.ServerMode==MediaProvider.SERVER_MODE_SEQUENTIAL else ('' if self.MediaProviderInstance.AcceptRanges else LSTRINGS['mediaserver'].get('unsupported', 'unsupported')))
               self.MediaServerFinishedEvent.set()
               self.shut_event.set()
-              self.MediaServerInstance.serve_forever()
+              try:
+                self.MediaServerInstance.serve_forever()
+              except:
+                pass
     self.MediaServerFinishedEvent.set()
     self.shut_event.set()
     self.is_running = False
@@ -2555,17 +2564,17 @@ class DLNAEventWarning:
 class DLNAEventListener:
 
   def __init__(self, log):
-    self.port = None
+    self.event_notification_listener = None
     self.SID = None
-    self.Renderer = None
+    self.Device = None
     self.Service = None
     self.hip = None
-    self.is_running = None
-    self.receiver_thread = None
+    self.callback_number = None
     self.log = log
     self.EventsLog = []
     self.CurrentSEQ = None
     self.Warnings = []
+    self.is_running = None
 
 
 class DLNAEventNotificationServer(socketserver.TCPServer):
@@ -2585,8 +2594,8 @@ class DLNAEventNotificationServer(socketserver.TCPServer):
     super().server_bind()
 
   def shutdown(self):
-    super().shutdown()
     self.socket.close()
+    super().shutdown()
 
   def server_close(self):
     pass
@@ -2594,34 +2603,44 @@ class DLNAEventNotificationServer(socketserver.TCPServer):
 
 class DLNAEventNotificationHandler(socketserver.BaseRequestHandler):
 
-  def __init__(self, *args, EventListener, **kwargs):
-    self.EventListener = EventListener
+  def __init__(self, *args, EventListeners, process_lastchange, **kwargs):
+    self.EventListeners = EventListeners
+    self.process_lastchange = process_lastchange
     try:
       super().__init__(*args, **kwargs)
     except:
+      raise
       pass
   
   def handle(self):
     try:
       t = time.time()
-      resp = HTTPMessage(self.request)
-      if resp.method != 'NOTIFY' or resp.header('SID', '') != self.EventListener.SID:
+      req = HTTPMessage(self.request)
+      event_listeners = list(self.EventListeners)
+      try:
+        if req.method != 'NOTIFY':
+          raise
+        callback_number = int(req.path.strip(' /'))
+        EventListener = next(e for e in event_listeners if e.callback_number == callback_number)
+        if req.header('SID', '') != EventListener.SID:
+          raise
+      except:
         self.request.sendall("HTTP/1.0 400 Bad Request\r\n\r\n".encode("ISO-8859-1"))
         return
       dlna_event = DLNAEvent()
       time_receipt = time.localtime()
-      seq = resp.header('SEQ', '')
-      self.server.logger.log(1, 'receipt', self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq)
+      seq = req.header('SEQ', '')
+      self.server.logger.log(1, 'receipt', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], seq)
       seq = int(seq)
-      if not self.EventListener.CurrentSEQ:
-        self.EventListener.CurrentSEQ = 0
-      if seq > self.EventListener.CurrentSEQ:
-        self.EventListener.CurrentSEQ = seq
-      if self.EventListener.log:
+      if not EventListener.CurrentSEQ:
+        EventListener.CurrentSEQ = 0
+      if seq > EventListener.CurrentSEQ:
+        EventListener.CurrentSEQ = seq
+      if EventListener.log:
         dlna_event.ReceiptTime = time_receipt
-        if len(self.EventListener.EventsLog) < seq:
-          self.EventListener.EventsLog = self.EventListener.EventsLog + [None]*(seq - len(self.EventListener.EventsLog))
-      root_xml = minidom.parseString(resp.body)
+        if len(EventListener.EventsLog) < seq:
+          EventListener.EventsLog = EventListener.EventsLog + [None]*(seq - len(EventListener.EventsLog))
+      root_xml = minidom.parseString(req.body)
       try:
         self.request.sendall("HTTP/1.0 200 OK\r\n\r\n".encode("ISO-8859-1"))
       except:
@@ -2644,29 +2663,18 @@ class DLNAEventNotificationHandler(socketserver.BaseRequestHandler):
             prop_nvalue = _XMLGetNodeText(child_node)
           except:
             continue
-          self.server.logger.log(2, 'notification', self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
+          self.server.logger.log(2, 'notification', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
           if prop_name.upper() == 'LastChange'.upper():
-            lc_xml = minidom.parseString(prop_nvalue)
-            for node in lc_xml.documentElement.childNodes:
-              if node.nodeType == node.ELEMENT_NODE:
-                break
-            if node.nodeType == node.ELEMENT_NODE:
-              for p_node in node.childNodes:
-                if p_node.nodeType == p_node.ELEMENT_NODE:
-                  lc_prop_name = p_node.localName
-                  lc_prop_value = None
-                  for att in p_node.attributes.items():
-                    if att[0].lower() == 'val':
-                      lc_prop_value = att[1]
-                      break
-                  if lc_prop_value != None:
-                    dlna_event.Changes.append((lc_prop_name, lc_prop_value))
+            try:
+              dlna_event.Changes.extend(self.process_lastchange(prop_nvalue))
+            except:
+              dlna_event.Changes.append((prop_name, prop_nvalue))
           else:
             dlna_event.Changes.append((prop_name, prop_nvalue))
-      if self.EventListener.log:
-        self.EventListener.EventsLog.append(dlna_event)
+      if EventListener.log:
+        EventListener.EventsLog.append(dlna_event)
       for (prop_name, prop_nvalue) in dlna_event.Changes:
-        for warning in self.EventListener.Warnings:
+        for warning in EventListener.Warnings:
           try:
             if prop_name == warning.WatchedProperty:
               if not warning.ReferenceSEQ:
@@ -2678,12 +2686,12 @@ class DLNAEventNotificationHandler(socketserver.BaseRequestHandler):
                   warn_update = False
               if warn_update:
                 if not warning.WatchedValues:
-                  self.server.logger.log(2, 'alert', self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
+                  self.server.logger.log(2, 'alert', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
                   warning.TriggerLastValue = prop_nvalue
                   warning.ReferenceSEQ = seq
                   warning.WarningEvent.set()
                 elif prop_nvalue in warning.WatchedValues:
-                  self.server.logger.log(2, 'alert', self.EventListener.Renderer.FriendlyName, self.EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
+                  self.server.logger.log(2, 'alert', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
                   warning.TriggerLastValue = prop_nvalue
                   warning.ReferenceSEQ = seq
                   warning.WarningEvent.set()
@@ -2691,6 +2699,69 @@ class DLNAEventNotificationHandler(socketserver.BaseRequestHandler):
             continue
     except:
       return
+
+
+class DLNAEventNotificationListener:
+
+  def __init__(self, handler, port, private=False):
+    self.logger = log_event('dlnanotification', handler.verbosity)
+    self.Handler = handler
+    self.port = port
+    self.private = private
+    self.EventListeners = []
+    self.seq = 0
+    self.receiver_thread = None
+    self.is_running = None
+
+  def register(self, eventlistener):
+    if not self.private or not self.seq:
+      self.EventListeners.append(eventlistener)
+      self.seq += 1
+      return self.seq
+    else:
+      return None
+
+  def unregister(self, eventlistener):
+    try:
+      self.EventListeners.remove(eventlistener)
+      return True
+    except:
+      return False
+
+  def _start_event_notification_receiver(self, server_ready):
+    DLNAEventNotificationBoundHandler = partial(DLNAEventNotificationHandler, process_lastchange=self.Handler._process_lastchange, EventListeners=self.EventListeners)
+    try:
+      with DLNAEventNotificationServer((self.Handler.ip, self.port), DLNAEventNotificationBoundHandler, verbosity=self.Handler.verbosity) as self.DLNAEventNotificationReceiver:
+        server_ready.set()
+        self.DLNAEventNotificationReceiver.serve_forever()
+    except:
+      server_ready.set()
+    self.is_running = None
+
+  def _shutdown_event_notification_receiver(self):
+    if self.is_running:
+      self.is_running = False
+      try:
+        self.DLNAEventNotificationReceiver.shutdown()
+        self.receiver_thread.join()
+      except:
+        pass
+
+  def start(self):
+    if self.is_running:
+      self.logger.log(1, 'alreadyactivated', self.Handler.DEVICE_TYPE, self.Handler.ip, self.port)
+      return None
+    self.is_running = True
+    self.logger.log(1, 'start', self.Handler.DEVICE_TYPE, self.Handler.ip, self.port)
+    server_ready = threading.Event()
+    self.receiver_thread = threading.Thread(target=self._start_event_notification_receiver, args=(server_ready,))
+    self.receiver_thread.start()
+    server_ready.wait()
+
+  def stop(self):
+    if self.is_running:
+      self._shutdown_event_notification_receiver()
+      self.logger.log(1, 'stop', self.Handler.DEVICE_TYPE, self.Handler.ip, self.port)
 
 
 class DLNAAdvertisementServer():
@@ -2708,10 +2779,10 @@ class DLNAAdvertisementServer():
     sock = self.Sockets[i]
     ip = self.Ips[i]
     try:
-      resp = HTTPMessage((msg, sock))
-      if resp.method != 'NOTIFY':
+      req = HTTPMessage((msg, sock))
+      if req.method != 'NOTIFY':
         return
-      nt = resp.header('NT', '')
+      nt = req.header('NT', '')
       only_media = True
       for handler in self.Handlers:
         if not handler.DEVICE_TYPE.lower() in ('renderer', 'server'):
@@ -2719,11 +2790,11 @@ class DLNAAdvertisementServer():
           break
       if only_media and not 'media' in nt.lower():
         return
-      time_resp = time.localtime()
-      nts = resp.header('NTS', '')
-      usn = resp.header('USN', '')
+      time_req = time.localtime()
+      nts = req.header('NTS', '')
+      usn = req.header('USN', '')
       udn = usn[0:6] + usn[6:].split(':', 1)[0]
-      desc_url = resp.header('Location','')
+      desc_url = req.header('Location','')
       self.logger.log(2, 'receipt', ip, usn, *addr, nts)
       dip = urllib.parse.urlparse(desc_url).netloc.split(':', 1)[0]
       for handler in self.Handlers:
@@ -2736,15 +2807,15 @@ class DLNAAdvertisementServer():
           for dev in handler.Devices:
             if dev.DescURL == desc_url and dev.UDN == udn:
               if dev.StatusAlive:
-                if dev.StatusTime < time_resp:
-                  dev.StatusTime = time_resp
-                  dev.StatusAliveLastTime = time_resp
+                if dev.StatusTime < time_req:
+                  dev.StatusTime = time_req
+                  dev.StatusAliveLastTime = time_req
               else:
-                handler._update_devices(desc_url, time_resp, ip, handler.advert_status_change)
+                handler._update_devices(desc_url, time_req, ip, handler.advert_status_change)
               break
           else:
             if dip == addr[0]:
-              handler._update_devices(desc_url, time_resp, ip, handler.advert_status_change)
+              handler._update_devices(desc_url, time_req, ip, handler.advert_status_change)
             else:
               self.logger.log(2, 'ignored', usn, *addr)
         elif 'byebye' in nts.lower():
@@ -2753,7 +2824,7 @@ class DLNAAdvertisementServer():
               if dev.StatusAlive:
                 dev.StatusAlive = False
                 handler.advert_status_change.set()
-              dev.StatusTime = time_resp
+              dev.StatusTime = time_req
               break
     except:
       return
@@ -2772,8 +2843,8 @@ class DLNAAdvertisementServer():
       for i in range(len(self.Ips)):
         sock = self.Sockets[i]
         ip = self.Ips[i]
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
+          sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
           sock.bind((ip, 1900))
           sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, struct.pack('4s4s', socket.inet_aton('239.255.255.250'), socket.inet_aton(ip)))
           selector.register(sock, selectors.EVENT_READ, i)
@@ -2784,14 +2855,17 @@ class DLNAAdvertisementServer():
       if not can_run:
         self.__shutdown_request = True
       while not self.__shutdown_request:
-        ready = selector.select()
-        if self.__shutdown_request:
-          break
-        for r in ready:
-          try:
-            self.handle(r[0].data, *self.Sockets[r[0].data].recvfrom(8192))
-          except:
-            pass
+        try:
+          ready = selector.select()
+          if self.__shutdown_request:
+            break
+          for r in ready:
+            try:
+              self.handle(r[0].data, *self.Sockets[r[0].data].recvfrom(8192))
+            except:
+              pass
+        except:
+          pass
     self.__shutdown_request = False
     self.__is_shut_down.set()
 
@@ -2928,7 +3002,7 @@ class DLNAHandler:
       self.ips = self.retrieve_ips()
     self.update_devices = threading.Lock()
 
-  def _update_devices(self, desc_url, time_resp, hip, status_change=None, cond_numb=None):
+  def _update_devices(self, desc_url, time_msg, hip, status_change=None, cond_numb=None):
     try:
       resp = HTTPRequest(desc_url, timeout=5, ip=hip)
       if resp.code != '200':
@@ -2943,9 +3017,9 @@ class DLNAHandler:
         for d, dev in enumerate(self.Devices):
           if dev.DescURL == desc_url and dev.UDN == udn:
             if dev.StatusAlive:
-              if dev.StatusTime < time_resp:
-                dev.StatusTime = time_resp
-                dev.StatusAliveLastTime = time_resp
+              if dev.StatusTime < time_msg:
+                dev.StatusTime = time_msg
+                dev.StatusAliveLastTime = time_msg
               raise
             dind = d
             break
@@ -2996,8 +3070,8 @@ class DLNAHandler:
     device.DescURL = desc_url
     device.UDN = udn
     device.StatusAlive = True
-    device.StatusTime = time_resp
-    device.StatusAliveLastTime = time_resp
+    device.StatusTime = time_msg
+    device.StatusAliveLastTime = time_msg
     if dind is None:
       self.Hips.append(hip)
       self.Devices.append(device)
@@ -3358,7 +3432,7 @@ class DLNAHandler:
     msg_body_b = msg_body.encode("utf-8")
     soap_action = 'urn:schemas-upnp-org:service:%s:1#%s' % (service, action)
     msg_headers = {
-      'User-Agent': 'PlayOn DLNA Controler',
+      'User-Agent': 'PlayOn DLNA Controller',
       'Content-Type': 'text/xml; charset="utf-8"',
       'SOAPAction': '"%s"' % soap_action
     }
@@ -3421,18 +3495,124 @@ class DLNAHandler:
   def wait_for_advertisement(self, timeout=None):
     return self.advertisement_listener.wait(self, timeout)
 
+  @staticmethod
+  def _process_lastchange(value):
+    return [('LastChange', value)]
 
-class DLNARendererControler(DLNAHandler):
+  def new_event_subscription(self, device, service, port_or_listener, log=False):
+    if not device:
+      return None
+    try:
+      hip = self.Hips[self.Devices.index(device)]
+    except:
+      return None
+    serv = next((serv for serv in device.Services if serv.Id == ('urn:upnp-org:serviceId:' + service)), None)
+    if not serv:
+      return None
+    EventListener = DLNAEventListener(log)
+    if isinstance(port_or_listener, DLNAEventNotificationListener):
+      EventListener.event_notification_listener = port_or_listener
+    else:
+      try:
+        port = int(port_or_listener)
+      except:
+        return None
+      EventListener.event_notification_listener = DLNAEventNotificationListener(self, port, private=True)
+    EventListener.callback_number = EventListener.event_notification_listener.register(EventListener)
+    if EventListener.callback_number is None:
+      return None
+    EventListener.Device = device
+    EventListener.Service = serv
+    EventListener.hip = hip
+    return EventListener
+
+  def send_event_subscription(self, EventListener, timeout):
+    if not EventListener:
+      return None
+    msg_headers = {
+    'Callback': '<http://%s:%s/%s>' % (EventListener.hip, EventListener.event_notification_listener.port, EventListener.callback_number),
+    'NT': 'upnp:event',
+    'Timeout': 'Second-%s' % timeout
+    }
+    if EventListener.is_running:
+      self.logger.log(1, 'subscralreadyactivated', EventListener.Device.FriendlyName, EventListener.Service.Id[23:])
+      return None
+    EventListener.is_running = True
+    if EventListener.event_notification_listener.private != False:
+      EventListener.event_notification_listener.start()
+    resp = HTTPRequest(EventListener.Service.SubscrEventURL, method='SUBSCRIBE', headers=msg_headers, ip=EventListener.hip, timeout=5)
+    if resp.code != '200':
+      EventListener.is_running = None
+      self.logger.log(1, 'subscrfailure', EventListener.Device.FriendlyName, EventListener.Service.Id[23:])
+      return None
+    EventListener.SID = resp.header('SID', '')
+    if not EventListener.SID:
+      EventListener.is_running = None
+      self.logger.log(1, 'subscrfailure', EventListener.Device.FriendlyName, EventListener.Service.Id[23:])
+      return None
+    if EventListener.is_running:
+      self.logger.log(1, 'subscrsuccess', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.header('TIMEOUT', ''))
+      return True
+    else:
+      EventListener.event_notification_listener.unregister(EventListener)
+      self.logger.log(1, 'subscrfailure', EventListener.Device.FriendlyName, EventListener.Service.Id[23:])
+      return None
+    
+  def renew_event_subscription(self, EventListener, timeout):
+    if not EventListener:
+      return None
+    msg_headers = {
+    'SID': '%s' % EventListener.SID,
+    'Timeout': 'Second-%s' % timeout
+    }
+    resp = HTTPRequest(EventListener.Service.SubscrEventURL, method='SUBSCRIBE', headers=msg_headers, ip=EventListener.hip, timeout=5)
+    if resp.code != '200':
+      self.logger.log(1, 'subscrrenewfailure', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
+      return None
+    self.logger.log(1, 'subscrrenewsuccess', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.header('TIMEOUT', ''))
+    return True
+    
+  def send_event_unsubscription(self, EventListener):
+    if not EventListener:
+      return None
+    msg_headers = {
+    'SID': '%s' % EventListener.SID
+    }
+    EventListener.event_notification_listener.unregister(EventListener)
+    resp = HTTPRequest(EventListener.Service.SubscrEventURL, method='UNSUBSCRIBE', headers=msg_headers, ip=EventListener.hip, timeout=5)
+    if EventListener.event_notification_listener.private != False:
+      EventListener.event_notification_listener.stop()
+    if resp.code != '200':
+      self.logger.log(1, 'subscrunsubscrfailure', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
+      return None 
+    self.logger.log(1, 'subscrunsubscrsuccess', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
+    return True
+
+  def add_event_warning(self, EventListener, property, *values, WarningEvent=None):
+    warning = DLNAEventWarning(EventListener, property, *values, WarningEvent=WarningEvent)
+    EventListener.Warnings.append(warning)
+    return warning
+    
+  def wait_for_warning(self, warning, timeout=None, clear=None):
+    if clear:
+      warning.ReferenceSEQ = warning.EventListener.CurrentSEQ
+      warning.TriggerLastValue = None
+      warning.WarningEvent.clear()
+    warn_event = warning.WarningEvent.wait(timeout)
+    if warn_event:
+      warning.WarningEvent.clear()
+      return warning.TriggerLastValue
+    else:
+      return None
+
+
+class DLNAController(DLNAHandler):
 
   DEVICE_TYPE = 'Renderer'
 
   def __init__(self, ip='', verbosity=0):
     super().__init__(ip, verbosity)
     self.Renderers = self.Devices
-    self.update_renderers = self.update_devices
-
-  def _update_renderers(self, desc_url, time_resp, hip, status_change=None):
-    self._update_devices(desc_url, time_resp, hip, status_change)
 
   def _build_didl(self, uri, title, kind=None, size=None, duration=None, suburi=None):
     if size:
@@ -3593,120 +3773,33 @@ class DLNARendererControler(DLNAHandler):
       return None
     return out_args['StoppedReason'], out_args['StoppedReasonData']
 
-  def _start_event_notification_receiver(self, EventListener, server_ready, verbosity):
-    EventListener.DLNAEventNotificationBoundHandler = partial(DLNAEventNotificationHandler, EventListener=EventListener)
+  @staticmethod
+  def _process_lastchange(value):
     try:
-      with DLNAEventNotificationServer((self.ip, EventListener.port), EventListener.DLNAEventNotificationBoundHandler, verbosity=verbosity) as EventListener.DLNAEventNotificationReceiver:
-        server_ready.set()
-        EventListener.DLNAEventNotificationReceiver.serve_forever()
+      lc_xml = minidom.parseString(value)
+      changes = []
+      for node in lc_xml.documentElement.childNodes:
+        if node.nodeType == node.ELEMENT_NODE:
+          break
+      if node.nodeType == node.ELEMENT_NODE:
+        for p_node in node.childNodes:
+          if p_node.nodeType == p_node.ELEMENT_NODE:
+            lc_prop_name = p_node.localName
+            lc_prop_value = None
+            for att in p_node.attributes.items():
+              if att[0].lower() == 'val':
+                lc_prop_value = att[1]
+                break
+            if lc_prop_value != None:
+              changes.append((lc_prop_name, lc_prop_value))
+      return changes
     except:
-      server_ready.set()
-    EventListener.is_running = None
+      return DLNAHandler._process_lastchange(value)
 
-  def _shutdown_event_notification_receiver(self, EventListener):
-    if EventListener.is_running:
-      EventListener.is_running = False
-      try:
-        EventListener.DLNAEventNotificationReceiver.shutdown()
-        EventListener.receiver_thread.join()
-      except:
-        pass
-
-  def new_event_subscription(self, renderer, service, port, log=False):
-    if not renderer:
-      return None
-    try:
-      hip = self.Hips[self.Renderers.index(renderer)]
-    except:
-      return None
-    serv = next((serv for serv in renderer.Services if serv.Id == ('urn:upnp-org:serviceId:' + service)), None)
-    if not serv:
-      return None
-    EventListener = DLNAEventListener(log)
-    EventListener.port = port
-    EventListener.Renderer = renderer
-    EventListener.Service = serv
-    EventListener.hip = hip
+  def new_event_subscription(self, *args, **kwargs):
+    EventListener = super().new_event_subscription(*args, **kwargs)
+    EventListener.Renderer = EventListener.Device
     return EventListener
-
-  def send_event_subscription(self, EventListener, timeout):
-    if not EventListener:
-      return None
-    msg_headers = {
-    'Callback': '<http://%s:%s/>' % (EventListener.hip, EventListener.port),
-    'NT': 'upnp:event',
-    'Timeout': 'Second-%s' % timeout
-    }
-    if EventListener.is_running:
-      self.logger.log(1, 'subscralreadyactivated', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:])
-      return None
-    EventListener.is_running = True
-    server_ready = threading.Event()
-    EventListener.receiver_thread = threading.Thread(target=self._start_event_notification_receiver, args=(EventListener, server_ready, self.verbosity))
-    EventListener.receiver_thread.start()
-    server_ready.wait()
-    resp = HTTPRequest(EventListener.Service.SubscrEventURL, method='SUBSCRIBE', headers=msg_headers, ip=EventListener.hip, timeout=5)
-    if resp.code != '200':
-      self._shutdown_event_notification_receiver(EventListener)
-      self.logger.log(1, 'subscrfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:])
-      return None
-    EventListener.SID = resp.header('SID', '')
-    if not EventListener.SID:
-      self._shutdown_event_notification_receiver(EventListener)
-      self.logger.log(1, 'subscrfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:])
-      return None
-    if EventListener.is_running:
-      self.logger.log(1, 'subscrsuccess', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.header('TIMEOUT', ''))
-      return True
-    else:
-      self.logger.log(1, 'subscrfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:])
-      return None
-    
-  def renew_event_subscription(self, EventListener, timeout):
-    if not EventListener:
-      return None
-    msg_headers = {
-    'SID': '%s' % EventListener.SID,
-    'Timeout': 'Second-%s' % timeout
-    }
-    resp = HTTPRequest(EventListener.Service.SubscrEventURL, method='SUBSCRIBE', headers=msg_headers, ip=EventListener.hip, timeout=5)
-    if resp.code != '200':
-      self.logger.log(1, 'subscrrenewfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
-      return None
-    self.logger.log(1, 'subscrrenewsuccess', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID, resp.header('TIMEOUT', ''))
-    return True
-    
-  def send_event_unsubscription(self, EventListener):
-    if not EventListener:
-      return None
-    msg_headers = {
-    'SID': '%s' % EventListener.SID
-    }
-    resp = HTTPRequest(EventListener.Service.SubscrEventURL, method='UNSUBSCRIBE', headers=msg_headers, ip=EventListener.hip, timeout=5)
-    if resp.code != '200':
-      self.logger.log(1, 'subscrunsubscrfailure', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
-      self._shutdown_event_notification_receiver(EventListener)
-      return None
-    self._shutdown_event_notification_receiver(EventListener)
-    self.logger.log(1, 'subscrunsubscrsuccess', EventListener.Renderer.FriendlyName, EventListener.Service.Id[23:], EventListener.SID)
-    return True
-
-  def add_event_warning(self, EventListener, property, *values, WarningEvent=None):
-    warning = DLNAEventWarning(EventListener, property, *values, WarningEvent=WarningEvent)
-    EventListener.Warnings.append(warning)
-    return warning
-    
-  def wait_for_warning(self, warning, timeout=None, clear=None):
-    if clear:
-      warning.ReferenceSEQ = warning.EventListener.CurrentSEQ
-      warning.TriggerLastValue = None
-      warning.WarningEvent.clear()
-    warn_event = warning.WarningEvent.wait(timeout)
-    if warn_event:
-      warning.WarningEvent.clear()
-      return warning.TriggerLastValue
-    else:
-      return None
 
 
 class DLNAClient(DLNAHandler):
@@ -4352,8 +4445,8 @@ class ThreadedWebSocketServer(socketserver.ThreadingTCPServer):
     super().server_bind()
 
   def shutdown(self):
-    super().shutdown()
     self.socket.close()
+    super().shutdown()
 
   def server_close(self):
     pass
@@ -4374,6 +4467,7 @@ class WebSocketServer(threading.Thread):
     if self.is_running == False:
       return
     self.is_running = True
+    slr = False
     try:
       with ThreadedWebSocketServer(self.Address, WebSocketRequestHandler) as self.WebSocketServerInstance:
         self.WebSocketServerInstance.logger = log_event('websocket', self.verbosity)
@@ -4381,11 +4475,14 @@ class WebSocketServer(threading.Thread):
         self.WebSocketServerInstance.Address = self.Address
         self.WebSocketServerInstance.DataStore = self.DataStore
         self.shutdown_lock.release()
+        slr = True
         self.WebSocketServerInstance.serve_forever()
     except:
-      self.is_running == False
-      self.shutdown_lock.release()
-      log_event('websocket', self.verbosity).log(1, 'fail', *self.Address)
+      if self.is_running:
+        self.is_running == False
+        log_event('websocket', self.verbosity).log(1, 'fail', *self.Address)
+      if not slr:
+        self.shutdown_lock.release()
     self.is_running = None
       
   def shutdown(self):
@@ -4810,7 +4907,7 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
         if 'MediaSubSrc' in data:
           media_subsrc = data['MediaSubSrc'][0]
         if 'RendererInd' in data:
-          renderer = self.server.Interface.DLNARendererControlerInstance.Renderers[int(data['RendererInd'][0])]
+          renderer = self.server.Interface.DLNAControllerInstance.Renderers[int(data['RendererInd'][0])]
       except:
         pass
       if media_src and renderer:
@@ -5603,7 +5700,7 @@ class DLNAWebInterfaceServer:
           ip = '0.0.0.0'
           self.logger.log(LSTRINGS['ip_failure'], 1)
     self.DLNAWebInterfaceServerAddress =  (ip, DLNAWebInterfaceServerAddress[1] or 8000)
-    self.DLNARendererControlerInstance = DLNARendererControler(DLNAJoinIp, verbosity)
+    self.DLNAControllerInstance = DLNAController(DLNAJoinIp, verbosity)
     self.RenderersEvent = None
     self.ControlDataStore = DLNAWebInterfaceControlDataStore()
     self.RenderersDataStore = DLNAWebInterfaceRenderersDataStore()
@@ -5651,9 +5748,9 @@ class DLNAWebInterfaceServer:
     self.DLNAClientCache = []
     self.DLNAClientStop = threading.Event()
     if Launch == DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS:
-      self.DLNAAdvertisementListenerInstance = DLNAAdvertisementListener((self.DLNARendererControlerInstance,), verbosity)
+      self.DLNAAdvertisementListenerInstance = DLNAAdvertisementListener((self.DLNAControllerInstance,), verbosity)
     else:
-      self.DLNAAdvertisementListenerInstance = DLNAAdvertisementListener((self.DLNARendererControlerInstance,self.DLNAClientInstance), verbosity)
+      self.DLNAAdvertisementListenerInstance = DLNAAdvertisementListener((self.DLNAControllerInstance,self.DLNAClientInstance), verbosity)
     self.WebServerReady = threading.Event()
 
   def _discover_servers(self):
@@ -5701,7 +5798,7 @@ class DLNAWebInterfaceServer:
       self.html_start = DLNAWebInterfaceServer.HTML_START_TEMPLATE.replace('##CONTROL-URL##', '/control.html').replace('##UPNP-URL##', '/upnp.html').replace('##DISPLAY##', 'inline-block').replace('##URL##', html.escape(self.MediaSrc) + ('\r\n' + html.escape(self.MediaSubSrc) if self.MediaSubSrc else '')).replace('##STARTFROM##', self.MediaPosition).encode('utf-8')
     else:
       return
-    self.DLNARendererControlerInstance.start_discovery_polling(timeout=5, alive_persistence=45, polling_period=30, DiscoveryEvent=self.RenderersEvent)
+    self.DLNAControllerInstance.start_discovery_polling(timeout=5, alive_persistence=45, polling_period=30, DiscoveryEvent=self.RenderersEvent)
     self.WebSocketServerRenderersInstance = WebSocketServer((self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+2), self.RenderersDataStore, self.verbosity)
     self.WebSocketServerRenderersInstance.start()
     self.DLNAClientStop.clear()
@@ -5712,10 +5809,10 @@ class DLNAWebInterfaceServer:
     if self.Status == DLNAWebInterfaceServer.INTERFACE_START:
       self.discover_servers()
     while self.TargetStatus in (DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS, DLNAWebInterfaceServer.INTERFACE_START) and not self.shutdown_requested:
-      if (first_loop or self.DLNARendererControlerInstance.wait_for_advertisement(1)) and not self.shutdown_requested:
+      if (first_loop or self.DLNAControllerInstance.wait_for_advertisement(1)) and not self.shutdown_requested:
         first_loop = False
-        for ind in range(len(self.DLNARendererControlerInstance.Renderers)):
-          renderer = self.DLNARendererControlerInstance.Renderers[ind]
+        for ind in range(len(self.DLNAControllerInstance.Renderers)):
+          renderer = self.DLNAControllerInstance.Renderers[ind]
           status = renderer.StatusAlive and bool(renderer.BaseURL)
           if ind == len(rend_stat):
             rend_stat.append(status)
@@ -5724,7 +5821,7 @@ class DLNAWebInterfaceServer:
               if renderer == self.Renderer:
                 self.RenderersDataStore.Message = urllib.parse.urlencode({'command': 'sel', 'index': str(ind)}, quote_via=urllib.parse.quote)
             elif self.Renderer_uuid or self.Renderer_name:
-              if renderer == self.DLNARendererControlerInstance.search(self.Renderer_uuid, self.Renderer_name):
+              if renderer == self.DLNAControllerInstance.search(self.Renderer_uuid, self.Renderer_name):
                 self.RenderersDataStore.Message = urllib.parse.urlencode({'command': 'sel', 'index': str(ind)}, quote_via=urllib.parse.quote)
                 if self.RendererNotFound and self.OnReadyPlay:
                   self.Renderer = renderer
@@ -5744,7 +5841,7 @@ class DLNAWebInterfaceServer:
           upnp_button = True
     self.DLNAClientStop.set()
     self.html_ready = False
-    self.DLNARendererControlerInstance.stop_discovery_polling()
+    self.DLNAControllerInstance.stop_discovery_polling()
     if self.Status != DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS:
       self.DLNAClientInstance.is_discovery_polling_running = False
     self.logger.log(2, 'rendererstop')
@@ -5759,21 +5856,21 @@ class DLNAWebInterfaceServer:
     self.ControlDataStore.Status = 'initialisation'
     self.ControlDataStore.Position = '0:00:00'
     self.logger.log(2, 'controlstart')
-    renderer = self.Renderer or self.DLNARendererControlerInstance.search(uuid=self.Renderer_uuid, name=self.Renderer_name, complete=True)
+    renderer = self.Renderer or self.DLNAControllerInstance.search(uuid=self.Renderer_uuid, name=self.Renderer_name, complete=True)
     if not renderer:
-      self.DLNARendererControlerInstance.is_discovery_polling_running = True
+      self.DLNAControllerInstance.is_discovery_polling_running = True
       nb_search = 0
       start_time = time.monotonic()
       elapsed_time = 0
       while self.Status == DLNAWebInterfaceServer.INTERFACE_CONTROL and not renderer and elapsed_time < 12:
         if nb_search * 6 <= elapsed_time:
-          self.DLNARendererControlerInstance.discover(timeout=5, alive_persistence=86400, from_polling=True)
+          self.DLNAControllerInstance.discover(timeout=5, alive_persistence=86400, from_polling=True)
           nb_search += 1
         self.RenderersEvent.wait(6 * (nb_search + 1) - elapsed_time)
         self.RenderersEvent.clear()
-        renderer = self.DLNARendererControlerInstance.search(uuid=self.Renderer_uuid, name=self.Renderer_name, complete=True)
+        renderer = self.DLNAControllerInstance.search(uuid=self.Renderer_uuid, name=self.Renderer_name, complete=True)
         elapsed_time = time.monotonic() - start_time
-      self.DLNARendererControlerInstance.is_discovery_polling_running = False
+      self.DLNAControllerInstance.is_discovery_polling_running = False
     if renderer:
       self.Renderer = renderer
       self.Renderer_uuid = renderer.UDN[5:]
@@ -5785,7 +5882,7 @@ class DLNAWebInterfaceServer:
       self.logger.log(2, 'controlinterrupt')
       return
     try:
-      renderer_hip = self.DLNARendererControlerInstance.Hips[self.DLNARendererControlerInstance.Renderers.index(renderer)]
+      renderer_hip = self.DLNAControllerInstance.Hips[self.DLNAControllerInstance.Renderers.index(renderer)]
     except:
       self.RendererNotFound = False
       self.logger.log(2, 'controlinterrupt')
@@ -5814,17 +5911,19 @@ class DLNAWebInterfaceServer:
     self.WebSocketServerControlInstance.start()
     self.html_ready = True
     try:
-      self.DLNARendererControlerInstance.send_Stop(renderer)
+      self.DLNAControllerInstance.send_Stop(renderer)
     except:
       pass
-    event_listener = self.DLNARendererControlerInstance.new_event_subscription(renderer, 'AVTransport', self.DLNAWebInterfaceServerAddress[1]+3)
+    event_notification_listener = DLNAEventNotificationListener(self.DLNAControllerInstance, self.DLNAWebInterfaceServerAddress[1]+3)
+    event_notification_listener.start()
+    event_listener = self.DLNAControllerInstance.new_event_subscription(renderer, 'AVTransport', event_notification_listener)
     prep_success = True
     if not event_listener:
       prep_success = False
     if prep_success:
-      warning = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'TransportState', 'PLAYING', 'STOPPED', 'PAUSED_PLAYBACK', WarningEvent=self.ControlDataStore.IncomingEvent)
+      warning = self.DLNAControllerInstance.add_event_warning(event_listener, 'TransportState', 'PLAYING', 'STOPPED', 'PAUSED_PLAYBACK', WarningEvent=self.ControlDataStore.IncomingEvent)
       for nb_try in range(3):
-        prep_success = self.DLNARendererControlerInstance.send_event_subscription(event_listener, 36000)
+        prep_success = self.DLNAControllerInstance.send_event_subscription(event_listener, 36000)
         if prep_success:
           break
     spare_event = threading.Event()
@@ -5837,18 +5936,19 @@ class DLNAWebInterfaceServer:
         self.ControlDataStore.Redirect = True
       self.WebSocketServerControlInstance.shutdown()
       if event_listener:
-        self.DLNARendererControlerInstance.send_event_unsubscription(event_listener)
+        self.DLNAControllerInstance.send_event_unsubscription(event_listener)
+        event_notification_listener.stop()
       return
-    event_listener_rc = self.DLNARendererControlerInstance.new_event_subscription(renderer, 'RenderingControl', self.DLNAWebInterfaceServerAddress[1]+4)
+    event_listener_rc = self.DLNAControllerInstance.new_event_subscription(renderer, 'RenderingControl', event_notification_listener)
     if event_listener_rc:
-      warning_m = self.DLNARendererControlerInstance.add_event_warning(event_listener_rc, 'Mute', WarningEvent=incoming_event)
-      warning_v = self.DLNARendererControlerInstance.add_event_warning(event_listener_rc, 'Volume', WarningEvent=incoming_event)
-      if not self.DLNARendererControlerInstance.send_event_subscription(event_listener_rc, 36000):
-        self.DLNARendererControlerInstance.send_event_unsubscription(event_listener_rc)
+      warning_m = self.DLNAControllerInstance.add_event_warning(event_listener_rc, 'Mute', WarningEvent=incoming_event)
+      warning_v = self.DLNAControllerInstance.add_event_warning(event_listener_rc, 'Volume', WarningEvent=incoming_event)
+      if not self.DLNAControllerInstance.send_event_subscription(event_listener_rc, 36000):
+        self.DLNAControllerInstance.send_event_unsubscription(event_listener_rc)
         event_listener_rc = None
       if event_listener_rc:
-        if (self.DLNARendererControlerInstance.get_Volume(renderer) == None or self.DLNARendererControlerInstance.get_Mute(renderer) == None):
-          self.DLNARendererControlerInstance.send_event_unsubscription(event_listener_rc)
+        if (self.DLNAControllerInstance.get_Volume(renderer) == None or self.DLNAControllerInstance.get_Mute(renderer) == None):
+          self.DLNAControllerInstance.send_event_unsubscription(event_listener_rc)
           event_listener_rc = None
       if event_listener_rc:
         try:
@@ -5943,12 +6043,12 @@ class DLNAWebInterfaceServer:
     ind = -1
     jump_ind = None
     restart_from = None
-    warning_e = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'TransportStatus', 'ERROR_OCCURRED')
-    warning_d = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'CurrentMediaDuration')
+    warning_e = self.DLNAControllerInstance.add_event_warning(event_listener, 'TransportStatus', 'ERROR_OCCURRED')
+    warning_d = self.DLNAControllerInstance.add_event_warning(event_listener, 'CurrentMediaDuration')
     server_mode = None
     if gapless:
       gapless_status = 0
-      warning_n = self.DLNARendererControlerInstance.add_event_warning(event_listener, 'AVTransportURI', WarningEvent=incoming_event)
+      warning_n = self.DLNAControllerInstance.add_event_warning(event_listener, 'AVTransportURI', WarningEvent=incoming_event)
     else:
       gapless_status = -1
     self.NextMediaServerInstance = None
@@ -6010,7 +6110,7 @@ class DLNAWebInterfaceServer:
         restart_from = None
       if prev_media_kind == 'image' and media_kind != 'image':
         try:
-          self.DLNARendererControlerInstance.send_Stop(renderer)
+          self.DLNAControllerInstance.send_Stop(renderer)
         except:
           pass
       self.MediaServerInstance = None
@@ -6033,7 +6133,7 @@ class DLNAWebInterfaceServer:
           else:
             nind = None
         if not self.MediaServerInstance:
-          self.MediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+5), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNARendererControlerInstance.ips))
+          self.MediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+4), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
           self.MediaServerInstance.start()
         self.ControlDataStore.IncomingEvent = self.MediaServerInstance.BuildFinishedEvent
         if not self.shutdown_requested:
@@ -6059,22 +6159,22 @@ class DLNAWebInterfaceServer:
           else:
             media_title = self.MediaServerInstance.MediaProviderInstance.MediaTitle
           if gapless_status < 3:
-            self.DLNARendererControlerInstance.wait_for_warning(warning, 0, True)
+            self.DLNAControllerInstance.wait_for_warning(warning, 0, True)
             spare_event.clear()
             self.ControlDataStore.IncomingEvent = spare_event
             if server_mode == MediaProvider.SERVER_MODE_RANDOM and not self.shutdown_requested:
               accept_ranges = self.MediaServerInstance.MediaProviderInstance.AcceptRanges
               try:
                 if accept_ranges:
-                  prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi, stop=self.ControlDataStore.IncomingEvent)
+                  prep_success = self.DLNAControllerInstance.send_Local_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi, stop=self.ControlDataStore.IncomingEvent)
                 else:
-                  prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
+                  prep_success = self.DLNAControllerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
               except:
                 prep_success = False
             elif server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL and not self.shutdown_requested:
               accept_ranges = False
               try:
-                prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
+                prep_success = self.DLNAControllerInstance.send_URI(self.Renderer, 'http://%s:%s/media%s' % (*self.MediaServerInstance.MediaServerAddress, self.MediaServerInstance.MediaProviderInstance.MediaFeedExt), media_title, kind=media_kind, suburi=suburi)
               except:
                 prep_success = False
             else:
@@ -6095,7 +6195,7 @@ class DLNAWebInterfaceServer:
                   nmedia_sub_src = nmedia_src if self.MediaSubSrc == self.MediaSrc else ''
               else:
                 nmedia_sub_src = self.MediaSubSrc
-              self.NextMediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+(self.MediaServerInstance.MediaServerAddress[1]-self.DLNAWebInterfaceServerAddress[1]+2)%4+4), nmedia_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom='0:00:00', MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=nmedia_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNARendererControlerInstance.ips))
+              self.NextMediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+(self.MediaServerInstance.MediaServerAddress[1]-self.DLNAWebInterfaceServerAddress[1]+2)%4+4), nmedia_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom='0:00:00', MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=nmedia_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
               self.NextMediaServerInstance.start()
       else:
         suburi = media_sub_src
@@ -6109,7 +6209,7 @@ class DLNAWebInterfaceServer:
             pass
         else:
           media_ip = ''
-        self.DLNARendererControlerInstance.wait_for_warning(warning, 0, True)
+        self.DLNAControllerInstance.wait_for_warning(warning, 0, True)
         if self.MediaSrc[:7].lower() == 'upnp://':
           media_title = titles[order[ind]]
         else:
@@ -6118,9 +6218,9 @@ class DLNAWebInterfaceServer:
         self.ControlDataStore.IncomingEvent = spare_event
         try:
           if (media_ip == '' or renderer_hip == media_ip) and not self.shutdown_requested:
-            prep_success = self.DLNARendererControlerInstance.send_Local_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
+            prep_success = self.DLNAControllerInstance.send_Local_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
           elif not self.shutdown_requested:
-            prep_success = self.DLNARendererControlerInstance.send_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
+            prep_success = self.DLNAControllerInstance.send_URI(self.Renderer, media_src, media_title, kind=media_kind, suburi=suburi)
           else:
             prep_success = False
         except:
@@ -6160,14 +6260,14 @@ class DLNAWebInterfaceServer:
           if not self.shutdown_requested:
             self.ControlDataStore.Redirect = True
           self.WebSocketServerControlInstance.shutdown()
-          if event_listener:
-            self.DLNARendererControlerInstance.send_event_unsubscription(event_listener)
+          self.DLNAControllerInstance.send_event_unsubscription(event_listener)
           try:
-            self.DLNARendererControlerInstance.send_Stop(renderer)
+            self.DLNAControllerInstance.send_Stop(renderer)
           except:
             pass
           if event_listener_rc:
-            self.DLNARendererControlerInstance.send_event_unsubscription(event_listener_rc)
+            self.DLNAControllerInstance.send_event_unsubscription(event_listener_rc)
+          event_notification_listener.stop()
           return
         else:
           if check_renderer:
@@ -6218,13 +6318,13 @@ class DLNAWebInterfaceServer:
         if not cmd_stop:
           wi_cmd = 'Lecture'
           self.ControlDataStore.IncomingEvent.set()
-        self.DLNARendererControlerInstance.wait_for_warning(warning_d, 0, True)
-        self.DLNARendererControlerInstance.wait_for_warning(warning_e, 0, True)
+        self.DLNAControllerInstance.wait_for_warning(warning_d, 0, True)
+        self.DLNAControllerInstance.wait_for_warning(warning_e, 0, True)
         gapless_status = 0 if self.NextMediaServerInstance else -1
       else:
         old_value = new_value
         try:
-          renderer_position = self.DLNARendererControlerInstance.get_Position(renderer).rsplit('.')[0]
+          renderer_position = self.DLNAControllerInstance.get_Position(renderer).rsplit('.')[0]
         except:
           renderer_position = '0:00:00'
         self.ControlDataStore.Position = renderer_position
@@ -6236,27 +6336,27 @@ class DLNAWebInterfaceServer:
         vol_seq = warning_v.ReferenceSEQ
         mut_seq = warning_m.ReferenceSEQ
         try:
-          self.ControlDataStore.Volume = int(int(self.DLNARendererControlerInstance.get_Volume(renderer)) * 100 / vol_max)
-          self.ControlDataStore.Mute = (self.DLNARendererControlerInstance.get_Mute(renderer) == "1")
+          self.ControlDataStore.Volume = int(int(self.DLNAControllerInstance.get_Volume(renderer)) * 100 / vol_max)
+          self.ControlDataStore.Mute = (self.DLNAControllerInstance.get_Mute(renderer) == "1")
         except:
           pass
       while not self.shutdown_requested and new_value != 'STOPPED':
-        new_value = self.DLNARendererControlerInstance.wait_for_warning(warning, 10 if is_paused else 1)
+        new_value = self.DLNAControllerInstance.wait_for_warning(warning, 10 if is_paused else 1)
         if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and accept_ranges:
           if old_value and media_kind != 'image':
-            new_duration = self.DLNARendererControlerInstance.wait_for_warning(warning_d, 0)
+            new_duration = self.DLNAControllerInstance.wait_for_warning(warning_d, 0)
             if new_duration:
               if _position_to_seconds(new_duration):
                 self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
         try:
-          renderer_new_position = self.DLNARendererControlerInstance.get_Position(renderer).rsplit('.')[0]
+          renderer_new_position = self.DLNAControllerInstance.get_Position(renderer).rsplit('.')[0]
         except:
           renderer_new_position = ''
         if media_kind != 'image' and renderer_new_position:
           if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and _position_to_seconds(renderer_new_position) == 0 and _position_to_seconds(renderer_position) != 0:
             if not renderer_stopped_position:
               try:
-                transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[0]
+                transport_status = self.DLNAControllerInstance.get_TransportInfo(renderer)[0]
               except:
                 transport_status = ''
               if transport_status in ('PAUSED_PLAYBACK', 'PLAYING'):
@@ -6267,12 +6367,12 @@ class DLNAWebInterfaceServer:
             max_renderer_position = renderer_position
         if media_kind != 'image' and accept_ranges and self.ControlDataStore.Duration == '0' and ((new_value and not old_value) or gapless_status in (0, 1)):
           try:
-            new_duration = self.DLNARendererControlerInstance.get_Duration(self.Renderer)
+            new_duration = self.DLNAControllerInstance.get_Duration(self.Renderer)
             if new_duration:
               if _position_to_seconds(new_duration):
                 self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
             if self.ControlDataStore.Duration == '0':
-              new_duration = self.DLNARendererControlerInstance.get_Duration_Fallback(self.Renderer)
+              new_duration = self.DLNAControllerInstance.get_Duration_Fallback(self.Renderer)
               if new_duration:
                 if _position_to_seconds(new_duration):
                   self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
@@ -6281,7 +6381,7 @@ class DLNAWebInterfaceServer:
         if media_kind == 'image' and image_duration and self.ControlDataStore.Status != 'Arrêt':
           renderer_position = _seconds_to_position(int(max(0, image_duration - ((time.time() - image_start) if image_start else 0))))
         if not old_value and new_value == 'STOPPED':
-          if not self.DLNARendererControlerInstance.wait_for_warning(warning_e, 0):
+          if not self.DLNAControllerInstance.wait_for_warning(warning_e, 0):
             new_value = None
         if new_value and new_value != old_value:
           if restart_from != None:
@@ -6291,7 +6391,7 @@ class DLNAWebInterfaceServer:
             if renderer_stopped_position:
               if accept_ranges:
                 try:
-                  self.DLNARendererControlerInstance.send_Seek(renderer, renderer_stopped_position)
+                  self.DLNAControllerInstance.send_Seek(renderer, renderer_stopped_position)
                 except:
                   pass
               renderer_stopped_position = None
@@ -6332,7 +6432,7 @@ class DLNAWebInterfaceServer:
                 renderer_stopped_position = renderer_position
                 if media_kind != 'image':
                   try:
-                    self.DLNARendererControlerInstance.send_Seek(renderer, '0:00:00')
+                    self.DLNAControllerInstance.send_Seek(renderer, '0:00:00')
                   except:
                     pass
             if media_kind == 'image':
@@ -6366,7 +6466,7 @@ class DLNAWebInterfaceServer:
                     media_type = self.MediaServerInstance.MediaProviderInstance.MediaSrcType.replace('WebPageURL', 'ContentURL')
                     media_sub = self.MediaServerInstance.MediaSubBufferInstance
                     server_address = self.MediaServerInstance.MediaServerAddress
-                    self.MediaServerInstance = MediaServer(MediaProvider.SERVER_MODE_RANDOM, server_address, media_feed, MediaSrcType=media_type, MediaStartFrom='', MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaSubBuffer=media_sub, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNARendererControlerInstance.ips))
+                    self.MediaServerInstance = MediaServer(MediaProvider.SERVER_MODE_RANDOM, server_address, media_feed, MediaSrcType=media_type, MediaStartFrom='', MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaSubBuffer=media_sub, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
                     self.MediaServerInstance.start()
                     incoming_event = self.ControlDataStore.IncomingEvent
                     if not self.shutdown_requested:
@@ -6384,12 +6484,12 @@ class DLNAWebInterfaceServer:
                 self.ControlDataStore.ShowStartFrom = False
               if self.ControlDataStore.Status in ('prêt', 'prêt (lecture à partir du début)', 'Arrêt'):
                 self.ControlDataStore.Status = 'en cours...'
-              self.DLNARendererControlerInstance.send_Play(renderer)
+              self.DLNAControllerInstance.send_Play(renderer)
             except:
               pass
           elif wi_cmd == 'Pause':
             try:
-              self.DLNARendererControlerInstance.send_Pause(renderer)
+              self.DLNAControllerInstance.send_Pause(renderer)
             except:
               pass
           elif wi_cmd == 'Arrêt':
@@ -6401,13 +6501,13 @@ class DLNAWebInterfaceServer:
               restart_from = None
               self.ControlDataStore.ShowStartFrom = False
             try:
-              transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[0] or ''
+              transport_status = self.DLNAControllerInstance.get_TransportInfo(renderer)[0] or ''
             except:
               transport_status = ''
             if transport_status in ('PAUSED_PLAYBACK', 'PLAYING', 'TRANSITIONING'):
               old_value = 'STOPPED'
               try:
-                if not self.DLNARendererControlerInstance.send_Stop(renderer):
+                if not self.DLNAControllerInstance.send_Stop(renderer):
                   raise
               except:
                 new_value = 'STOPPED'
@@ -6419,7 +6519,7 @@ class DLNAWebInterfaceServer:
                 playlist_stop = True
           elif wi_cmd == 'Fin':
             try:
-              self.DLNARendererControlerInstance.send_Stop(renderer)
+              self.DLNAControllerInstance.send_Stop(renderer)
             except:
               pass
           elif (wi_cmd or '')[:4] == 'Jump':
@@ -6428,7 +6528,7 @@ class DLNAWebInterfaceServer:
               if server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL or jump_ind != order[ind]:
                 if media_kind != 'image':
                   try:
-                    self.DLNARendererControlerInstance.send_Stop(renderer)
+                    self.DLNAControllerInstance.send_Stop(renderer)
                   except:
                     pass
                 new_value = 'STOPPED'
@@ -6436,9 +6536,9 @@ class DLNAWebInterfaceServer:
                   if gapless_status == 2:
                     try:
                       if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
-                        self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
+                        self.DLNAControllerInstance.send_Local_URI_Next(self.Renderer, '', '')
                       else:
-                        self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+                        self.DLNAControllerInstance.send_URI_Next(self.Renderer, '', '')
                     except:
                       pass
                   gapless_status = -1
@@ -6453,7 +6553,7 @@ class DLNAWebInterfaceServer:
                 restart_from = None
                 jump_ind = None
                 try:
-                  self.DLNARendererControlerInstance.send_Play(renderer)
+                  self.DLNAControllerInstance.send_Play(renderer)
                 except:
                   pass
           elif playlist and wi_cmd == 'Shuffle':
@@ -6469,7 +6569,7 @@ class DLNAWebInterfaceServer:
               else:
                 ind = -1
                 try:
-                  self.DLNARendererControlerInstance.send_Stop(renderer)
+                  self.DLNAControllerInstance.send_Stop(renderer)
                 except:
                   pass
                 new_value = 'STOPPED'
@@ -6477,9 +6577,9 @@ class DLNAWebInterfaceServer:
               if gapless_status == 2:
                 try:
                   if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
-                    self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
+                    self.DLNAControllerInstance.send_Local_URI_Next(self.Renderer, '', '')
                   else:
-                    self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+                    self.DLNAControllerInstance.send_URI_Next(self.Renderer, '', '')
                 except:
                   pass
               gapless_status = -1
@@ -6493,8 +6593,8 @@ class DLNAWebInterfaceServer:
               if not renderer_stopped_position:
                 try:
                   if not self.ControlDataStore.Duration or self.ControlDataStore.Duration == '0':
-                    self.DLNARendererControlerInstance.send_Play(renderer)
-                  self.DLNARendererControlerInstance.send_Seek(renderer, wi_cmd[5:])
+                    self.DLNAControllerInstance.send_Play(renderer)
+                  self.DLNAControllerInstance.send_Seek(renderer, wi_cmd[5:])
                 except:
                   pass
               else:
@@ -6511,12 +6611,12 @@ class DLNAWebInterfaceServer:
                 pass
           elif (wi_cmd or '')[:4] == 'Mute':
             try:
-              self.DLNARendererControlerInstance.set_Mute(renderer, wi_cmd[5:] == "true")
+              self.DLNAControllerInstance.set_Mute(renderer, wi_cmd[5:] == "true")
             except:
               pass
           elif (wi_cmd or '')[:6] == 'Volume':
             try:
-              self.DLNARendererControlerInstance.set_Volume(renderer, int(int(wi_cmd[7:]) * vol_max / 100))
+              self.DLNAControllerInstance.set_Volume(renderer, int(int(wi_cmd[7:]) * vol_max / 100))
             except:
               pass
           wi_cmd = self.ControlDataStore.Command
@@ -6542,9 +6642,9 @@ class DLNAWebInterfaceServer:
               gap_seq = warning_n.ReferenceSEQ
               try:
                 if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
-                  prep_success = self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
+                  prep_success = self.DLNAControllerInstance.send_Local_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
                 else:
-                  prep_success = self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
+                  prep_success = self.DLNAControllerInstance.send_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
               except:
                 prep_success = False
             if prep_success:
@@ -6561,17 +6661,17 @@ class DLNAWebInterfaceServer:
               transport_status = 'PLAYING'
             else:
               try:
-                transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[0]
+                transport_status = self.DLNAControllerInstance.get_TransportInfo(renderer)[0]
               except:
                 transport_status = ''
             if transport_status == 'PAUSED_PLAYBACK':
               try:
-                if not self.DLNARendererControlerInstance.send_Play(renderer):
+                if not self.DLNAControllerInstance.send_Play(renderer):
                   raise
               except:
                 transport_status = ''
                 try:
-                  self.DLNARendererControlerInstance.send_Stop(renderer)
+                  self.DLNAControllerInstance.send_Stop(renderer)
                 except:
                   pass
             if transport_status in ('PLAYING', 'TRANSITIONING', 'PAUSED_PLAYBACK'):
@@ -6580,7 +6680,7 @@ class DLNAWebInterfaceServer:
                 accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
               else: 
                 try:
-                  self.DLNARendererControlerInstance.send_Stop(renderer)
+                  self.DLNAControllerInstance.send_Stop(renderer)
                 except:
                   pass
             new_value = 'STOPPED'
@@ -6595,21 +6695,21 @@ class DLNAWebInterfaceServer:
       if gapless_status == 2:
         try:
           if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
-            self.DLNARendererControlerInstance.send_Local_URI_Next(self.Renderer, '', '')
+            self.DLNAControllerInstance.send_Local_URI_Next(self.Renderer, '', '')
           else:
-            self.DLNARendererControlerInstance.send_URI_Next(self.Renderer, '', '')
+            self.DLNAControllerInstance.send_URI_Next(self.Renderer, '', '')
         except:
           pass
     transport_status = ''
     stop_reason = ''
     if not self.shutdown_requested and self.verbosity == 2:
       try:
-        transport_status = self.DLNARendererControlerInstance.get_TransportInfo(renderer)[1]
-        stop_reason = self.DLNARendererControlerInstance.get_StoppedReason(renderer)[0]
+        transport_status = self.DLNAControllerInstance.get_TransportInfo(renderer)[1]
+        stop_reason = self.DLNAControllerInstance.get_StoppedReason(renderer)[0]
       except:
         pass
     try:
-      self.DLNARendererControlerInstance.send_Stop(renderer)
+      self.DLNAControllerInstance.send_Stop(renderer)
     except:
       pass
     if playlist == False and server_mode != None:
@@ -6631,9 +6731,10 @@ class DLNAWebInterfaceServer:
         pass
       self.NextMediaServerInstance = None
     self.html_ready = False
-    self.DLNARendererControlerInstance.send_event_unsubscription(event_listener)
+    self.DLNAControllerInstance.send_event_unsubscription(event_listener)
     if event_listener_rc:
-      self.DLNARendererControlerInstance.send_event_unsubscription(event_listener_rc)
+      self.DLNAControllerInstance.send_event_unsubscription(event_listener_rc)
+    event_notification_listener.stop()
     self.logger.log(2, 'controlstop', LSTRINGS['webinterface'].get('status', 'status') if transport_status or stop_reason else '', transport_status, ':' if transport_status and stop_reason else '', stop_reason)
     if not self.shutdown_requested:
       self.ControlDataStore.Redirect = True
@@ -6645,7 +6746,13 @@ class DLNAWebInterfaceServer:
         self.DLNAWebInterfaceServerInstance.Interface = self
         self.DLNAWebInterfaceServerInstance.post_lock = threading.Lock()
         self.WebServerReady.set()
-        self.DLNAWebInterfaceServerInstance.serve_forever()
+        try:
+          self.DLNAWebInterfaceServerInstance.serve_forever()
+        except:
+          if self.shutdown_requested:
+            pass
+          else:
+            raise
     except:
       self.logger.log(0, 'fail', '%s:%s' % self.DLNAWebInterfaceServerAddress)
       self.WebServerReady.set()
@@ -6659,8 +6766,8 @@ class DLNAWebInterfaceServer:
     webserver_thread.start()
     if self.TargetStatus in (DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS, DLNAWebInterfaceServer.INTERFACE_START, DLNAWebInterfaceServer.INTERFACE_CONTROL):
       self.DLNAAdvertisementListenerInstance.start()
-      self.RenderersEvent = self.DLNARendererControlerInstance.advert_status_change
-      self.DLNARendererControlerInstance.discovery_status_change = self.RenderersEvent
+      self.RenderersEvent = self.DLNAControllerInstance.advert_status_change
+      self.DLNAControllerInstance.discovery_status_change = self.RenderersEvent
     while (self.Status == None or self.TargetStatus==DLNAWebInterfaceServer.INTERFACE_START) and not self.shutdown_requested:
       if self.TargetStatus == DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS:
         self.Status = DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS
