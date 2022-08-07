@@ -4558,7 +4558,7 @@ class WebSocketServer():
     with self.shutdown_lock:
       if not self.is_running:
         return False
-      if self.Channels.setdefault(Path, channel) is not channel:
+      if self.Channels.setdefault(path, channel) is not channel:
         return False
     self.WebSocketServerInstance.logger.log(2, 'open', *self.Address, channel.Path)
     return True
