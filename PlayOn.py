@@ -4928,6 +4928,34 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
         self.send_header("Content-Length", 0)
         self.end_headers()
         return None
+    elif self.path.lower()[:5] == '/icon':
+      if self.server.Interface.Status in (DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS, DLNAWebInterfaceServer.INTERFACE_START):
+        renderer_icon = b""
+        renderer_icon_ct = ""
+        try:
+          renderer = self.server.Interface.DLNAControllerInstance.Renderers[int(self.path[5:])]
+          renderer_hip = self.server.Interface.DLNAControllerInstance.Hips[int(self.path[5:])]
+          if renderer.IconURL:
+            icon_resp = HTTPRequest(renderer.IconURL, timeout=5, ip=renderer_hip)
+            if icon_resp.code == '200':
+              if icon_resp.body:
+                renderer_icon = icon_resp.body
+                renderer_icon_ct = icon_resp.header('content-type', "image")
+        except:
+          pass
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Connection", "keep-alive")
+        self.send_header("Content-type", renderer_icon_ct)
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Content-Length", len(renderer_icon))
+        f = BytesIO(renderer_icon)
+        self.end_headers()
+        return f
+      else:
+        self.close_connection = True
+        self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+        return
     elif self.path.lower()[:10] == '/upnp.html':
       if self.server.Interface.Status == DLNAWebInterfaceServer.INTERFACE_START and self.server.Interface.DLNAClientInstance.search(complete=True):
         try:
@@ -5933,7 +5961,7 @@ class DLNAWebInterfaceServer:
           status = renderer.StatusAlive and bool(renderer.BaseURL)
           if ind == len(rend_stat):
             rend_stat.append(status)
-            self.RenderersDataStore.Message = urllib.parse.urlencode({'command': 'add', 'index': str(ind), 'name': html.escape(renderer.FriendlyName), 'ip': renderer.Ip, 'icon': renderer.IconURL, 'status': status}, quote_via=urllib.parse.quote)
+            self.RenderersDataStore.Message = urllib.parse.urlencode({'command': 'add', 'index': str(ind), 'name': html.escape(renderer.FriendlyName), 'ip': renderer.Ip, 'icon': '/icon%d' % ind, 'status': status}, quote_via=urllib.parse.quote)
             if self.Renderer:
               if renderer == self.Renderer:
                 self.RenderersDataStore.Message = urllib.parse.urlencode({'command': 'sel', 'index': str(ind)}, quote_via=urllib.parse.quote)
@@ -5948,7 +5976,7 @@ class DLNAWebInterfaceServer:
           elif status != rend_stat[ind]:
             rend_stat[ind] = status
             if status:
-              self.RenderersDataStore.Message = urllib.parse.urlencode({'command': 'show', 'index': str(ind), 'icon': renderer.IconURL}, quote_via=urllib.parse.quote)
+              self.RenderersDataStore.Message = urllib.parse.urlencode({'command': 'show', 'index': str(ind), 'icon': '/icon%d' % ind}, quote_via=urllib.parse.quote)
             else:
               self.RenderersDataStore.Message = urllib.parse.urlencode({'command': 'hide', 'index': str(ind)}, quote_via=urllib.parse.quote)
       if self.Status == DLNAWebInterfaceServer.INTERFACE_START:
