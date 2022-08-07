@@ -121,27 +121,30 @@ FR_STRINGS = {
     'subscrunsubscrsuccess': 'Renderer %s -> service %s -> fin de la souscription de SID %s au serveur d\'événements'
   },
   'websocket': {
-    'endacksuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de l\'accusé de réception de l\'avis de fin de connexion',
-    'endackfailure': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de l\'accusé de réception de l\'avis de fin de connexion',
-    'errorendnotification': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> envoi d\'avis de fin de connexion pour cause d\'erreur %s',
-    'errorendnotificationsuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de l\'avis de fin de connexion',
-    'errorendnotificationfailure': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de l\'avis de fin de connexion',
-    'terminationdatasuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de la donnée de terminaison %s',
-    'terminationdatafailure': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de la donnée de terminaison %s',
-    'endnotificationsuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> succès de l\'envoi de l\'avis de fin de connexion',
-    'endnotificationfailure': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de l\'avis de fin de connexion',
-    'datasuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> envoi de la donnée %s',
-    'datafailure': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> échec de l\'envoi de la donnée %s',
-    'datareceipt': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> réception de la donnée %s',
+    'endacksuccess': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> succès de l\'envoi de l\'accusé de réception de l\'avis de fin de connexion',
+    'endackfailure': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> échec de l\'envoi de l\'accusé de réception de l\'avis de fin de connexion',
+    'errorendnotification': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> envoi d\'avis de fin de connexion pour cause d\'erreur %s',
+    'errorendnotificationsuccess': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> succès de l\'envoi de l\'avis de fin de connexion',
+    'errorendnotificationfailure': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> échec de l\'envoi de l\'avis de fin de connexion',
+    'terminationdatasuccess': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> succès de l\'envoi de la donnée de terminaison %s',
+    'terminationdatafailure': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> échec de l\'envoi de la donnée de terminaison %s',
+    'endnotificationsuccess': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> succès de l\'envoi de l\'avis de fin de connexion',
+    'endnotificationfailure': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> échec de l\'envoi de l\'avis de fin de connexion',
+    'datasuccess': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> envoi de la donnée %s',
+    'datafailure': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> échec de l\'envoi de la donnée %s',
+    'datareceipt': 'WebSocket serveur %s:%s/%s -> WebSocket %s:%s -> réception de la donnée %s',
     'connectionrequest': 'WebSocket serveur %s:%s -> demande de connexion du WebSocket %s:%s',
     'connectionrequestinvalid': 'WebSocket serveur %s:%s -> demande de connexion du WebSocket %s:%s invalide',
-    'connectionresponsefailure': 'WebSocket serveur %s:%s -> échec de l\'envoi de la réponse à la demande de connexion du WebSocket %s:%s',
-    'connection': 'WebSocket serveur %s:%s -> connexion au WebSocket %s:%s',
-    'endack': 'WebSocket serveur %s:%s -> accusé de réception de fin de connexion du WebSocket %s:%s',
-    'endnotification': 'WebSocket serveur %s:%s -> avis de fin de connexion du WebSocket %s:%s',
-    'connectionend': 'WebSocket serveur %s:%s -> fin de connexion au WebSocket %s:%s',
+    'connectionrequestnotfound': 'WebSocket serveur %s:%s -> chemin de demande de connexion du WebSocket %s:%s introuvable: /%s',
+    'connectionresponsefailure': 'WebSocket serveur %s:%s/%s -> échec de l\'envoi de la réponse à la demande de connexion du WebSocket %s:%s',
+    'connection': 'WebSocket serveur %s:%s/%s -> connexion au WebSocket %s:%s',
+    'endack': 'WebSocket serveur %s:%s/%s -> accusé de réception de fin de connexion du WebSocket %s:%s',
+    'endnotification': 'WebSocket serveur %s:%s/%s -> avis de fin de connexion du WebSocket %s:%s',
+    'connectionend': 'WebSocket serveur %s:%s/%s -> fin de connexion au WebSocket %s:%s',
     'start': 'Démarrage du serveur pour Websocket à l\'adresse %s:%s',
     'fail': 'Échec du démarrage du serveur pour Websocket à l\'adresse %s:%s',
+    'open': 'Websocket serveur %s:%s: ouverture du canal /%s',
+    'close': 'Websocket serveur %s:%s: fermeture du canal /%s',
     'shutdown': 'Fermeture du serveur pour Websocket à l\'adresse %s:%s'
   },
   'webinterface': {
@@ -336,27 +339,30 @@ EN_STRINGS = {
     'subscrunsubscrsuccess': 'Renderer %s -> service %s -> end of subscription under SID %s to the events server'
   },
   'websocket': {
-    'endacksuccess': 'WebSocket serveur %s:%s -> WebSocket %s:%s -> success of the sending of the acknowledgment of receipt of the notice of end of connection',
-    'endackfailure': 'WebSocket server %s:%s -> WebSocket %s:%s -> failure of the sending of the acknowledgment of receipt of the notice of end of connection',
-    'errorendnotification': 'WebSocket server %s:%s -> WebSocket %s:%s -> sending of a notice of end of connection because of error %s',
-    'errorendnotificationsuccess': 'WebSocket server %s:%s -> WebSocket %s:%s -> success of the sending of the notice of end of connection',
-    'errorendnotificationfailure': 'WebSocket server %s:%s -> WebSocket %s:%s -> failure of the sending of the notice of end of connection',
-    'terminationdatasuccess': 'WebSocket server %s:%s -> WebSocket %s:%s -> success of the sending of the termination data %s',
-    'terminationdatafailure': 'WebSocket server %s:%s -> WebSocket %s:%s -> failure of the sending of the termination data %s',
-    'endnotificationsuccess': 'WebSocket server %s:%s -> WebSocket %s:%s -> success of the sending of the notice of end of connection',
-    'endnotificationfailure': 'WebSocket server %s:%s -> WebSocket %s:%s -> failure of the sending of the notice of end of connection',
-    'datasuccess': 'WebSocket server %s:%s -> WebSocket %s:%s -> sending of the data %s',
-    'datafailure': 'WebSocket server %s:%s -> WebSocket %s:%s -> failure of the sending of the data %s',
-    'datareceipt': 'WebSocket server %s:%s -> WebSocket %s:%s -> receipt of the data %s',
+    'endacksuccess': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> success of the sending of the acknowledgment of receipt of the notice of end of connection',
+    'endackfailure': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> failure of the sending of the acknowledgment of receipt of the notice of end of connection',
+    'errorendnotification': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> sending of a notice of end of connection because of error %s',
+    'errorendnotificationsuccess': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> success of the sending of the notice of end of connection',
+    'errorendnotificationfailure': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> failure of the sending of the notice of end of connection',
+    'terminationdatasuccess': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> success of the sending of the termination data %s',
+    'terminationdatafailure': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> failure of the sending of the termination data %s',
+    'endnotificationsuccess': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> success of the sending of the notice of end of connection',
+    'endnotificationfailure': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> failure of the sending of the notice of end of connection',
+    'datasuccess': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> sending of the data %s',
+    'datafailure': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> failure of the sending of the data %s',
+    'datareceipt': 'WebSocket server %s:%s/%s -> WebSocket %s:%s -> receipt of the data %s',
     'connectionrequest': 'WebSocket server %s:%s -> connection request from the WebSocket %s:%s',
     'connectionrequestinvalid': 'WebSocket server %s:%s -> connection request from the WebSocket %s:%s invalid',
-    'connectionresponsefailure': 'WebSocket server %s:%s -> failure of the sending of the response to the connection request from the WebSocket %s:%s',
-    'connection': 'WebSocket server %s:%s -> connection to the WebSocket %s:%s',
-    'endack': 'WebSocket server %s:%s -> acknowledgment of end of connection from the WebSocket %s:%s',
-    'endnotification': 'WebSocket server %s:%s -> notice of end of connection from the WebSocket %s:%s',
-    'connectionend': 'WebSocket server %s:%s -> end of connection to the WebSocket %s:%s',
+    'connectionrequestnotfound': 'WebSocket server %s:%s -> path of the connection request from the WebSocket %s:%s not found: /%s',
+    'connectionresponsefailure': 'WebSocket server %s:%s/%s -> failure of the sending of the response to the connection request from the WebSocket %s:%s',
+    'connection': 'WebSocket server %s:%s/%s -> connection to the WebSocket %s:%s',
+    'endack': 'WebSocket server %s:%s/%s -> acknowledgment of end of connection from the WebSocket %s:%s',
+    'endnotification': 'WebSocket server %s:%s/%s -> notice of end of connection from the WebSocket %s:%s',
+    'connectionend': 'WebSocket server %s:%s/%s -> end of connection to the WebSocket %s:%s',
     'start': 'Start of the server for Websocket at the address %s:%s',
     'fail': 'Failure of the start of the server for Websocket at the address %s:%s',
+    'open': 'Websocket server %s:%s: opening of the channel /%s',
+    'close': 'Websocket server %s:%s: closure of the channel /%s',
     'shutdown': 'Shutdonw of the server for Websocket at the address %s:%s'
   },
   'webinterface': {
@@ -489,6 +495,8 @@ class log_event:
 
 class ThreadedDualStackServer(socketserver.ThreadingMixIn, server.HTTPServer):
 
+  block_on_close = False
+
   def __init__(self, *args, kmod, verbosity, auth_ip=None, **kwargs):
     self.logger = log_event(kmod, verbosity)
     if auth_ip:
@@ -601,7 +609,7 @@ class MediaProvider(threading.Thread):
       else:
         self.MediaMuxContainer = MediaMuxContainer
       if self.MediaMuxContainer:
-        self.ffmpeg_server_url = 'http://localhost:%s' % FFmpegPort
+        self.ffmpeg_server_url = 'http://127.0.0.1:%s' % FFmpegPort
         if self.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
           self.MediaMuxAlways = None
           self.MediaMuxContainer = None
@@ -670,12 +678,13 @@ class MediaProvider(threading.Thread):
         media_feed = None
         while not media_feed and self.FFmpeg_process.poll() == None and not self.shutdown_requested:
           try:
-            media_feed = urllib.request.urlopen(self.ffmpeg_server_url)
+            media_feed = urllib.request.urlopen(self.ffmpeg_server_url, timeout=1)
           except:
             pass
-        time.sleep(0.5)
-        if self.FFmpeg_process.poll() in (None, 0):
-          break
+        if not self.shutdown_requested:
+          time.sleep(0.5)
+          if self.FFmpeg_process.poll() in (None, 0):
+            break
         if media_feed:
           try:
             media_feed.close()
@@ -1476,6 +1485,9 @@ class MediaProvider(threading.Thread):
     if not self.shutdown_requested:
       build_success = self.MediaBuilder()
     if build_success and not self.shutdown_requested:
+      if self.BuildFinishedEvent.is_set():
+        self.Status = MediaProvider.STATUS_ABORTED
+        return
       self.Status = MediaProvider.STATUS_RUNNING
       self.BuildFinishedEvent.set()
       if self.shutdown_requested:
@@ -2029,69 +2041,93 @@ class MediaServer(threading.Thread):
     self.is_running = None
     self.BuildFinishedEvent = threading.Event()
     self.MediaServerFinishedEvent = threading.Event()
-    self.shut_event = threading.Event()
-    self.ShutdownEvent = self.BuildFinishedEvent
+    self.shut_lock = threading.Lock()
 
   def run(self):
+    self.shut_lock.acquire()
     if self.is_running is not None:
+      self.shut_lock.release()
       return
-    if not self.ShutdownEvent.is_set():
-      self.is_running = True
-      if not self.ShutdownEvent.is_set():
-        self.MediaProviderInstance = MediaProvider(self.MediaServerMode, self.MediaSrc, self.MediaSrcType, self.MediaStartFrom, self.MediaBufferInstance, self.MediaBufferAhead, self.MediaMuxContainer, self.MediaSubSrc, self.MediaSubSrcType, self.MediaSubLang, self.MediaSubBufferInstance, self.MediaProcessProfile, self.MediaServerAddress[1]+1, self.BuildFinishedEvent, self.verbosity)
-        self.MediaProviderInstance.start()
-        self.MediaProviderInstance.BuildFinishedEvent.wait()
-        if self.is_running and self.MediaProviderInstance.Status in (MediaProvider.STATUS_RUNNING, MediaProvider.STATUS_COMPLETED):
-          if self.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL:
-            self.MediaRequestBoundHandler = partial(MediaRequestHandlerS, MediaBuffer=self.MediaBufferInstance, MediaSubBuffer=self.MediaSubBufferInstance, MediaExt=self.MediaProviderInstance.MediaFeedExt)
-          elif self.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
-            self.MediaRequestBoundHandler = partial(MediaRequestHandlerR, MediaBuffer=self.MediaBufferInstance, MediaSubBuffer=self.MediaSubBufferInstance, MediaSrc=self.MediaProviderInstance.MediaSrc, MediaSrcType=self.MediaProviderInstance.MediaSrcType, MediaExt=self.MediaProviderInstance.MediaFeedExt, MediaSize=self.MediaProviderInstance.MediaSize, AcceptRanges=self.MediaProviderInstance.AcceptRanges)
-          else:
-            self.is_running = False
-            try:
-              self.MediaProviderInstance.shutdown()
-            except:
-              pass
+    self.is_running = True
+    slr = False
+    self.MediaProviderInstance = MediaProvider(self.MediaServerMode, self.MediaSrc, self.MediaSrcType, self.MediaStartFrom, self.MediaBufferInstance, self.MediaBufferAhead, self.MediaMuxContainer, self.MediaSubSrc, self.MediaSubSrcType, self.MediaSubLang, self.MediaSubBufferInstance, self.MediaProcessProfile, self.MediaServerAddress[1]+1, self.BuildFinishedEvent, self.verbosity)
+    self.MediaProviderInstance.start()
+    self.BuildFinishedEvent.wait()
+    if self.is_running and self.MediaProviderInstance.Status in (MediaProvider.STATUS_RUNNING, MediaProvider.STATUS_COMPLETED):
+      if self.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL:
+        self.MediaRequestBoundHandler = partial(MediaRequestHandlerS, MediaBuffer=self.MediaBufferInstance, MediaSubBuffer=self.MediaSubBufferInstance, MediaExt=self.MediaProviderInstance.MediaFeedExt)
+      elif self.MediaProviderInstance.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
+        self.MediaRequestBoundHandler = partial(MediaRequestHandlerR, MediaBuffer=self.MediaBufferInstance, MediaSubBuffer=self.MediaSubBufferInstance, MediaSrc=self.MediaProviderInstance.MediaSrc, MediaSrcType=self.MediaProviderInstance.MediaSrcType, MediaExt=self.MediaProviderInstance.MediaFeedExt, MediaSize=self.MediaProviderInstance.MediaSize, AcceptRanges=self.MediaProviderInstance.AcceptRanges)
+      else:
+        self.is_running = False
+    else:
+      self.is_running = False
+    if self.is_running:
+      try:
+        with ThreadedDualStackServer(self.MediaServerAddress, self.MediaRequestBoundHandler, kmod='mediaserver', verbosity=self.verbosity, auth_ip=self.auth_ip) as self.MediaServerInstance:
+          if self.is_running:
+            self.logger.log(1, 'start', self.MediaServerAddress[0], LSTRINGS['mediaserver'].get({MediaProvider.SERVER_MODE_SEQUENTIAL: 'sequential', MediaProvider.SERVER_MODE_RANDOM: 'random'}.get(self.MediaProviderInstance.ServerMode, ''), ''), '' if self.MediaProviderInstance.ServerMode==MediaProvider.SERVER_MODE_SEQUENTIAL else ('' if self.MediaProviderInstance.AcceptRanges else LSTRINGS['mediaserver'].get('unsupported', 'unsupported')))
             self.MediaServerFinishedEvent.set()
-            self.shut_event.set()
-            return
-          with ThreadedDualStackServer(self.MediaServerAddress, self.MediaRequestBoundHandler, kmod='mediaserver', verbosity=self.verbosity, auth_ip=self.auth_ip) as self.MediaServerInstance:
-            if self.is_running:
-              self.logger.log(1, 'start', self.MediaServerAddress[0], LSTRINGS['mediaserver'].get({MediaProvider.SERVER_MODE_SEQUENTIAL: 'sequential', MediaProvider.SERVER_MODE_RANDOM: 'random'}.get(self.MediaProviderInstance.ServerMode, ''), ''), '' if self.MediaProviderInstance.ServerMode==MediaProvider.SERVER_MODE_SEQUENTIAL else ('' if self.MediaProviderInstance.AcceptRanges else LSTRINGS['mediaserver'].get('unsupported', 'unsupported')))
-              self.MediaServerFinishedEvent.set()
-              self.shut_event.set()
-              try:
-                self.MediaServerInstance.serve_forever()
-              except:
-                pass
+            self.shut_lock.release()
+            slr = True
+            self.MediaServerInstance.serve_forever()
+      except:
+        pass
+    if not slr:
+      try:
+        self.MediaProviderInstance.shutdown()
+      except:
+        pass
+      self.shut_lock.release()
     self.MediaServerFinishedEvent.set()
-    self.shut_event.set()
     self.is_running = False
 
+  def ready(self):
+    if self.MediaServerFinishedEvent.is_set():
+      try:
+        return self.is_running == True and self.MediaProviderInstance.Status in (MediaProvider.STATUS_RUNNING, MediaProvider.STATUS_COMPLETED) and hasattr(self, 'MediaServerInstance')
+      except:
+        return False
+    else:
+      return False
+
+  def wait(self, InterruptSetter=None):
+    if InterruptSetter is not None:
+      InterruptSetter(self.BuildFinishedEvent)
+    self.BuildFinishedEvent.wait()
+    if self.is_running and self.MediaProviderInstance.Status in (MediaProvider.STATUS_RUNNING, MediaProvider.STATUS_COMPLETED):
+      if InterruptSetter is not None:
+        InterruptSetter(self.MediaServerFinishedEvent)
+      self.MediaServerFinishedEvent.wait()
+      return self.ready()
+    else:
+      return False
+
   def shutdown(self):
-    self.ShutdownEvent.set()
-    was_running = self.is_running
-    self.is_running = False
+    self.BuildFinishedEvent.set()
+    with self.shut_lock:
+      if not self.is_running:
+        self.is_running = False
+        return
+      self.is_running = False
     try:
       self.MediaProviderInstance.shutdown()
     except:
       pass
-    if was_running:
-      self.shut_event.wait()
-      try:
-        self.MediaServerInstance.shutdown()
-        self.logger.log(1, 'shutdown')
-        for sock in self.MediaServerInstance.conn_sockets:
-          try:
-            sock.shutdown(socket.SHUT_RDWR)
-          except:
-            pass
-      except:
-        pass
-      self.MediaBufferInstance.r_event.set()
-      self.MediaBufferInstance.w_condition.acquire()
-      self.MediaBufferInstance.w_condition.notify_all()
-      self.MediaBufferInstance.w_condition.release()
+    try:
+      self.MediaServerInstance.shutdown()
+      self.logger.log(1, 'shutdown')
+      for sock in self.MediaServerInstance.conn_sockets:
+        try:
+          sock.shutdown(socket.SHUT_RDWR)
+        except:
+          pass
+    except:
+      pass
+    self.MediaBufferInstance.r_event.set()
+    self.MediaBufferInstance.w_condition.acquire()
+    self.MediaBufferInstance.w_condition.notify_all()
+    self.MediaBufferInstance.w_condition.release()
 
 
 def _XMLGetNodeText(node):
@@ -2116,10 +2152,10 @@ def _XMLGetSTagText(node, tag):
 
 class HTTPExplodedMessage:
 
-  __slots__ = ('method', 'path', 'version', 'code', 'message', 'headers', 'body')
+  __slots__ = ('method', 'path', 'version', 'code', 'message', 'headers', 'body', 'expect_close')
 
   def __init__(self):
-    self.method = self.path = self.version = self.code = self.message = self.body = None
+    self.method = self.path = self.version = self.code = self.message = self.body = self.expect_close = None
     self.headers = {}
 
   def __bool__(self):
@@ -2132,10 +2168,14 @@ class HTTPExplodedMessage:
   def header(self, name, default=None):
     return self.headers.get(name.title(), default)
 
+  def in_header(self, name, value):
+    h = self.header(name)
+    return False if h is None else (value.lower() in map(str.strip, h.lower().split(',')))
+
   def __repr__(self):
     if self:
       try:
-        return '\r\n'.join(('<HTTPExplodedMessage at %#x>\r\n----------' % id(self), (' '.join(filter(None, (self.method, self.path, self.version, self.code, self.message)))), *map(': '.join, self.headers.items()), '----------\r\nLength of body: %s byte(s)' % len(self.body or '')))
+        return '\r\n'.join(('<HTTPExplodedMessage at %#x>\r\n----------' % id(self), (' '.join(filter(None, (self.method, self.path, self.version, self.code, self.message)))), *map(': '.join, self.headers.items()), '----------\r\nLength of body: %s byte(s)' % len(self.body or ''), '----------\r\nClose expected: %s' % self.expect_close))
       except:
         return '<HTTPExplodedMessage at %#x>\r\n<corrupted object>' % id(self)
     else:
@@ -2166,13 +2206,15 @@ class HTTPMessage:
         header_name = header_name.strip().title()
         if header_name:
           header_value = header_value.strip()
-          if not header_name in ('Content-Length', 'Location') and http_message.headers.get(header_name):
+          if not header_name in ('Content-Length', 'Location', 'Host') and http_message.headers.get(header_name):
             if header_value:
               http_message.headers[header_name] += ', ' + header_value
           else:
             http_message.headers[header_name] = header_value
         else:
           return False
+    if a is None:
+      return False
     if a[:4].upper() == 'HTTP':
       http_message.version = a.upper()
       http_message.code = b
@@ -2181,6 +2223,7 @@ class HTTPMessage:
       http_message.method = a.upper()
       http_message.path = b
       http_message.version = c.upper()
+    http_message.expect_close = http_message.in_header('Connection', 'close') or (http_message.version.upper() != 'HTTP/1.1' and not http_message.in_header('Connection', 'keep-alive'))
     return True
 
   @staticmethod
@@ -2213,12 +2256,13 @@ class HTTPMessage:
             return None
     return None
 
-  def __new__(cls, message=None, body=True, decode='utf-8', timeout=5, max_length=1048576, max_time=None, stop=None):
+  def __new__(cls, message=None, body=True, decode='utf-8', timeout=5, max_length=1048576, max_hlength=1048576, max_time=None, stop=None):
     http_message = HTTPExplodedMessage()
     if message is None:
       return http_message
     start_time = time.time()
-    rem_length = max_length
+    max_hlength = min(max_length, max_hlength)
+    rem_length = max_hlength
     iss = isinstance(message, socket.socket)
     if not iss:
       msg = message[0]
@@ -2247,46 +2291,69 @@ class HTTPMessage:
       msg = msg + bloc
     if not cls._read_headers(msg[:body_pos].decode('ISO-8859-1'), http_message):
       return http_message.clear()
+    if not iss:
+      http_message.expect_close = True
     if http_message.code in ('100', '101', '204', '304'):
       http_message.body = b''
       return http_message
     if not body:
       http_message.body = msg[body_pos:]
       return http_message
-    body_len = 0
-    chunked = 'chunked' in map(str.strip, http_message.header('Transfer-Encoding', '').lower().split(','))
-    if not chunked:
-      try:
-        body_len = int(http_message.header('Content-Length', '0'))
-      except:
-        return http_message.clear()
-    if http_message.header('Expect', '').lower() == '100-continue' and iss:
-      if body_pos + body_len - len(msg) <= rem_length:
-        if max_time:
-          message.settimeout(timeout)
-        try:
-          message.sendall('HTTP/1.1 100 Continue\r\n\r\n'.encode('ISO-8859-1'))
-        except:
-          return http_message.clear()
-        finally:
-          if max_time:
-            message.settimeout(None)
+    rem_length += max_length - max_hlength
+    chunked = http_message.in_header('Transfer-Encoding', 'chunked')
+    if chunked:
+      body_len = -1
+    else:
+      body_len = http_message.header('Content-Length')
+      if body_len is None:
+        if not iss or (http_message.code in ('200', '206') and http_message.expect_close):
+          body_len = -1
+        else:
+          body_len = 0
       else:
         try:
-          message.sendall(('HTTP/1.1 413 Payload too large\r\nContent-Length: 0\r\nDate: %s\r\nCache-Control: no-cache, no-store, must-revalidate\r\n\r\n' % email.utils.formatdate(time.time(), usegmt=True)).encode('ISO-8859-1'))
+          body_len = max(0, int(body_len))
         except:
-          pass
+          return http_message.clear()
+    if http_message.in_header('Expect', '100-continue') and iss:
+      if max_time:
+        message.settimeout(timeout)
+      try:
+        if body_pos + body_len - len(msg) <= rem_length:
+          message.sendall('HTTP/1.1 100 Continue\r\n\r\n'.encode('ISO-8859-1'))
+        else:
+          message.sendall(('HTTP/1.1 413 Payload too large\r\nContent-Length: 0\r\nDate: %s\r\nCache-Control: no-cache, no-store, must-revalidate\r\n\r\n' % email.utils.formatdate(time.time(), usegmt=True)).encode('ISO-8859-1'))
+          return http_message.clear()
+      except:
         return http_message.clear()
+      finally:
+        if max_time:
+          message.settimeout(None)
     if not chunked:
-      if body_pos + body_len - len(msg) > rem_length:
-        return http_message.clear()
-      if len(msg) < body_pos + body_len:
+      if body_len < 0:
         if not iss:
+          http_message.body = msg[body_pos:]
+        else:
+          bbuf = BytesIO()
+          rem_length -= bbuf.write(msg[body_pos:])
+          while rem_length > 0:
+            try:
+              bw = bbuf.write(cls._read(message, rem_length, start_time, max_time, stop))
+              if not bw:
+                break
+              rem_length -= bw
+            except:
+              return http_message.clear()
+          if rem_length <= 0:
+            return http_message.clear()
+          http_message.body = bbuf.getvalue()
+      elif len(msg) < body_pos + body_len:
+        if not iss or body_pos + body_len - len(msg) > rem_length:
           return http_message.clear()
         bbuf = BytesIO()
         body_len -= bbuf.write(msg[body_pos:])
         while body_len:
-          try:       
+          try:
             bw = bbuf.write(cls._read(message, body_len, start_time, max_time, stop))
             if not bw:
               return http_message.clear()
@@ -2301,6 +2368,7 @@ class HTTPMessage:
       buff = msg[body_pos:]
       while True:
         chunk_pos = -1
+        rem_slength = max_hlength - len(buff)
         while chunk_pos < 0:
           buff = buff.lstrip(b'\r\n')
           chunk_pos = buff.find(b'\r\n')
@@ -2311,18 +2379,19 @@ class HTTPMessage:
           if chunk_pos >= 0:
             chunk_pos += 1
             break
-          if not iss or rem_length <= 0:
+          if not iss or rem_slength <= 0 or rem_length <= 0:
             return http_message.clear()
           try:
-            bloc = cls._read(message, rem_length, start_time, max_time, stop)
+            bloc = cls._read(message, min(rem_length, rem_slength), start_time, max_time, stop)
             if not bloc:
               return http_message.clear()
           except:
             return http_message.clear()
           rem_length -= len(bloc)
+          rem_slength -= len(bloc)
           buff = buff + bloc
         try:
-          chunk_len = int(buff[:chunk_pos].rstrip(b'\r\n'), 16)
+          chunk_len = int(buff[:chunk_pos].split(b';', 1)[0].rstrip(b'\r\n'), 16)
           if not chunk_len:
             break
         except:
@@ -2347,7 +2416,7 @@ class HTTPMessage:
           bbuf.write(buff[chunk_pos:chunk_pos+chunk_len])
           buff = buff[chunk_pos+chunk_len:]
       http_message.body = bbuf.getvalue()
-      buff = b'\r\n' + buff
+      rem_length = min(rem_length, max_hlength - body_pos - len(buff) + chunk_pos)
       while not (b'\r\n\r\n' in buff or b'\n\n' in buff):
         if not iss or rem_length <= 0:
           return http_message.clear()
@@ -2359,7 +2428,7 @@ class HTTPMessage:
           return http_message.clear()
         rem_length -= len(bloc)
         buff = buff + bloc
-    if body:
+    if http_message.body:
       try:
         if decode:
           http_message.body = http_message.body.decode(decode)
@@ -2378,7 +2447,7 @@ class HTTPRequest:
     'Host: %s\r\n%s' \
     '\r\n'
 
-  def __new__(cls, url, method=None, headers=None, data=None, timeout=3, max_length=1048576, max_time=None, stop=None, pconnection=None, ip=''):
+  def __new__(cls, url, method=None, headers=None, data=None, timeout=3, max_length=1048576, max_hlength=1048576, max_time=None, stop=None, pconnection=None, ip=''):
     if url is None:
       return HTTPMessage()
     is_stop = lambda : False if stop == None else stop.is_set()
@@ -2387,19 +2456,23 @@ class HTTPRequest:
     redir = 0
     try:
       url_p = urllib.parse.urlsplit(url, allow_fragments=False)
-      headers = {} if headers is None else dict((('Connection', 'close') if k.lower() == 'connection' else (k, v)) for k, v in headers.items() if v and not k.lower() in ('host', 'content-length') and not (k.lower() == 'connection' and v.lower() != 'close'))
-      if not 'accept-encoding' in (k.lower() for k in headers):
+      if headers is None:
+        headers = {}
+      hitems = headers.items()
+      if pconnection is None:
+        pconnection = [None]
+        hccl = True
+      else:
+        hccl = 'close' in (e.strip() for k, v in hitems if k.lower() == 'connection' for e in v.lower().split(','))
+      headers = {k: v for k, v in hitems if not k.lower() in ('host', 'content-length', 'connection', 'expect')}
+      if not 'accept-encoding' in (k.lower() for k, v in hitems):
         headers['Accept-Encoding'] = 'identity'
       if data is not None:
-        if not 'chunked' in map(str.strip, ','.join(v.lower() for k, v in headers.items() if k.lower() == 'transfer-encoding').split(',')):
+        if not 'chunked' in (e.strip() for k, v in hitems if k.lower() == 'transfer-encoding' for e in v.lower().split(',')):
           headers['Content-Length'] = str(len(data))
+      headers['Connection'] = 'close' if hccl else 'keep-alive'
     except:
       return HTTPMessage()
-    if pconnection is None:
-      pconnection = [None]
-      headers['Connection'] = 'close'
-    elif not headers.get('Connection'):
-      headers['Connection'] = 'keep-alive'
     if max_time:
       start_time = time.time()
     while True:
@@ -2416,6 +2489,11 @@ class HTTPRequest:
             pconnection[0] = cls.SSLContext.wrap_socket(socket.create_connection((url_p.netloc + ':443').split(':', 2)[:2], timeout=timeout, source_address=(ip, 0)), server_side=False, server_hostname=url_p.netloc.split(':')[0])
           else:
             raise
+        else:
+          try:
+            pconnection[0].settimeout(timeout)
+          except:
+            pass
         if max_time:
           if time.time() - start_time > max_time:
             raise
@@ -2423,14 +2501,20 @@ class HTTPRequest:
           raise
         msg = cls.RequestPattern % (method, (url_p.path + ('?' + url_p.query if url_p.query else '')).replace(' ', '%20') or '/', url_p.netloc, ''.join(k + ': ' + v + '\r\n' for k, v in headers.items()))
         pconnection[0].sendall(msg.encode('iso-8859-1') + (data or b''))
-        if max_time:
-          rem_time = max_time - time.time() + start_time
-          if rem_time <= 0:
+        code = '100'
+        while code == '100':
+          if max_time:
+            rem_time = max_time - time.time() + start_time
+            if rem_time <= 0:
+              raise
+          if is_stop():
             raise
-        if is_stop():
-          raise
-        resp = HTTPMessage(pconnection[0], body=(method.upper() != 'HEAD'), decode=None, timeout=timeout, max_length=max_length, max_time=(rem_time if max_time else None), stop=stop)
-        code = resp.code
+          resp = HTTPMessage(pconnection[0], body=(method.upper() != 'HEAD'), decode=None, timeout=timeout, max_length=max_length, max_time=(rem_time if max_time else None), stop=stop)
+          code = resp.code
+          if code == '100':
+            redir += 1
+            if redir > 5:
+              raise
         if code is None:
           raise
         if code[:2] == '30' and code != '304':
@@ -2438,7 +2522,7 @@ class HTTPRequest:
             url = urllib.parse.urljoin(url, resp.header('location'))
             urlo_p = url_p
             url_p = urllib.parse.urlsplit(url, allow_fragments=False)
-            if headers['Connection'] == 'close' or resp.header('Connection', '').lower() == 'close' or ((resp.version or '').upper() != 'HTTP/1.1' and resp.header('Connection', '').lower() != 'keep-alive') or (urlo_p.scheme != url_p.scheme or urlo_p.netloc != url_p.netloc):
+            if headers['Connection'] == 'close' or resp.expect_close or (urlo_p.scheme != url_p.scheme or urlo_p.netloc != url_p.netloc):
               try:
                 pconnection[0].close()
               except:
@@ -2466,7 +2550,7 @@ class HTTPRequest:
           pass
         pconnection[0] = None
         return HTTPMessage()
-    if headers['Connection'] == 'close' or resp.header('Connection', '').lower() == 'close' or ((resp.version or '').upper() != 'HTTP/1.1' and resp.header('Connection', '').lower() != 'keep-alive'):
+    if headers['Connection'] == 'close' or resp.expect_close:
       try:
         pconnection[0].close()
       except:
@@ -2856,7 +2940,7 @@ class DLNAAdvertisementServer:
         self.__shutdown_request = True
       while not self.__shutdown_request:
         try:
-          ready = selector.select()
+          ready = selector.select(0.5)
           if self.__shutdown_request:
             break
           for r in ready:
@@ -3929,6 +4013,11 @@ class WebSocketDataStore:
     else:
       self.IncomingEvent = threading.Event()
 
+  def notify_outgoing(self):
+    self.o_condition.acquire()
+    self.o_condition.notify_all()
+    self.o_condition.release()  
+
   def set_outgoing(self, ind, value, if_different = False):
     with self.outgoing_lock:
       if ind >= len(self.outgoing):
@@ -3941,17 +4030,13 @@ class WebSocketDataStore:
           self.outgoing_seq[ind] = 0
         else:
           self.outgoing_seq[ind] += 1
-      self.o_condition.acquire()
-      self.o_condition.notify_all()
-      self.o_condition.release()
+    self.notify_outgoing()
 
   def add_outgoing(self, value):
     with self.outgoing_lock:
       self.outgoing.append(None if value == None else str(value))
       self.outgoing_seq.append(0)
-    self.o_condition.acquire()
-    self.o_condition.notify_all()
-    self.o_condition.release()
+    self.notify_outgoing()
 
   def nest_outgoing(self, value):
     with self.outgoing_lock:
@@ -3964,9 +4049,7 @@ class WebSocketDataStore:
         self.outgoing_seq[-1] += 1
         self.outgoing.append(old_value)
         self.outgoing_seq.append(0)
-    self.o_condition.acquire()
-    self.o_condition.notify_all()
-    self.o_condition.release()
+    self.notify_outgoing()
 
   def set_before_shutdown(self, value):
     self.before_shutdown = value
@@ -3991,17 +4074,6 @@ class WebSocketDataStore:
     else:
       return None
 
-  def reinit(self):
-    self.outgoing = []
-    self.outgoing_seq = []
-    self.incoming = []
-    self.before_shutdown = None
-    try:
-      self.o_condition.release()
-    except:
-      pass
-    self.IncomingEvent.clear()
-
 
 class WebSocketRequestHandler(socketserver.BaseRequestHandler):
 
@@ -4011,8 +4083,8 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
   timeout = 5
 
   def __init__(self, *args, **kwargs):
+    self.Channel = None
     self.ClientClosing = False
-    self.ServerClosing = False
     self.Error = 0
     self.ShutdownMessageTime = None
     self.CloseMessageTime = None
@@ -4076,13 +4148,12 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
     return frame
 
   def watch_datastore(self):
-    while not self.ClientClosing and not self.ServerClosing and not self.Closed:
-      self.server.DataStore.o_condition.acquire()
-      while self.server.DataStore.outgoing_seq == self.OutgoingSeq:
-        self.server.DataStore.o_condition.wait(0.5)
-        if self.ClientClosing or self.ServerClosing or self.Closed:
-          break
-      self.server.DataStore.o_condition.release()
+    while not self.ClientClosing and not self.Channel.Closed and not self.Closed:
+      with self.Channel.DataStore.o_condition:
+        while self.Channel.DataStore.outgoing_seq == self.OutgoingSeq:
+          self.Channel.DataStore.o_condition.wait(0.5)
+          if self.ClientClosing or self.Channel.Closed or self.Closed:
+            break
       self.SendEvent.set()
 
   def send_ping(self):
@@ -4215,65 +4286,65 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
           if self.CloseData == None:
             self.CloseData = b''
           if self.send_close(self.CloseData[0:2]):
-            self.server.logger.log(2, 'endacksuccess', *self.server.Address, *self.client_address)
+            self.server.logger.log(2, 'endacksuccess', *self.server.Address, self.Channel.Path, *self.client_address)
           else:
-            self.server.logger.log(2, 'endackfailure', *self.server.Address, *self.client_address)
+            self.server.logger.log(2, 'endackfailure', *self.server.Address, self.Channel.Path, *self.client_address)
         self.CloseData = None
         self.Closed = True
         break
       if self.Error:
-        self.server.logger.log(2, 'errorendnotification', *self.server.Address, *self.client_address, self.Error)
+        self.server.logger.log(2, 'errorendnotification', *self.server.Address, self.Channel.Path, *self.client_address, self.Error)
         if self.send_close(struct.pack('!H', self.Error)):
-          self.server.logger.log(2, 'errorendnotificationsuccess', *self.server.Address, *self.client_address)
+          self.server.logger.log(2, 'errorendnotificationsuccess', *self.server.Address, self.Channel.Path, *self.client_address)
         else:
-          self.server.logger.log(2, 'errorendnotificationfailure', *self.server.Address, *self.client_address)
+          self.server.logger.log(2, 'errorendnotificationfailure', *self.server.Address, self.Channel.Path, *self.client_address)
         self.Closed = True
         break
       if self.PingData != None:
         self.send_pong()
-      if self.ServerClosing:
+      if self.Channel.Closed:
         shutdown_value = True
         if self.ShutdownMessageTime and not self.CloseMessageTime:
           if time.time() - self.ShutdownMessageTime > 3:
             shutdown_value = False
         if not self.CloseMessageTime and not self.ShutdownMessageTime:
-          shutdown_value = self.server.DataStore.before_shutdown
+          shutdown_value = self.Channel.DataStore.before_shutdown
           if shutdown_value:
             if self.send_data(shutdown_value):
               self.ShutdownMessageTime = time.time()
-              self.server.logger.log(2, 'terminationdatasuccess', *self.server.Address, *self.client_address, shutdown_value)
+              self.server.logger.log(2, 'terminationdatasuccess', *self.server.Address, self.Channel.Path, *self.client_address, shutdown_value)
             else:
               shutdown_value = False
-              self.server.logger.log(2, 'terminationdatafailure', *self.server.Address, *self.client_address, shutdown_value)
+              self.server.logger.log(2, 'terminationdatafailure', *self.server.Address, self.Channel.Path, *self.client_address, shutdown_value)
         if not shutdown_value:
           if self.send_close():
-            self.server.logger.log(2, 'endnotificationsuccess', *self.server.Address, *self.client_address)
+            self.server.logger.log(2, 'endnotificationsuccess', *self.server.Address, self.Channel.Path, *self.client_address)
           else:
-            self.server.logger.log(2, 'endnotificationfailure', *self.server.Address, *self.client_address)
+            self.server.logger.log(2, 'endnotificationfailure', *self.server.Address, self.Channel.Path, *self.client_address)
           self.CloseMessageTime = time.time()
           break
-      if not self.ServerClosing and self.server.DataStore.outgoing_seq != self.OutgoingSeq:
-        nb_values = len(self.server.DataStore.outgoing_seq)
+      if not self.Channel.Closed and self.Channel.DataStore.outgoing_seq != self.OutgoingSeq:
+        nb_values = len(self.Channel.DataStore.outgoing_seq)
         for i in range(nb_values):
-          if self.ClientClosing or self.ServerClosing:
+          if self.ClientClosing or self.Channel.Closed:
             break
           if i == len(self.OutgoingSeq):
             self.OutgoingSeq.append(None)
           try:
-            seq_value = self.server.DataStore.outgoing_seq[i]
-            data_value = self.server.DataStore.outgoing[i]
+            seq_value = self.Channel.DataStore.outgoing_seq[i]
+            data_value = self.Channel.DataStore.outgoing[i]
           except:
             break
           if seq_value != self.OutgoingSeq[i]:
             if data_value != None:
               if self.send_data(data_value):
-                self.server.logger.log(2, 'datasuccess', *self.server.Address, *self.client_address, data_value)
+                self.server.logger.log(2, 'datasuccess', *self.server.Address, self.Channel.Path, *self.client_address, data_value)
               else:
-                self.server.logger.log(2, 'datafailure', *self.server.Address, *self.client_address, data_value)
+                self.server.logger.log(2, 'datafailure', *self.server.Address, self.Channel.Path, *self.client_address, data_value)
                 self.Error = 1002
                 continue
             self.OutgoingSeq[i] = seq_value
-      if not self.ServerClosing:
+      if not self.Channel.Closed:
         cur_time = time.time()
         if (cur_time - self.LastReceptionTime > WebSocketRequestHandler.MAX_INACTIVE_TIME / 3 and self.PendingPings == 0) or (cur_time - self.LastReceptionTime > 2 * WebSocketRequestHandler.MAX_INACTIVE_TIME / 3 and self.PendingPings <= 1):
           if not self.PingTime:
@@ -4300,13 +4371,27 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
     self.server.logger.log(2, 'connectionrequest', *self.server.Address, *self.client_address)
     resp_err_br = \
       'HTTP/1.1 400 Bad Request\r\n' \
+      'Content-Length: 0\r\n' \
+      'Connection: close\r\n' \
+      '\r\n'
+    resp_err_nf = \
+      'HTTP/1.1 404 File not found\r\n' \
+      'Content-Length: 0\r\n' \
       'Connection: close\r\n' \
       '\r\n'
     req = HTTPMessage(self.request)
-    if req.method != 'GET' or not 'websocket' in req.header('Upgrade', '').lower() or not 'upgrade' in req.header('Connection', '').lower() or not req.header('Sec-WebSocket-Key', ''):
+    if req.method != 'GET' or not req.in_header('Upgrade', 'websocket') or not req.header('Sec-WebSocket-Key', ''):
       try:
         self.request.sendall(resp_err_br.encode('ISO-8859-1'))
         self.server.logger.log(2, 'connectionrequestinvalid', *self.server.Address, *self.client_address)
+      except:
+        pass
+      return
+    self.Channel = self.server.Channels.get(req.path.lstrip('/').strip(), None)
+    if self.Channel is None:
+      try:
+        self.request.sendall(resp_err_nf.encode('ISO-8859-1'))
+        self.server.logger.log(2, 'connectionrequestnotfound', *self.server.Address, *self.client_address, req.path.lstrip('/').strip())
       except:
         pass
       return
@@ -4322,9 +4407,9 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
     try:
       self.request.sendall(resp.encode('ISO-8859-1'))
     except:
-      self.server.logger.log(2, 'connectionresponsefailure', *self.server.Address, *self.client_address)
+      self.server.logger.log(2, 'connectionresponsefailure', *self.server.Address, self.Channel.Path, *self.client_address)
       return
-    self.server.logger.log(2, 'connection', *self.server.Address, *self.client_address)
+    self.server.logger.log(2, 'connection', *self.server.Address, self.Channel.Path, *self.client_address)
     self.LastReceptionTime = time.time()
     out_handler_thread = threading.Thread(target=self.handle_out)
     out_handler_thread.start()
@@ -4359,8 +4444,7 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
                 self.PingTime = None
                 self.PendingPings = 0
               self.Buffer = self.Buffer + chunk
-        if self.server.__dict__['_BaseServer__shutdown_request'] or self.server.__dict__['_BaseServer__is_shut_down'].is_set():
-          self.ServerClosing = True
+        if self.Channel.Closed:
           self.SendEvent.set()
         if WebSocketRequestHandler.PING_PONG_STRICT and self.PingTime:
           if time.time() - self.PingTime > WebSocketRequestHandler.PONG_TIMEOUT:
@@ -4393,10 +4477,10 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
         if self.FrameType == 'close':
           if self.CloseMessageTime:
             self.Closed = True
-            self.server.logger.log(2, 'endack', *self.server.Address, *self.client_address)
+            self.server.logger.log(2, 'endack', *self.server.Address, self.Channel.Path, *self.client_address)
             break
           else:
-            self.server.logger.log(2, 'endnotification', *self.server.Address, *self.client_address)
+            self.server.logger.log(2, 'endnotification', *self.server.Address, self.Channel.Path, *self.client_address)
             self.ClientClosing = True
             self.SendEvent.set()
             break
@@ -4410,12 +4494,13 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
           self.purge_frame()
         elif self.FrameType == 'data':
           if self.MessageReady:
-            if self.server.DataStore.incoming_text_only and self.MessageType != 'text':
+            if self.Channel.DataStore.incoming_text_only and self.MessageType != 'text':
               self.Error = 1003
               self.SendEvent.set()
               break
-            self.server.logger.log(2, 'datareceipt', *self.server.Address, *self.client_address, self.MessageData)
-            self.server.DataStore.add_incoming(self.MessageData)
+            if not self.Channel.Closed:
+              self.server.logger.log(2, 'datareceipt', *self.server.Address, self.Channel.Path, *self.client_address, self.MessageData)
+              self.Channel.DataStore.add_incoming(self.MessageData)
             self.MessageData = None
             self.MessageReady = False
             self.MessageType = None
@@ -4425,13 +4510,21 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
         out_handler_thread.join()
       except:
         pass
-    self.server.logger.log(2, 'connectionend', *self.server.Address, *self.client_address)
+    self.server.logger.log(2, 'connectionend', *self.server.Address, self.Channel.Path, *self.client_address)
+
+
+class WebSocketServerChannel:
+
+  def __init__(self, path, datastore):
+    self.Path = path
+    self.DataStore = datastore
+    self.Closed = False
 
 
 class ThreadedWebSocketServer(socketserver.ThreadingTCPServer):
 
-  allow_reuse_address = True
   request_queue_size = 100
+  block_on_close = False
 
   def server_bind(self):
     self.__dict__['_BaseServer__is_shut_down'].set()
@@ -4442,6 +4535,7 @@ class ThreadedWebSocketServer(socketserver.ThreadingTCPServer):
     super().server_bind()
 
   def shutdown(self):
+    self.__dict__['_BaseServer__shutdown_request'] = True
     self.socket.close()
     super().shutdown()
 
@@ -4449,50 +4543,91 @@ class ThreadedWebSocketServer(socketserver.ThreadingTCPServer):
     pass
 
 
-class WebSocketServer(threading.Thread):
+class WebSocketServer():
 
-  def __init__(self, WebSocketServerAddress, WebSocketDataStore, verbosity=0):
-    threading.Thread.__init__(self)
+  def __init__(self, WebSocketServerAddress, verbosity=0):
     self.verbosity = verbosity
-    self.DataStore = WebSocketDataStore
+    self.Channels = {}
     self.Address = WebSocketServerAddress
     self.is_running = None
     self.shutdown_lock = threading.Lock()
 
-  def run(self):
-    self.shutdown_lock.acquire()
-    if self.is_running == False:
-      return
-    self.is_running = True
+  def open(self, Path, WebSocketDataStore):
+    path = Path.lstrip('/').strip()
+    channel = WebSocketServerChannel(path, WebSocketDataStore)
+    with self.shutdown_lock:
+      if not self.is_running:
+        return False
+      if self.Channels.setdefault(Path, channel) is not channel:
+        return False
+    self.WebSocketServerInstance.logger.log(2, 'open', *self.Address, channel.Path)
+    return True
+
+  def close(self, Path, no_lock=False):
+    if not no_lock:
+      self.shutdown_lock.acquire()
+    if not self.is_running:
+      if not no_lock:
+        self.shutdown_lock.release()
+      return False
+    channel = self.Channels.pop(Path, None)
+    if channel is None:
+      if not no_lock:
+        self.shutdown_lock.release()
+      return False
+    channel.Closed = True
+    try:
+      channel.DataStore.notify_outgoing()
+    except:
+      pass
+    if not no_lock:
+      self.shutdown_lock.release()
+    self.WebSocketServerInstance.logger.log(2, 'close', *self.Address, channel.Path)
+    return True
+
+  def _run(self):
     slr = False
     try:
       with ThreadedWebSocketServer(self.Address, WebSocketRequestHandler) as self.WebSocketServerInstance:
         self.WebSocketServerInstance.logger = log_event('websocket', self.verbosity)
         self.WebSocketServerInstance.logger.log(2, 'start', *self.Address)
         self.WebSocketServerInstance.Address = self.Address
-        self.WebSocketServerInstance.DataStore = self.DataStore
+        self.WebSocketServerInstance.Channels = self.Channels
         self.shutdown_lock.release()
         slr = True
         self.WebSocketServerInstance.serve_forever()
     except:
       if self.is_running:
-        self.is_running == False
+        self.is_running = False
         log_event('websocket', self.verbosity).log(1, 'fail', *self.Address)
       if not slr:
         self.shutdown_lock.release()
     self.is_running = None
+
+  def start(self):
+    self.shutdown_lock.acquire()
+    if self.is_running is not None:
+      self.shutdown_lock.release()
+      return
+    self.is_running = True
+    t = threading.Thread(target=self._run)
+    t.start()
+    self.shutdown_lock.acquire()
+    self.shutdown_lock.release()
       
   def shutdown(self):
-    self.shutdown_lock.acquire()
-    if self.is_running:
+    with self.shutdown_lock:
+      if self.is_running:
+        pathes = list(self.Channels.keys())
+        for path in pathes:
+          self.close(path, no_lock=True)
+        self.is_running = False
+        try:
+          self.WebSocketServerInstance.logger.log(2, 'shutdown', *self.Address)
+          self.WebSocketServerInstance.shutdown()
+        except:
+          pass
       self.is_running = False
-      try:
-        self.WebSocketServerInstance.logger.log(2, 'shutdown', *self.Address)
-        self.WebSocketServerInstance.shutdown()
-      except:
-        pass
-    self.is_running = False
-    self.shutdown_lock.release()
   
 
 class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
@@ -4502,12 +4637,6 @@ class DLNAWebInterfaceControlDataStore(WebSocketDataStore):
     self.outgoing = [None, None, None, None, None, None, None, None, None, None]
     self.outgoing_seq = [None, None, None, None, None, None, None, None, None, None]
     self.incoming_text_only = True
-    self.set_before_shutdown('close')
-
-  def reinit(self):
-    super().reinit()
-    self.outgoing = [None, None, None, None, None, None, None, None, None, None]
-    self.outgoing_seq = [None, None, None, None, None, None, None, None, None, None]
     self.set_before_shutdown('close')
 
   @property
@@ -4672,11 +4801,6 @@ class DLNAWebInterfaceRenderersDataStore(WebSocketDataStore):
   def __init__(self, IncomingEvent=None):
     super().__init__(IncomingEvent)
     self.incoming_text_only = True
-    self.add_outgoing('end')
-    self.set_before_shutdown('close')
-
-  def reinit(self):
-    super().reinit()
     self.add_outgoing('end')
     self.set_before_shutdown('close')
 
@@ -5047,7 +5171,7 @@ class DLNAWebInterfaceServer:
   '      displayed = false;\r\n' \
   '      function new_socket() {\r\n' \
   '        try {\r\n' \
-  '          socket = new WebSocket("ws://" + location.hostname + ":" + String(parseInt(location.port,10)+2) + "/websocket");\r\n' \
+  '          socket = new WebSocket("ws://" + location.hostname + ":" + String(parseInt(location.port,10)+1) + "/start");\r\n' \
   '        } catch(exception) {\r\n' \
   '          window.alert("{#jmwebsocketfailure#}");\r\n' \
   '        }\r\n' \
@@ -5107,9 +5231,7 @@ class DLNAWebInterfaceServer:
   '            }\r\n' \
   '          }\r\n' \
   '        }\r\n' \
-  '        socket.onclose = function(event) {\r\n' \
-  '          new_socket();\r\n' \
-  '        }\r\n' \
+  '        socket.onclose = socket.onerror;\r\n' \
   '        window.onbeforeunload = function () {\r\n' \
   '          upnp_cancel();\r\n' \
   '          socket.onclose = function(event) {};\r\n' \
@@ -5458,7 +5580,7 @@ class DLNAWebInterfaceServer:
   '    <script>\r\n' \
   '      function new_socket() {\r\n' \
   '        try {\r\n' \
-  '          socket = new WebSocket("ws://" + location.hostname + ":" + String(parseInt(location.port,10)+1) + "/websocket");\r\n' \
+  '          socket = new WebSocket("ws://" + location.hostname + ":" + String(parseInt(location.port,10)+1) + "/control");\r\n' \
   '        } catch(exception) {\r\n' \
   '          window.alert("{#jmwebsocketfailure#}");\r\n' \
   '        }\r\n' \
@@ -5699,10 +5821,9 @@ class DLNAWebInterfaceServer:
     self.DLNAWebInterfaceServerAddress =  (ip, DLNAWebInterfaceServerAddress[1] or 8000)
     self.DLNAControllerInstance = DLNAController(DLNAJoinIp, verbosity)
     self.RenderersEvent = None
-    self.ControlDataStore = DLNAWebInterfaceControlDataStore()
-    self.RenderersDataStore = DLNAWebInterfaceRenderersDataStore()
-    self.WebSocketServerControlInstance = None
-    self.WebSocketServerRenderersInstance = None
+    self.ControlDataStore = None
+    self.RenderersDataStore = None
+    self.WebSocketServerInstance = None
     self.html_control = b''
     self.html_start = b''
     self.html_ready = False
@@ -5785,7 +5906,7 @@ class DLNAWebInterfaceServer:
   def manage_start(self):
     if self.shutdown_requested:
       return
-    self.RenderersDataStore.reinit()
+    self.RenderersDataStore = DLNAWebInterfaceRenderersDataStore()
     self.SlideshowDuration = None
     if self.Status == DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS:
       self.logger.log(2, 'rendererstart')
@@ -5796,8 +5917,7 @@ class DLNAWebInterfaceServer:
     else:
       return
     self.DLNAControllerInstance.start_discovery_polling(timeout=5, alive_persistence=45, polling_period=30, DiscoveryEvent=self.RenderersEvent)
-    self.WebSocketServerRenderersInstance = WebSocketServer((self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+2), self.RenderersDataStore, self.verbosity)
-    self.WebSocketServerRenderersInstance.start()
+    self.WebSocketServerInstance.open('start', self.RenderersDataStore)
     self.DLNAClientStop.clear()
     self.html_ready = True
     rend_stat = []
@@ -5825,7 +5945,6 @@ class DLNAWebInterfaceServer:
                   self.Renderer_uuid = renderer.UDN[5:]
                   self.Renderer_name = renderer.FriendlyName
                   self.TargetStatus = DLNAWebInterfaceServer.INTERFACE_CONTROL
-                  self.RenderersDataStore.Message = 'redirect'
           elif status != rend_stat[ind]:
             rend_stat[ind] = status
             if status:
@@ -5844,12 +5963,13 @@ class DLNAWebInterfaceServer:
     self.logger.log(2, 'rendererstop')
     if self.Status == DLNAWebInterfaceServer.INTERFACE_START and not self.shutdown_requested:
       self.RenderersDataStore.Redirect = True
-    self.WebSocketServerRenderersInstance.shutdown()
+    self.WebSocketServerInstance.close('start')
+    self.RenderersDataStore = None
 
   def manage_control(self):
     if self.shutdown_requested or self.Status != DLNAWebInterfaceServer.INTERFACE_CONTROL:
       return
-    self.ControlDataStore.reinit()
+    self.ControlDataStore = DLNAWebInterfaceControlDataStore()
     self.ControlDataStore.Status = 'initialisation'
     self.ControlDataStore.Position = '0:00:00'
     self.logger.log(2, 'controlstart')
@@ -5904,14 +6024,13 @@ class DLNAWebInterfaceServer:
       if not gapless:
         self.logger.log(0, 'nonegapless', self.Renderer.FriendlyName)
     self.html_control = DLNAWebInterfaceServer.HTML_CONTROL_TEMPLATE.replace('##START-URL##', '/start.html').replace('##URL##', html.escape(self.MediaSrc) + ('<br>' + html.escape(self.MediaSubSrc) if self.MediaSubSrc else '')).replace('##RENDERERNAME##', html.escape(renderer.FriendlyName)).encode('utf-8').replace(b'##RENDERERICON##', renderer_icon)
-    self.WebSocketServerControlInstance = WebSocketServer((self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+1), self.ControlDataStore, self.verbosity)
-    self.WebSocketServerControlInstance.start()
+    self.WebSocketServerInstance.open('control', self.ControlDataStore)
     self.html_ready = True
     try:
       self.DLNAControllerInstance.send_Stop(renderer)
     except:
       pass
-    event_notification_listener = DLNAEventNotificationListener(self.DLNAControllerInstance, self.DLNAWebInterfaceServerAddress[1]+3)
+    event_notification_listener = DLNAEventNotificationListener(self.DLNAControllerInstance, self.DLNAWebInterfaceServerAddress[1]+2)
     event_notification_listener.start()
     event_listener = self.DLNAControllerInstance.new_event_subscription(renderer, 'AVTransport', event_notification_listener)
     prep_success = True
@@ -5931,7 +6050,8 @@ class DLNAWebInterfaceServer:
       self.html_ready = False
       if not self.shutdown_requested:
         self.ControlDataStore.Redirect = True
-      self.WebSocketServerControlInstance.shutdown()
+      self.WebSocketServerInstance.close('control')
+      self.ControlDataStore = None
       if event_listener:
         self.DLNAControllerInstance.send_event_unsubscription(event_listener)
       event_notification_listener.stop()
@@ -6049,6 +6169,7 @@ class DLNAWebInterfaceServer:
     else:
       gapless_status = -1
     self.NextMediaServerInstance = None
+    incoming_event_setter = partial(self.ControlDataStore.__setattr__, 'IncomingEvent')
     while (ind < (len(playlist) - 1 if playlist != False else 0)) or jump_ind != None or self.ControlDataStore.Shuffle or self.EndLess:
       if self.shutdown_requested or playlist_stop:
         break
@@ -6130,19 +6251,14 @@ class DLNAWebInterfaceServer:
           else:
             nind = None
         if not self.MediaServerInstance:
-          self.MediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+4), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
+          self.MediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+3), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
           self.MediaServerInstance.start()
-        self.ControlDataStore.IncomingEvent = self.MediaServerInstance.BuildFinishedEvent
         if not self.shutdown_requested:
-          self.MediaServerInstance.BuildFinishedEvent.wait()
-          prep_success = (self.MediaServerInstance.is_running == True) and self.MediaServerInstance.MediaProviderInstance.Status in (MediaProvider.STATUS_RUNNING, MediaProvider.STATUS_COMPLETED)
+          prep_success = self.MediaServerInstance.wait(InterruptSetter=incoming_event_setter)
         else:
           prep_success = False
         self.ControlDataStore.IncomingEvent = incoming_event
         if prep_success and not self.shutdown_requested:
-          self.ControlDataStore.IncomingEvent = self.MediaServerInstance.MediaServerFinishedEvent
-          self.MediaServerInstance.MediaServerFinishedEvent.wait()
-          self.ControlDataStore.IncomingEvent = incoming_event
           suburi = None
           if self.MediaServerInstance.MediaProviderInstance.MediaSubBuffer:
             if self.MediaServerInstance.MediaProviderInstance.MediaSubBuffer[0]:
@@ -6192,7 +6308,7 @@ class DLNAWebInterfaceServer:
                   nmedia_sub_src = nmedia_src if self.MediaSubSrc == self.MediaSrc else ''
               else:
                 nmedia_sub_src = self.MediaSubSrc
-              self.NextMediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+(self.MediaServerInstance.MediaServerAddress[1]-self.DLNAWebInterfaceServerAddress[1]+2)%4+4), nmedia_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom='0:00:00', MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=nmedia_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
+              self.NextMediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+(self.MediaServerInstance.MediaServerAddress[1]-self.DLNAWebInterfaceServerAddress[1])%4+2), nmedia_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom='0:00:00', MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=nmedia_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
               self.NextMediaServerInstance.start()
       else:
         suburi = media_sub_src
@@ -6256,7 +6372,8 @@ class DLNAWebInterfaceServer:
           self.html_ready = False
           if not self.shutdown_requested:
             self.ControlDataStore.Redirect = True
-          self.WebSocketServerControlInstance.shutdown()
+          self.WebSocketServerInstance.close('control')
+          self.ControlDataStore = None
           self.DLNAControllerInstance.send_event_unsubscription(event_listener)
           try:
             self.DLNAControllerInstance.send_Stop(renderer)
@@ -6625,25 +6742,24 @@ class DLNAWebInterfaceServer:
           if wi_cmd:
             self.ControlDataStore.IncomingEvent.set()
         if gapless_status == 1 and not self.shutdown_requested and new_value != 'STOPPED':
-          if self.NextMediaServerInstance.MediaServerFinishedEvent.is_set():
-            prep_success = (self.NextMediaServerInstance.is_running == True) and self.NextMediaServerInstance.MediaProviderInstance.Status in (MediaProvider.STATUS_RUNNING, MediaProvider.STATUS_COMPLETED)
-            if prep_success and not self.shutdown_requested:
-              nsuburi = None
-              if self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer:
-                if self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer[0]:
-                  nsuburi = 'http://%s:%s/mediasub%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer[1])
-              if self.MediaSrc[:7].lower() == 'upnp://':
-                nmedia_title = titles[order[nind]]
+          prep_success = not self.shutdown_requested and self.NextMediaServerInstance.ready
+          if prep_success:
+            nsuburi = None
+            if self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer:
+              if self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer[0]:
+                nsuburi = 'http://%s:%s/mediasub%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer[1])
+            if self.MediaSrc[:7].lower() == 'upnp://':
+              nmedia_title = titles[order[nind]]
+            else:
+              nmedia_title = self.NextMediaServerInstance.MediaProviderInstance.MediaTitle
+            gap_seq = warning_n.ReferenceSEQ
+            try:
+              if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
+                prep_success = self.DLNAControllerInstance.send_Local_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
               else:
-                nmedia_title = self.NextMediaServerInstance.MediaProviderInstance.MediaTitle
-              gap_seq = warning_n.ReferenceSEQ
-              try:
-                if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
-                  prep_success = self.DLNAControllerInstance.send_Local_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
-                else:
-                  prep_success = self.DLNAControllerInstance.send_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
-              except:
-                prep_success = False
+                prep_success = self.DLNAControllerInstance.send_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
+            except:
+              prep_success = False
             if prep_success:
               gapless_status = 2
               self.NextMediaServerInstance.MediaBufferInstance.create_lock.acquire()
@@ -6735,7 +6851,8 @@ class DLNAWebInterfaceServer:
     self.logger.log(2, 'controlstop', LSTRINGS['webinterface'].get('status', 'status') if transport_status or stop_reason else '', transport_status, ':' if transport_status and stop_reason else '', stop_reason)
     if not self.shutdown_requested:
       self.ControlDataStore.Redirect = True
-    self.WebSocketServerControlInstance.shutdown()
+    self.WebSocketServerInstance.close('control')
+    self.ControlDataStore = None
 
   def _start_webserver(self):
     try:
@@ -6761,6 +6878,8 @@ class DLNAWebInterfaceServer:
     self.logger.log(0, 'start', '%s:%s' % self.DLNAWebInterfaceServerAddress)
     webserver_thread = threading.Thread(target=self._start_webserver)
     webserver_thread.start()
+    self.WebSocketServerInstance = WebSocketServer((self.DLNAWebInterfaceServerAddress[0], self.DLNAWebInterfaceServerAddress[1]+1), self.verbosity)
+    self.WebSocketServerInstance.start()
     if self.TargetStatus in (DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS, DLNAWebInterfaceServer.INTERFACE_START, DLNAWebInterfaceServer.INTERFACE_CONTROL):
       self.DLNAAdvertisementListenerInstance.start()
       self.RenderersEvent = self.DLNAControllerInstance.advert_status_change
@@ -6783,6 +6902,7 @@ class DLNAWebInterfaceServer:
     if self.RenderersEvent:
       self.DLNAAdvertisementListenerInstance.stop()
       self.RenderersEvent = None
+    self.WebSocketServerInstance.shutdown()
     self.TargetStatus = DLNAWebInterfaceServer.INTERFACE_NOT_RUNNING
     self.Status = DLNAWebInterfaceServer.INTERFACE_NOT_RUNNING
 
@@ -6801,7 +6921,11 @@ class DLNAWebInterfaceServer:
       self.shutdown_requested = True
       if self.Status == DLNAWebInterfaceServer.INTERFACE_CONTROL:
         self.RenderersEvent.set()
-        self.ControlDataStore.IncomingEvent.set()
+        if self.ControlDataStore is not None:
+          try:
+            self.ControlDataStore.IncomingEvent.set()
+          except:
+            pass
         if self.MediaServerInstance:
           try:
             self.MediaServerInstance.shutdown()
