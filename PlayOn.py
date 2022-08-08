@@ -4542,7 +4542,7 @@ class ThreadedWebSocketServer(socketserver.ThreadingTCPServer):
     pass
 
 
-class WebSocketServer():
+class WebSocketServer:
 
   def __init__(self, WebSocketServerAddress, verbosity=0):
     self.verbosity = verbosity
@@ -4563,13 +4563,14 @@ class WebSocketServer():
     return True
 
   def close(self, Path, no_lock=False):
+    path = Path.lstrip('/').strip()
     if not no_lock:
       self.shutdown_lock.acquire()
     if not self.is_running:
       if not no_lock:
         self.shutdown_lock.release()
       return False
-    channel = self.Channels.pop(Path, None)
+    channel = self.Channels.pop(path, None)
     if channel is None:
       if not no_lock:
         self.shutdown_lock.release()
