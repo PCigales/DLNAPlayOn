@@ -1750,22 +1750,21 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
         alt_sub = '/media' + self.MediaSubBuffer[1]
     if self.path.lower() in ('/media', '/media' + self.MediaExt):
       bad_range = False
-      req_range = self.headers.get('Range',"") if self.AcceptRanges else ""
+      req_range = self.headers.get('Range', "") if self.AcceptRanges else ""
       if req_range:
         try:
-          req_start = req_range.split("=")[-1].split("-")[0].strip()
-          req_end = req_range.split("=")[-1].split("-")[1].split(",")[0].strip()
+          req_start, req_end = map(str.strip, req_range.split(",")[0].split("=")[-1].split("-"))
           if not req_start:
             req_start = self.MediaSize - int(req_end)
             req_end = self.MediaSize
           else:
             req_start = int(req_start)
             if req_end:
-              req_end = int(req_end) + 1
+              req_end = min(int(req_end) + 1, self.MediaSize)
             else:
               req_end = self.MediaSize
-          assert req_end <= self.MediaSize
-          assert req_start < req_end
+          if req_start >= req_end:
+            raise
         except:
           req_start = None
           req_end = None
@@ -5106,7 +5105,7 @@ class DLNAWebInterfaceRequestHandler(server.SimpleHTTPRequestHandler):
 
 def _position_to_seconds(position):
   try:
-    sec = sum(int(t[0])*t[1] for t in zip(reversed(position.split(':')), [1,60,3600]))
+    sec = sum(int(t[0])*t[1] for t in zip(reversed(position.rsplit('.', 1)[0].split(':')), [1,60,3600]))
   except:
     return None
   return sec
@@ -6482,6 +6481,7 @@ class DLNAWebInterfaceServer:
           self.ControlDataStore.Mute = (self.DLNAControllerInstance.get_Mute(renderer) == "1")
         except:
           pass
+      redo_seek = None
       while not self.shutdown_requested and new_value != 'STOPPED':
         new_value = self.DLNAControllerInstance.wait_for_warning(warning, 10 if is_paused else 1)
         if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and accept_ranges:
@@ -6537,6 +6537,13 @@ class DLNAWebInterfaceServer:
                 except:
                   pass
               renderer_stopped_position = None
+              redo_seek = None
+            elif redo_seek:
+              try:
+                self.DLNAControllerInstance.send_Seek(renderer, redo_seek)
+              except:
+                pass
+              redo_seek = None
             if not old_value:
               if media_kind != 'image':
                 media_start_from = '0:00:00'
@@ -6736,7 +6743,9 @@ class DLNAWebInterfaceServer:
                 try:
                   if not self.ControlDataStore.Duration or self.ControlDataStore.Duration == '0':
                     self.DLNAControllerInstance.send_Play(renderer)
-                  self.DLNAControllerInstance.send_Seek(renderer, wi_cmd[5:])
+                  if not self.DLNAControllerInstance.send_Seek(renderer, wi_cmd[5:]):
+                    if is_paused:
+                      redo_seek = wi_cmd[5:]
                 except:
                   pass
               else:
