@@ -6413,19 +6413,9 @@ class DLNAWebInterfaceServer:
           return
         else:
           if check_renderer:
-            req = urllib.request.Request(self.Renderer.DescURL, method='HEAD')
-            rep = None
-            try:
-              rep = urllib.request.urlopen(req)
-            except:
-              pass
-            if not rep:
-              self.logger.log(1, 'norendereranswer', self.Renderer.FriendlyName)
+            if HTTPRequest(renderer.DescURL, 'HEAD', timeout=5, ip=renderer_hip).code != '200':
+              self.logger.log(1, 'norendereranswer', renderer.FriendlyName)
               break
-            try:
-              rep.close()
-            except:
-              pass
           continue
       self.logger.log(0, 'ready', media_title, LSTRINGS['webinterface'].get('subtitled', 'subtitled') if suburi else '', LSTRINGS['webinterface'].get('direct', 'direct') if server_mode == DLNAWebInterfaceServer.SERVER_MODE_NONE else {MediaProvider.SERVER_MODE_RANDOM: LSTRINGS['webinterface'].get('random', 'random'), MediaProvider.SERVER_MODE_SEQUENTIAL: LSTRINGS['webinterface'].get('sequential', 'sequential%s') % ((LSTRINGS['webinterface'].get('remuxed', 'remuxed %s') % self.MediaServerInstance.MediaMuxContainer.lstrip('!')) if self.MediaServerInstance.MediaProviderInstance.FFmpeg_process else '')}.get(server_mode,''), self.Renderer.FriendlyName)
       status_dict = {'PLAYING': 'Lecture', 'PAUSED_PLAYBACK': 'Pause', 'STOPPED': 'Arrêt'}
@@ -6483,6 +6473,7 @@ class DLNAWebInterfaceServer:
         except:
           pass
       redo_seek = None
+      check_renderer = False
       while not self.shutdown_requested and new_value != 'STOPPED':
         new_value = self.DLNAControllerInstance.wait_for_warning(warning, 10 if is_paused else 1)
         if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and accept_ranges:
@@ -6508,7 +6499,7 @@ class DLNAWebInterfaceServer:
             renderer_position = renderer_new_position
           if _position_to_seconds(renderer_position) > _position_to_seconds(max_renderer_position):
             max_renderer_position = renderer_position
-        if media_kind != 'image' and accept_ranges and self.ControlDataStore.Duration == '0' and ((new_value and not old_value) or gapless_status in (0, 1)):
+        if media_kind != 'image' and accept_ranges and self.ControlDataStore.Duration == '0' and ((new_value and not old_value) or gapless_status in (0, 1)) and renderer_new_position:
           try:
             new_duration = self.DLNAControllerInstance.get_Duration(self.Renderer)
             if new_duration:
@@ -6667,6 +6658,7 @@ class DLNAWebInterfaceServer:
               new_value = 'STOPPED'
               if transport_status == '':
                 playlist_stop = True
+                check_renderer = True
           elif wi_cmd == 'Fin':
             try:
               self.DLNAControllerInstance.send_Stop(renderer)
@@ -6853,16 +6845,22 @@ class DLNAWebInterfaceServer:
           pass
     transport_status = ''
     stop_reason = ''
-    if not self.shutdown_requested and self.verbosity == 2:
+    if check_renderer:
+      if HTTPRequest(renderer.DescURL, 'HEAD', timeout=5, ip=renderer_hip).code != '200':
+        self.logger.log(1, 'norendereranswer', renderer.FriendlyName)
+      else:
+        check_renderer = False
+    if not check_renderer:
+      if not self.shutdown_requested and self.verbosity == 2:
+        try:
+          transport_status = self.DLNAControllerInstance.get_TransportInfo(renderer)[1]
+          stop_reason = self.DLNAControllerInstance.get_StoppedReason(renderer)[0]
+        except:
+          pass
       try:
-        transport_status = self.DLNAControllerInstance.get_TransportInfo(renderer)[1]
-        stop_reason = self.DLNAControllerInstance.get_StoppedReason(renderer)[0]
+        self.DLNAControllerInstance.send_Stop(renderer)
       except:
         pass
-    try:
-      self.DLNAControllerInstance.send_Stop(renderer)
-    except:
-      pass
     if playlist == False and server_mode != None:
       if server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL:
         renderer_position = max_renderer_position
@@ -6882,9 +6880,10 @@ class DLNAWebInterfaceServer:
         pass
       self.NextMediaServerInstance = None
     self.html_ready = False
-    self.DLNAControllerInstance.send_event_unsubscription(event_listener)
-    if event_listener_rc:
-      self.DLNAControllerInstance.send_event_unsubscription(event_listener_rc)
+    if not check_renderer:
+      self.DLNAControllerInstance.send_event_unsubscription(event_listener)
+      if event_listener_rc:
+        self.DLNAControllerInstance.send_event_unsubscription(event_listener_rc)
     event_notification_listener.stop()
     self.logger.log(2, 'controlstop', LSTRINGS['webinterface'].get('status', 'status') if transport_status or stop_reason else '', transport_status, ':' if transport_status and stop_reason else '', stop_reason)
     if not self.shutdown_requested:
