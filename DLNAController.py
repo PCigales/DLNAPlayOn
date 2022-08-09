@@ -198,13 +198,13 @@ elif args.command in ('listen_renderers', 'l'):
     DLNARendererControllerInstance.stop_discovery_polling()
     DLNARendererControllerInstance.stop_advertisement_listening()
 elif args.command in ('play_on', 'p'):
-  if args.webinterface:
-    DLNAWebInterfaceServerInstance = PlayOn.DLNAWebInterfaceServer(('127.0.0.1', 9000), DLNAJoinIp=args.join, Launch=PlayOn.DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaSrc=args.mediasrc, MediaServerMode=PlayOn.DLNAWebInterfaceServer.SERVER_MODE_NONE, verbosity=args.verbosity)
-    DLNAWebInterfaceServerInstance.start()
-    webbrowser.open('http://127.0.0.1:9000/control.html')
   DLNARendererControllerInstance.discover(timeout=3)
   renderer = DLNARendererControllerInstance.search(uuid=args.uuid, name=args.name)
   if renderer:
+    if args.webinterface:
+      DLNAWebInterfaceServerInstance = PlayOn.DLNAWebInterfaceServer(('127.0.0.1', 9000), DLNAJoinIp=args.join, Launch=PlayOn.DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=renderer.UDN[5:], MediaSrc=args.mediasrc, MediaServerMode=PlayOn.DLNAWebInterfaceServer.SERVER_MODE_NONE, verbosity=args.verbosity)
+      DLNAWebInterfaceServerInstance.start()
+      webbrowser.open('http://127.0.0.1:9000/control.html')
     print('\r\nLecture de "%s" sur "%s"\r\n' % (args.mediasrc, renderer.FriendlyName))
     event_listener = DLNARendererControllerInstance.new_event_subscription(renderer, 'AVTransport', 9004)
     warning = DLNARendererControllerInstance.add_event_warning(event_listener, 'TransportState', 'PLAYING', 'STOPPED', 'PAUSED_PLAYBACK', WarningEvent=PlayOn.threading.Event())
@@ -305,7 +305,7 @@ elif args.command in ('play_on', 'p'):
       DLNARendererControllerInstance.send_event_unsubscription(event_listener)
     else:
       print('Échec de la souscription au serveur d\'événements')
+    if args.webinterface:
+      DLNAWebInterfaceServerInstance.shutdown()
   else:
     print('Renderer introuvable')
-  if args.webinterface:
-    DLNAWebInterfaceServerInstance.shutdown()
