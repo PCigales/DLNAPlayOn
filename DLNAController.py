@@ -199,24 +199,21 @@ elif args.command in ('listen_renderers', 'l'):
     DLNARendererControllerInstance.stop_advertisement_listening()
 elif args.command in ('play_on', 'p'):
   if args.webinterface:
-    DLNAWebInterfaceServerInstance = PlayOn.DLNAWebInterfaceServer(('127.0.0.1', 9000), DLNAJoinIp=args.join, Launch=PlayOn.DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaSrc=args.mediasrc, verbosity=args.verbosity)
+    DLNAWebInterfaceServerInstance = PlayOn.DLNAWebInterfaceServer(('127.0.0.1', 9000), DLNAJoinIp=args.join, Launch=PlayOn.DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaSrc=args.mediasrc, MediaServerMode=PlayOn.DLNAWebInterfaceServer.SERVER_MODE_NONE, verbosity=args.verbosity)
     DLNAWebInterfaceServerInstance.start()
-    DLNAWebInterfaceServerInstance.ControlDataStore.IncomingEvent.wait()
-    time.sleep(2)
-    DLNAWebInterfaceServerInstance.MediaServerInstance.shutdown()
     webbrowser.open('http://127.0.0.1:9000/control.html')
   DLNARendererControllerInstance.discover(timeout=3)
   renderer = DLNARendererControllerInstance.search(uuid=args.uuid, name=args.name)
   if renderer:
     print('\r\nLecture de "%s" sur "%s"\r\n' % (args.mediasrc, renderer.FriendlyName))
     event_listener = DLNARendererControllerInstance.new_event_subscription(renderer, 'AVTransport', 9004)
-    warning = DLNARendererControllerInstance.add_event_warning(event_listener, 'TransportState', '"PLAYING"', '"STOPPED"', '"PAUSED_PLAYBACK"')
+    warning = DLNARendererControllerInstance.add_event_warning(event_listener, 'TransportState', 'PLAYING', 'STOPPED', 'PAUSED_PLAYBACK', WarningEvent=PlayOn.threading.Event())
     if not args.interactive:
-        warning2 = DLNARendererControllerInstance.add_event_warning(event_listener, 'TransportState', '"STOPPED"', '"PLAYING"')
+        warning2 = DLNARendererControllerInstance.add_event_warning(event_listener, 'TransportState', 'STOPPED', 'PLAYING', WarningEvent=PlayOn.threading.Event())
     if DLNARendererControllerInstance.send_event_subscription(event_listener, 10000):
       if DLNARendererControllerInstance.send_URI(renderer, args.mediasrc, 'Média', args.type):
         if DLNARendererControllerInstance.send_Play(renderer):
-          status_dict = {'"PLAYING"': 'Lecture', '"PAUSED_PLAYBACK"': 'Pause', '"STOPPED"': 'Arrêt'}
+          status_dict = {'PLAYING': 'Lecture', 'PAUSED_PLAYBACK': 'Pause', 'STOPPED': 'Arrêt'}
           if args.interactive:
             print('L: Lecture - P: Pause - A: Arrêt\r\n')
             old_value = None
@@ -224,21 +221,21 @@ elif args.command in ('play_on', 'p'):
             is_paused = False
             renderer_position = '0:00:00'
             max_renderer_position = '00:00:00'
-            while new_value != '"STOPPED"':
+            while new_value != 'STOPPED':
               new_value = DLNARendererControllerInstance.wait_for_warning(warning, 1)
               renderer_new_position = DLNARendererControllerInstance.get_Position(renderer)
               if renderer_new_position:
                 renderer_position = renderer_new_position
                 if renderer_position > max_renderer_position:
                   max_renderer_position = renderer_position
-              if not old_value and new_value == '"STOPPED"':
+              if not old_value and new_value == 'STOPPED':
                 new_value = None
               if new_value and new_value != old_value:
                 if args.verbosity >= 1:
                   print('TransportState:', new_value)
-                if new_value == '"PLAYING"':
+                if new_value == 'PLAYING':
                   is_paused = False
-                elif new_value == '"PAUSED_PLAYBACK"':
+                elif new_value == 'PAUSED_PLAYBACK':
                   is_paused = True
                 old_value = new_value
               if args.verbosity >= 1:
@@ -282,9 +279,9 @@ elif args.command in ('play_on', 'p'):
           else:
             old_value = None
             new_value = None
-            while new_value != '"STOPPED"':
+            while new_value != 'STOPPED':
               new_value = DLNARendererControllerInstance.wait_for_warning(warning, 2)
-              if not old_value and new_value == '"STOPPED"':
+              if not old_value and new_value == 'STOPPED':
                 new_value = None
               if new_value and new_value != old_value:
                 old_value = new_value
@@ -294,7 +291,7 @@ elif args.command in ('play_on', 'p'):
                 print('Position:', DLNARendererControllerInstance.get_Position(renderer))
               else:
                 print('Position:', DLNARendererControllerInstance.get_Position(renderer), end ='\b'*18, flush=True)
-              if new_value == '"PAUSED_PLAYBACK"':
+              if new_value == 'PAUSED_PLAYBACK':
                 if args.verbosity >= 1:
                   print('En pause')
                 else:
