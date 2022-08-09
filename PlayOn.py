@@ -1,4 +1,4 @@
-﻿# DLNAPlayOn v1.8.0 (https://github.com/PCigales/DLNAPlayOn)
+# DLNAPlayOn v1.8.0 (https://github.com/PCigales/DLNAPlayOn)
 # Copyright © 2022 PCigales
 # This program is licensed under the GNU GPLv3 copyleft license (see https://www.gnu.org/licenses)
 
@@ -2633,16 +2633,43 @@ class DLNAEventWarning:
   def __init__(self, event_listener, prop_name, *warn_values, WarningEvent=None):
     self.EventListener = event_listener
     self.WatchedProperty = prop_name
-    if isinstance(WarningEvent, threading.Event):
-      self.WarningEvent = WarningEvent
-    else:
-      self.WarningEvent = threading.Event()
-    if warn_values:
-      self.WatchedValues = warn_values
-    else:
-      self.WatchedValues = None
+    self.WarningEvent = WarningEvent
+    self.WatchedValues = warn_values or None
+    self.Triggered = None
+    self.TriggerSEQ = None
     self.TriggerLastValue = None
-    self.ReferenceSEQ = None
+    self.lock = threading.RLock()
+
+  def clear(self):
+    with self.lock:
+      self.TriggerLastValue = None
+      self.TriggerSEQ = self.EventListener.CurrentSEQ
+      self.Triggered = None
+
+  def submit(self, seq, prop_name, prop_nvalue):
+    if prop_name == self.WatchedProperty:
+      with self.lock:
+        warn_update = True if (self.TriggerSEQ is None) else (self.TriggerSEQ < seq)
+        if warn_update and self.WatchedValues:
+          warn_update = prop_nvalue in self.WatchedValues
+        if warn_update:
+          self.TriggerLastValue = prop_nvalue
+          self.TriggerSEQ = seq
+          self.Triggered = True
+          if self.WarningEvent is not None:
+            self.WarningEvent.set()
+          return True
+    return False
+
+  def fresh(self):
+    with self.lock:
+      if self.Triggered:
+        self.Triggered = False
+        return self.TriggerLastValue
+    return None
+
+  def last(self):
+    return self.TriggerLastValue
 
 
 class DLNAEventListener:
@@ -2697,39 +2724,33 @@ class DLNAEventNotificationHandler(socketserver.BaseRequestHandler):
   
   def handle(self):
     try:
-      t = time.time()
       req = HTTPMessage(self.request)
       event_listeners = list(self.EventListeners)
-      try:
-        if req.method != 'NOTIFY':
-          raise
-        callback_number = int(req.path.strip(' /'))
-        EventListener = next(e for e in event_listeners if e.callback_number == callback_number)
-        if req.header('SID', '') != EventListener.SID:
-          raise
-      except:
-        self.request.sendall("HTTP/1.0 400 Bad Request\r\n\r\n".encode("ISO-8859-1"))
-        return
+      if req.method != 'NOTIFY':
+        raise
+      callback_number = int(req.path.strip(' /'))
+      EventListener = next(e for e in event_listeners if e.callback_number == callback_number)
+      if req.header('SID', '') != EventListener.SID:
+        raise
       dlna_event = DLNAEvent()
-      time_receipt = time.localtime()
       seq = req.header('SEQ', '')
       self.server.logger.log(1, 'receipt', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], seq)
       seq = int(seq)
-      if not EventListener.CurrentSEQ:
-        EventListener.CurrentSEQ = 0
-      if seq > EventListener.CurrentSEQ:
+      if EventListener.CurrentSEQ is None:
+        EventListener.CurrentSEQ = seq
+      elif seq > EventListener.CurrentSEQ:
         EventListener.CurrentSEQ = seq
       if EventListener.log:
-        dlna_event.ReceiptTime = time_receipt
+        dlna_event.ReceiptTime = time.localtime()
         if len(EventListener.EventsLog) < seq:
           EventListener.EventsLog = EventListener.EventsLog + [None]*(seq - len(EventListener.EventsLog))
       root_xml = minidom.parseString(req.body)
       try:
-        self.request.sendall("HTTP/1.0 200 OK\r\n\r\n".encode("ISO-8859-1"))
+        self.request.sendall("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n".encode("ISO-8859-1"))
       except:
         pass
     except:
-      self.request.sendall("HTTP/1.0 400 Bad Request\r\n\r\n".encode("ISO-8859-1"))
+      self.request.sendall("HTTP/1.0 400 Bad Request\r\nContent-Length: 0\r\n\r\n".encode("ISO-8859-1"))
       return
     try:
       for node in root_xml.documentElement.childNodes:
@@ -2758,28 +2779,8 @@ class DLNAEventNotificationHandler(socketserver.BaseRequestHandler):
         EventListener.EventsLog.append(dlna_event)
       for (prop_name, prop_nvalue) in dlna_event.Changes:
         for warning in EventListener.Warnings:
-          try:
-            if prop_name == warning.WatchedProperty:
-              if not warning.ReferenceSEQ:
-                warn_update = True
-              else:
-                if warning.ReferenceSEQ < seq:
-                  warn_update = True
-                else:
-                  warn_update = False
-              if warn_update:
-                if not warning.WatchedValues:
-                  self.server.logger.log(2, 'alert', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
-                  warning.TriggerLastValue = prop_nvalue
-                  warning.ReferenceSEQ = seq
-                  warning.WarningEvent.set()
-                elif prop_nvalue in warning.WatchedValues:
-                  self.server.logger.log(2, 'alert', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
-                  warning.TriggerLastValue = prop_nvalue
-                  warning.ReferenceSEQ = seq
-                  warning.WarningEvent.set()
-          except:
-            continue
+          if warning.submit(seq, prop_name, prop_nvalue):
+            self.server.logger.log(2, 'alert', EventListener.Device.FriendlyName, EventListener.Service.Id[23:], seq, prop_name, prop_nvalue)
     except:
       return
 
@@ -3675,15 +3676,26 @@ class DLNAHandler:
     
   def wait_for_warning(self, warning, timeout=None, clear=None):
     if clear:
-      warning.ReferenceSEQ = warning.EventListener.CurrentSEQ
-      warning.TriggerLastValue = None
-      warning.WarningEvent.clear()
-    warn_event = warning.WarningEvent.wait(timeout)
-    if warn_event:
-      warning.WarningEvent.clear()
-      return warning.TriggerLastValue
-    else:
-      return None
+      with warning.lock:
+        warning.clear()
+        if warning.WarningEvent is not None:
+          warning.WarningEvent.clear()
+    with warning.lock:
+      v = warning.fresh()
+      if v is not None:
+        if warning.WarningEvent is not None:
+          warning.WarningEvent.clear()
+        return v
+    if warning.WarningEvent is not None:
+      if warning.WarningEvent.wait(timeout):
+        warning.WarningEvent.clear()
+    with warning.lock:
+      v = warning.fresh()
+      if v is not None:
+        if warning.WarningEvent is not None:
+          warning.WarningEvent.clear()
+        return v
+    return None
 
 
 class DLNAController(DLNAHandler):
@@ -5875,7 +5887,7 @@ class DLNAWebInterfaceServer:
     self.MediaSubSrc = MediaSubSrc
     self.MediaSubLang = MediaSubLang
     self.TargetStatus = Launch
-    self.MediaServerMode = MediaServerMode if MediaServerMode != None else MediaProvider.SERVER_MODE_AUTO
+    self.MediaServerMode = MediaServerMode if MediaServerMode is not None else MediaProvider.SERVER_MODE_AUTO
     if self.MediaServerMode == DLNAWebInterfaceServer.SERVER_MODE_GAPLESS:
       self.Gapless = True
       self.MediaServerMode = MediaProvider.SERVER_MODE_RANDOM
@@ -6046,7 +6058,7 @@ class DLNAWebInterfaceServer:
     if gapless:
       serv = next((serv for serv in self.Renderer.Services if serv.Id == 'urn:upnp-org:serviceId:AVTransport'), None)
       if serv:
-        gapless = next((act for act in serv.Actions if act.Name == 'SetNextAVTransportURI'), None) != None
+        gapless = next((act for act in serv.Actions if act.Name == 'SetNextAVTransportURI'), None) is not None
       else:
         gapless = None
       if not gapless:
@@ -6092,7 +6104,7 @@ class DLNAWebInterfaceServer:
         self.DLNAControllerInstance.send_event_unsubscription(event_listener_rc)
         event_listener_rc = None
       if event_listener_rc:
-        if (self.DLNAControllerInstance.get_Volume(renderer) == None or self.DLNAControllerInstance.get_Mute(renderer) == None):
+        if (self.DLNAControllerInstance.get_Volume(renderer) is None or self.DLNAControllerInstance.get_Mute(renderer) is None):
           self.DLNAControllerInstance.send_event_unsubscription(event_listener_rc)
           event_listener_rc = None
       if event_listener_rc:
@@ -6118,7 +6130,7 @@ class DLNAWebInterfaceServer:
             del titles[0:len(titles) - len(playlist)]
             mediakinds = c[3]
             break
-        if playlist == None:
+        if playlist is None:
           server = self.DLNAClientInstance.search(uuid=obj_uuid)
           if not server:
             if self.Status == DLNAWebInterfaceServer.INTERFACE_CONTROL:
@@ -6136,7 +6148,7 @@ class DLNAWebInterfaceServer:
         playlist = []
         titles = []
         mediakinds = []
-    if playlist == None:
+    if playlist is None:
       playlist, titles = MediaProvider.parse_playlist(self.MediaSrc, True, self.ControlDataStore.IncomingEvent)
     self.ControlDataStore.IncomingEvent = incoming_event
     if playlist != False:
@@ -6198,10 +6210,10 @@ class DLNAWebInterfaceServer:
       gapless_status = -1
     self.NextMediaServerInstance = None
     incoming_event_setter = partial(self.ControlDataStore.__setattr__, 'IncomingEvent')
-    while (ind < (len(playlist) - 1 if playlist != False else 0)) or jump_ind != None or self.ControlDataStore.Shuffle or self.EndLess:
+    while (ind < (len(playlist) - 1 if playlist != False else 0)) or jump_ind is not None or self.ControlDataStore.Shuffle or self.EndLess:
       if self.shutdown_requested or playlist_stop:
         break
-      if jump_ind == None:
+      if jump_ind is None:
         ind += 1
         if playlist:
           if ind == len(playlist):
@@ -6233,10 +6245,10 @@ class DLNAWebInterfaceServer:
         media_sub_src = self.MediaSubSrc
         if gapless_status < 3:
           self.ControlDataStore.Status = 'initialisation'
-          if self.EndLess and self.ControlDataStore.Position != None:
+          if self.EndLess and self.ControlDataStore.Position is not None:
             self.ControlDataStore.Position = '0:00:00'
           else:
-            cmd_stop = not self.OnReadyPlay and (restart_from == None or restart_from == '')
+            cmd_stop = not self.OnReadyPlay and (restart_from is None or restart_from == '')
       self.ControlDataStore.Duration = '0'
       prev_media_kind = media_kind
       if self.MediaSrc[:7].lower() == 'upnp://' or gapless:
@@ -6324,7 +6336,7 @@ class DLNAWebInterfaceServer:
             if not prep_success:
               check_renderer = True
           if gapless:
-            if nind != None:
+            if nind is not None:
               nmedia_src = playlist[order[nind]] if playlist != False else self.MediaSrc
               if playlist:
                 if self.MediaSubSrc and os.path.isdir(self.MediaSrc):
@@ -6450,8 +6462,8 @@ class DLNAWebInterfaceServer:
         if not cmd_stop:
           wi_cmd = 'Lecture'
           self.ControlDataStore.IncomingEvent.set()
-        self.DLNAControllerInstance.wait_for_warning(warning_d, 0, True)
-        self.DLNAControllerInstance.wait_for_warning(warning_e, 0, True)
+        warning_d.clear()
+        warning_e.clear()
         gapless_status = 0 if self.NextMediaServerInstance else -1
       else:
         old_value = new_value
@@ -6465,20 +6477,38 @@ class DLNAWebInterfaceServer:
       new_value = None
       cmd_stop = False
       if event_listener_rc:
-        vol_seq = warning_v.ReferenceSEQ
-        mut_seq = warning_m.ReferenceSEQ
-        try:
-          self.ControlDataStore.Volume = int(int(self.DLNAControllerInstance.get_Volume(renderer)) * 100 / vol_max)
-          self.ControlDataStore.Mute = (self.DLNAControllerInstance.get_Mute(renderer) == "1")
-        except:
-          pass
+        tv = warning_v.last()
+        warning_v.clear()
+        if tv is not None:
+          try:
+            tv = int(int(tv) * 100 / vol_max)
+          except:
+            tv = None
+        if tv is None:
+          try:
+            tv = int(int(self.DLNAControllerInstance.get_Volume(renderer)) * 100 / vol_max)
+          except:
+            pass
+        if tv is not None:
+          self.ControlDataStore.Volume = tv
+        tv = warning_m.last()
+        warning_m.clear()
+        if tv is not None:
+          tv = tv == "1"
+        else:
+          try:
+            tv = self.DLNAControllerInstance.get_Mute(renderer) == "1"
+          except:
+            pass
+        if tv is not None:
+          self.ControlDataStore.Mute = tv
       redo_seek = None
       check_renderer = False
       while not self.shutdown_requested and new_value != 'STOPPED':
         new_value = self.DLNAControllerInstance.wait_for_warning(warning, 10 if is_paused else 1)
         if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and accept_ranges:
           if old_value and media_kind != 'image':
-            new_duration = self.DLNAControllerInstance.wait_for_warning(warning_d, 0)
+            new_duration = warning_d.fresh()
             if new_duration:
               if _position_to_seconds(new_duration):
                 self.ControlDataStore.Duration = str(_position_to_seconds(new_duration))
@@ -6515,10 +6545,10 @@ class DLNAWebInterfaceServer:
         if media_kind == 'image' and image_duration and self.ControlDataStore.Status != 'Arrêt':
           renderer_position = _seconds_to_position(int(max(0, image_duration - ((time.time() - image_start) if image_start else 0))))
         if not old_value and new_value == 'STOPPED':
-          if not self.DLNAControllerInstance.wait_for_warning(warning_e, 0):
+          if warning_e.fresh() is None:
             new_value = None
         if new_value and new_value != old_value:
-          if restart_from != None:
+          if restart_from is not None:
             restart_from = None
             self.ControlDataStore.ShowStartFrom = False
           if new_value != 'STOPPED' and server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE):
@@ -6581,17 +6611,15 @@ class DLNAWebInterfaceServer:
               image_start = None
               self.ControlDataStore.Position = self.MediaPosition
           if event_listener_rc:
-            if mut_seq != warning_m.ReferenceSEQ:
-              tv = warning_m.TriggerLastValue
-              if tv != None:
-                self.ControlDataStore.Mute = (tv == "1")
-            if vol_seq != warning_v.ReferenceSEQ:
-              tv = warning_v.TriggerLastValue
-              if tv != None:
-                try:
-                  self.ControlDataStore.Volume = int(int(tv) * 100 / vol_max)
-                except:
-                  pass
+            tv = warning_m.fresh()
+            if tv is not None:
+              self.ControlDataStore.Mute = tv == "1"
+            tv = warning_v.fresh()
+            if tv is not None:
+              try:
+                self.ControlDataStore.Volume = int(int(tv) * 100 / vol_max)
+              except:
+                pass
           if not wi_cmd:
             wi_cmd = self.ControlDataStore.Command
           if wi_cmd == 'Lecture':
@@ -6620,7 +6648,7 @@ class DLNAWebInterfaceServer:
                         self.ControlDataStore.IncomingEvent = incoming_event
                   except:
                     pass
-              if restart_from != None:
+              if restart_from is not None:
                 restart_from = None
                 self.ControlDataStore.ShowStartFrom = False
               if self.ControlDataStore.Status in ('prêt', 'prêt (lecture à partir du début)', 'Arrêt'):
@@ -6638,7 +6666,7 @@ class DLNAWebInterfaceServer:
             if self.ControlDataStore.Status in ('prêt', 'prêt (lecture à partir du début)'):
               playlist_stop = True
             self.ControlDataStore.Status = 'en cours...'
-            if restart_from != None:
+            if restart_from is not None:
               restart_from = None
               self.ControlDataStore.ShowStartFrom = False
             try:
@@ -6689,7 +6717,7 @@ class DLNAWebInterfaceServer:
                   except:
                     pass
                   self.NextMediaServerInstance = None
-            if restart_from != None:
+            if restart_from is not None:
               self.ControlDataStore.ShowStartFrom = False
               if media_kind == 'image' and jump_ind == order[ind]:
                 restart_from = None
@@ -6782,7 +6810,7 @@ class DLNAWebInterfaceServer:
               nmedia_title = titles[order[nind]]
             else:
               nmedia_title = self.NextMediaServerInstance.MediaProviderInstance.MediaTitle
-            gap_seq = warning_n.ReferenceSEQ
+            warning_n.clear()
             try:
               if self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges:
                 prep_success = self.DLNAControllerInstance.send_Local_URI_Next(self.Renderer, 'http://%s:%s/media%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaFeedExt), nmedia_title, kind=mediakinds[order[nind]], suburi=nsuburi)
@@ -6799,8 +6827,8 @@ class DLNAWebInterfaceServer:
             else:
               gapless_status = -1
         if gapless_status == 2 and not self.shutdown_requested:
-          if gap_seq < warning_n.ReferenceSEQ:
-            if warning.TriggerLastValue == 'PLAYING':
+          if warning_n.fresh() is not None:
+            if warning.last() == 'PLAYING':
               transport_status = 'PLAYING'
             else:
               try:
@@ -6818,7 +6846,7 @@ class DLNAWebInterfaceServer:
                 except:
                   pass
             if transport_status in ('PLAYING', 'TRANSITIONING', 'PAUSED_PLAYBACK'):
-              if (warning_n.TriggerLastValue or '').split('/', 3)[2:3].count('%s:%s' % self.NextMediaServerInstance.MediaServerAddress):
+              if (warning_n.last() or '').split('/', 3)[2:3].count('%s:%s' % self.NextMediaServerInstance.MediaServerAddress):
                 gapless_status = 3
                 accept_ranges = self.NextMediaServerInstance.MediaProviderInstance.AcceptRanges
               else: 
@@ -6845,9 +6873,10 @@ class DLNAWebInterfaceServer:
           pass
     transport_status = ''
     stop_reason = ''
-    if check_renderer:
+    if check_renderer or not renderer.StatusAlive:
       if HTTPRequest(renderer.DescURL, 'HEAD', timeout=5, ip=renderer_hip).code != '200':
         self.logger.log(1, 'norendereranswer', renderer.FriendlyName)
+        check_renderer = True
       else:
         check_renderer = False
     if not check_renderer:
@@ -6861,7 +6890,7 @@ class DLNAWebInterfaceServer:
         self.DLNAControllerInstance.send_Stop(renderer)
       except:
         pass
-    if playlist == False and server_mode != None:
+    if playlist == False and server_mode is not None:
       if server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL:
         renderer_position = max_renderer_position
       if media_kind != 'image':
@@ -6909,7 +6938,7 @@ class DLNAWebInterfaceServer:
       self.WebServerReady.set()
 
   def run(self):
-    if self.Status != None:
+    if self.Status is not None:
       self.logger.log(1, 'alreadyrunning')
       return
     self.logger.log(0, 'start', '%s:%s' % self.DLNAWebInterfaceServerAddress)
@@ -6921,7 +6950,7 @@ class DLNAWebInterfaceServer:
       self.DLNAAdvertisementListenerInstance.start()
       self.RenderersEvent = self.DLNAControllerInstance.advert_status_change
       self.DLNAControllerInstance.discovery_status_change = self.RenderersEvent
-    while (self.Status == None or self.TargetStatus==DLNAWebInterfaceServer.INTERFACE_START) and not self.shutdown_requested:
+    while (self.Status is None or self.TargetStatus == DLNAWebInterfaceServer.INTERFACE_START) and not self.shutdown_requested:
       if self.TargetStatus == DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS:
         self.Status = DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS
         self.manage_start()
