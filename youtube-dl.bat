@@ -7,7 +7,7 @@ set "youtube-dl_pref=best"
 set "youtube-dl_vpref=bestvideo"
 set "youtube-dl_apref=bestaudio"
 if "%1" == "sub" (
-if "!mediabuilder_lang!" == "" (set "youtube-dl_spref=--sub-format srt/ass/ssa/vtt/best") else (set "youtube-dl_spref=--sub-format srt/ass/ssa/vtt/best --sub-lang !mediabuilder_lang!")
+if "!mediabuilder_lang!" == "" (set "youtube-dl_spref=--sub-format srt/ass/ssa/vtt/best") else (set "youtube-dl_spref=--sub-format srt/ass/ssa/vtt/best --sub-lang "!mediabuilder_lang!"")
 )
 
 if /I "!mediabuilder_profile!" == "[TV]Samsung LED40" (
@@ -61,7 +61,7 @@ echo ###PlayOn_Separator###
 
 if "%1" == "mux" for /F "delims=" %%a in ('@!youtube-dl_path! --no-playlist --youtube-skip-dash-manifest --encoding utf-8 -e --get-filename -o  ###PlayOn_Separator### -g -f "%youtube-dl_vpref%+%youtube-dl_apref%/%youtube-dl_pref%" !mediabuilder_url!') do (set "youtube-dl_url=%%a" & echo !youtube-dl_url:.m3u8=.mp4!)
 
-if "%1" == "sub" for /F "delims=" %%a in ('@!youtube-dl_path! --no-playlist --youtube-skip-dash-manifest --encoding utf-8 --write-sub --print "^{""requested_subtitles"":%%(requested_subtitles)j^}" %youtube-dl_spref% !mediabuilder_url!') do (set "youtube-dl_url=%%a" & echo !youtube-dl_url:.m3u8=.vtt!)
+if "%1" == "sub" for /F "delims=" %%a in ('@!youtube-dl_path! --no-playlist --youtube-skip-dash-manifest --encoding utf-8 --write-sub --print "^{\"requested_subtitles\":%%(requested_subtitles)j^}" %youtube-dl_spref% !mediabuilder_url!') do (set "youtube-dl_url=%%a" & echo !youtube-dl_url:.m3u8=.vtt!)
 
 :end
 endlocal
