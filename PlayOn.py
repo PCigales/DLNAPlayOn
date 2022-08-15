@@ -4249,19 +4249,19 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
         self.MessageData.append(WebSocketRequestHandler.XOR32_decode(buff[self.FrameLength-self.DataLength-4:self.FrameLength-self.DataLength], buff[self.FrameLength-self.DataLength:self.FrameLength]))
     elif self.FrameType == 'close':
       if self.DataLength <= 0x7d:
-        self.CloseData = WebSocketRequestHandler.XOR32_decode(self.Buffer[2:6], self.Buffer[6:self.FrameLength])
+        self.CloseData = bytes(WebSocketRequestHandler.XOR32_decode(self.Buffer[2:6], self.Buffer[6:self.FrameLength]))
       else:
         return False
     elif self.FrameType == 'ping':
       if self.DataLength <= 0x7d:
         self.PingLock.acquire()
-        self.PingData = WebSocketRequestHandler.XOR32_decode(self.Buffer[2:6], self.Buffer[6:self.FrameLength])
+        self.PingData = bytes(WebSocketRequestHandler.XOR32_decode(self.Buffer[2:6], self.Buffer[6:self.FrameLength]))
         self.PingLock.release()
       else:
         return False
     elif self.FrameType == 'pong':
       if self.DataLength <= 0x7d:
-        self.PongData = WebSocketRequestHandler.XOR32_decode(self.Buffer[2:6], self.Buffer[6:self.FrameLength])
+        self.PongData = bytes(WebSocketRequestHandler.XOR32_decode(self.Buffer[2:6], self.Buffer[6:self.FrameLength]))
       else:
         return False
     else:
