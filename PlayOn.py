@@ -4120,17 +4120,10 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
 
   @classmethod
   def XOR32_decode(cls, mask, coded_data):
-    decoded_data = b''
-    for i in range(len(coded_data)):
-      decoded_data += bytes([coded_data[i] ^ mask[i%4]])
+    decoded_data = bytearray(len(coded_data))
+    for i in range(4):
+      decoded_data[i::4] = map(mask[i].__xor__, coded_data[i::4])
     return decoded_data
-
-  @classmethod
-  def XOR32_encode(cls, mask, data):
-    encoded_data = b''
-    for i in range(len(data)):
-      encoded_data += bytes([data[i] ^ mask[i%4]])
-    return encoded_data
 
   @classmethod
   def build_frame(cls, type, data):
@@ -4244,15 +4237,16 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
           return False
         else:
           self.MessageType = {0x01: 'text', 0x02: 'binary'}[self.Buffer[0] & 0x0f]
-          self.MessageData = b''
+          self.MessageData = []
       else:
         if self.Buffer[0] & 0x0f != 0:
           self.MessageType = {0x01: 'text', 0x02: 'binary'}[self.Buffer[0] & 0x0f]
-          self.MessageData = b''
+          self.MessageData = []
     if self.FrameType != 'data' and self.Buffer[0] >> 7 != 1:
       return False
     if self.FrameType == 'data':
-      self.MessageData = self.MessageData + WebSocketRequestHandler.XOR32_decode(self.Buffer[self.FrameLength-self.DataLength-4:self.FrameLength-self.DataLength], self.Buffer[self.FrameLength-self.DataLength:self.FrameLength])
+      with memoryview(self.Buffer) as buff:
+        self.MessageData.append(WebSocketRequestHandler.XOR32_decode(buff[self.FrameLength-self.DataLength-4:self.FrameLength-self.DataLength], buff[self.FrameLength-self.DataLength:self.FrameLength]))
     elif self.FrameType == 'close':
       if self.DataLength <= 0x7d:
         self.CloseData = WebSocketRequestHandler.XOR32_decode(self.Buffer[2:6], self.Buffer[6:self.FrameLength])
@@ -4273,6 +4267,7 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
     else:
       return False
     if self.FrameType == 'data' and self.Buffer[0] >> 7 == 1:
+      self.MessageData = b''.join(self.MessageData)
       if self.MessageType == 'text':
         try:
           self.MessageData = self.MessageData.decode('utf-8')
@@ -4454,7 +4449,7 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
               if not WebSocketRequestHandler.PING_PONG_STRICT:
                 self.PingTime = None
                 self.PendingPings = 0
-              self.Buffer = self.Buffer + chunk
+              self.Buffer += chunk
         if self.Channel.Closed:
           self.SendEvent.set()
         if WebSocketRequestHandler.PING_PONG_STRICT and self.PingTime:
