@@ -6501,6 +6501,8 @@ class DLNAWebInterfaceServer:
       check_renderer = False
       while not self.shutdown_requested and new_value != 'STOPPED':
         new_value = self.DLNAControllerInstance.wait_for_warning(warning, 10 if is_paused else 1)
+        if self.shutdown_requested:
+          break
         if server_mode in (MediaProvider.SERVER_MODE_RANDOM, DLNAWebInterfaceServer.SERVER_MODE_NONE) and accept_ranges:
           if old_value and media_kind != 'image':
             new_duration = warning_d.fresh()
@@ -6882,9 +6884,11 @@ class DLNAWebInterfaceServer:
         except:
           pass
       try:
-        self.DLNAControllerInstance.send_Stop(renderer)
+        if self.DLNAControllerInstance.send_Stop(renderer) is None:
+          raise
       except:
-        pass
+        if self.shutdown_requested:
+          check_renderer = True
     if playlist == False and server_mode is not None:
       if server_mode == MediaProvider.SERVER_MODE_SEQUENTIAL:
         renderer_position = max_renderer_position
