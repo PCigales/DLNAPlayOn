@@ -1,4 +1,4 @@
-# DLNAPlayOn v1.8.0 (https://github.com/PCigales/DLNAPlayOn)
+# DLNAPlayOn v1.8.1 (https://github.com/PCigales/DLNAPlayOn)
 # Copyright © 2022 PCigales
 # This program is licensed under the GNU GPLv3 copyleft license (see https://www.gnu.org/licenses)
 
@@ -4152,13 +4152,11 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
     return frame
 
   def watch_datastore(self):
-    while not self.ClientClosing and not self.Channel.Closed and not self.Closed:
-      with self.Channel.DataStore.o_condition:
-        while self.Channel.DataStore.outgoing_seq == self.OutgoingSeq:
-          self.Channel.DataStore.o_condition.wait(0.5)
-          if self.ClientClosing or self.Channel.Closed or self.Closed:
-            break
-      self.SendEvent.set()
+    with self.Channel.DataStore.o_condition:
+      while not self.ClientClosing and not self.Channel.Closed and not self.Closed:
+        if self.Channel.DataStore.outgoing_seq != self.OutgoingSeq:
+          self.SendEvent.set()
+        self.Channel.DataStore.o_condition.wait()
 
   def send_ping(self):
     try:
@@ -4365,6 +4363,7 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
           self.PingTime = None
           self.PendingPings = 0
       self.SendEvent.wait(0.5)
+    self.Channel.DataStore.notify_outgoing()
     if watch_datastore_thread.is_alive():
       try:
         watch_datastore_thread.join()
@@ -7013,7 +7012,7 @@ class DLNAWebInterfaceServer:
 
 if __name__ == '__main__':
 
-  print('DLNAPlayOn v1.8.0 (https://github.com/PCigales/DLNAPlayOn)    Copyright © 2022 PCigales')
+  print('DLNAPlayOn v1.8.1 (https://github.com/PCigales/DLNAPlayOn)    Copyright © 2022 PCigales')
   print(LSTRINGS['parser']['license'])
   print('');
 
