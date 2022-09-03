@@ -4025,9 +4025,8 @@ class WebSocketDataStore:
       self.IncomingEvent = threading.Event()
 
   def notify_outgoing(self):
-    self.o_condition.acquire()
-    self.o_condition.notify_all()
-    self.o_condition.release()  
+    with self.o_condition:
+      self.o_condition.notify_all()
 
   def set_outgoing(self, ind, value, if_different = False):
     with self.outgoing_lock:
@@ -4150,13 +4149,6 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
     else:
       return None
     return frame
-
-  def watch_datastore(self):
-    with self.Channel.DataStore.o_condition:
-      while not self.ClientClosing and not self.Channel.Closed and not self.Closed:
-        if self.Channel.DataStore.outgoing_seq != self.OutgoingSeq:
-          self.SendEvent.set()
-        self.Channel.DataStore.o_condition.wait()
 
   def send_ping(self):
     try:
@@ -4281,10 +4273,11 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
     self.DataLength = None
 
   def handle_out(self):
-    watch_datastore_thread = threading.Thread(target=self.watch_datastore)
-    watch_datastore_thread.start()
+    self.SendEvent.set()
     while not self.Closed:
-      self.SendEvent.clear()
+      se = self.SendEvent.is_set()
+      if se:
+        self.SendEvent.clear()
       if self.ClientClosing:
         if not self.CloseMessageTime:
           if self.CloseData == None:
@@ -4327,7 +4320,7 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
             self.server.logger.log(2, 'endnotificationfailure', *self.server.Address, self.Channel.Path, *self.client_address)
           self.CloseMessageTime = time.time()
           break
-      if not self.Channel.Closed and self.Channel.DataStore.outgoing_seq != self.OutgoingSeq:
+      if not self.Channel.Closed and se:
         nb_values = len(self.Channel.DataStore.outgoing_seq)
         for i in range(nb_values):
           if self.ClientClosing or self.Channel.Closed:
@@ -4363,12 +4356,6 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
           self.PingTime = None
           self.PendingPings = 0
       self.SendEvent.wait(0.5)
-    self.Channel.DataStore.notify_outgoing()
-    if watch_datastore_thread.is_alive():
-      try:
-        watch_datastore_thread.join()
-      except:
-        pass  
    
   def handle(self):
     if self.server.__dict__['_BaseServer__shutdown_request'] or self.server.__dict__['_BaseServer__is_shut_down'].is_set():
@@ -4415,6 +4402,8 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
       self.server.logger.log(2, 'connectionresponsefailure', *self.server.Address, self.Channel.Path, *self.client_address)
       return
     self.server.logger.log(2, 'connection', *self.server.Address, self.Channel.Path, *self.client_address)
+    with self.Channel.DataStore.o_condition:
+      self.Channel.SendEvents.append(self.SendEvent)
     self.LastReceptionTime = time.time()
     out_handler_thread = threading.Thread(target=self.handle_out)
     out_handler_thread.start()
@@ -4515,6 +4504,8 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
         out_handler_thread.join()
       except:
         pass
+    with self.Channel.DataStore.o_condition:
+      self.Channel.SendEvents.remove(self.SendEvent)
     self.server.logger.log(2, 'connectionend', *self.server.Address, self.Channel.Path, *self.client_address)
 
 
@@ -4523,6 +4514,7 @@ class WebSocketServerChannel:
   def __init__(self, path, datastore):
     self.Path = path
     self.DataStore = datastore
+    self.SendEvents = []
     self.Closed = False
 
 
@@ -4557,6 +4549,15 @@ class WebSocketServer:
     self.is_running = None
     self.shutdown_lock = threading.Lock()
 
+  def _sendevents_dispatcher(self, channel):
+    with channel.DataStore.o_condition:
+      for se in channel.SendEvents:
+        se.set()
+      while not channel.Closed:
+        channel.DataStore.o_condition.wait()
+        for se in channel.SendEvents:
+          se.set()
+
   def open(self, Path, WebSocketDataStore):
     path = Path.lstrip('/').strip()
     channel = WebSocketServerChannel(path, WebSocketDataStore)
@@ -4565,6 +4566,8 @@ class WebSocketServer:
         return False
       if self.Channels.setdefault(path, channel) is not channel:
         return False
+      t = threading.Thread(target=self._sendevents_dispatcher, args=(channel,))
+      t.start()
     self.WebSocketServerInstance.logger.log(2, 'open', *self.Address, channel.Path)
     return True
 
@@ -5579,11 +5582,6 @@ class DLNAWebInterfaceServer:
   '      <input type="time" id="StartFrom" name="MediaStartFrom" step="1" value="0##STARTFROM##" style="height:50px;font-size:70%;">\r\n' \
   '      <input type="hidden" id="Renderer" name="RendererInd" value="" required>\r\n' \
   '    </form>\r\n' \
-  '    <script>\r\n' \
-  '      new_socket();\r\n' \
-  '      URL_set = document.getElementById("URL-").value;\r\n' \
-  '      StartFrom_set = document.getElementById("StartFrom").value;\r\n' \
-  '    </script>\r\n' \
   '    <button id="play" style="background-color:rgb(200,250,240);" onclick="play_button()">{#jgoplay#}</button>\r\n' \
   '    <button id="reset" style="background-color:rgb(250,220,200);" onclick="reset_button()">{#jreset#}</button>\r\n' \
   '    <br><br>\r\n' \
@@ -5602,6 +5600,11 @@ class DLNAWebInterfaceServer:
   '      </tbody>\r\n' \
   '    </table>\r\n' \
   '    <br>\r\n' \
+  '    <script>\r\n' \
+  '      new_socket();\r\n' \
+  '      URL_set = document.getElementById("URL-").value;\r\n' \
+  '      StartFrom_set = document.getElementById("StartFrom").value;\r\n' \
+  '    </script>\r\n' \
   '  </body>\r\n' \
   '</html>'
   HTML_START_TEMPLATE = HTML_START_TEMPLATE.replace('{', '{{').replace('}', '}}').replace('{{#', '{').replace('#}}', '}').format_map(LSTRINGS['webinterface']).replace('{{', '{').replace('}}', '}')
