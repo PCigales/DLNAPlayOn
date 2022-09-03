@@ -21,6 +21,7 @@ from xml.dom import minidom
 import json
 import html
 import struct
+import array
 import hashlib
 import base64
 import re
@@ -4117,12 +4118,12 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
     self.OutgoingSeq = []
     super().__init__(*args, **kwargs)
 
-  @classmethod
-  def XOR32_decode(cls, mask, coded_data):
-    decoded_data = bytearray(len(coded_data))
-    for i in range(4):
-      decoded_data[i::4] = map(mask[i].__xor__, coded_data[i::4])
-    return decoded_data
+  @staticmethod
+  def XOR32_decode(mask_data):
+    o = len(mask_data) % 4
+    data = mask_data[o:].cast('L')
+    mask = struct.unpack('L', mask_data[o:4].tobytes() + mask_data[0:o].tobytes())[0]
+    return memoryview(array.array('L', map(mask.__xor__, data))).cast('B')[4-o:]
 
   @classmethod
   def build_frame(cls, type, data):
@@ -4234,28 +4235,28 @@ class WebSocketRequestHandler(socketserver.BaseRequestHandler):
           self.MessageData = []
     if self.FrameType != 'data' and self.Buffer[0] >> 7 != 1:
       return False
-    if self.FrameType == 'data':
-      with memoryview(self.Buffer) as buff:
-        self.MessageData.append(WebSocketRequestHandler.XOR32_decode(buff[self.FrameLength-self.DataLength-4:self.FrameLength-self.DataLength], buff[self.FrameLength-self.DataLength:self.FrameLength]))
-    elif self.FrameType == 'close':
-      if self.DataLength <= 0x7d:
-        self.CloseData = bytes(WebSocketRequestHandler.XOR32_decode(self.Buffer[2:6], self.Buffer[6:self.FrameLength]))
+    with memoryview(self.Buffer) as buff:
+      if self.FrameType == 'data':
+        self.MessageData.append(WebSocketRequestHandler.XOR32_decode(buff[self.FrameLength-self.DataLength-4:self.FrameLength]))
+      elif self.FrameType == 'close':
+        if self.DataLength <= 0x7d:
+          self.CloseData = bytes(WebSocketRequestHandler.XOR32_decode(buff[2:self.FrameLength]))
+        else:
+          return False
+      elif self.FrameType == 'ping':
+        if self.DataLength <= 0x7d:
+          self.PingLock.acquire()
+          self.PingData = bytes(WebSocketRequestHandler.XOR32_decode(buff[2:self.FrameLength]))
+          self.PingLock.release()
+        else:
+          return False
+      elif self.FrameType == 'pong':
+        if self.DataLength <= 0x7d:
+          self.PongData = bytes(WebSocketRequestHandler.XOR32_decode(buff[2:self.FrameLength]))
+        else:
+          return False
       else:
         return False
-    elif self.FrameType == 'ping':
-      if self.DataLength <= 0x7d:
-        self.PingLock.acquire()
-        self.PingData = bytes(WebSocketRequestHandler.XOR32_decode(self.Buffer[2:6], self.Buffer[6:self.FrameLength]))
-        self.PingLock.release()
-      else:
-        return False
-    elif self.FrameType == 'pong':
-      if self.DataLength <= 0x7d:
-        self.PongData = bytes(WebSocketRequestHandler.XOR32_decode(self.Buffer[2:6], self.Buffer[6:self.FrameLength]))
-      else:
-        return False
-    else:
-      return False
     if self.FrameType == 'data' and self.Buffer[0] >> 7 == 1:
       self.MessageData = b''.join(self.MessageData)
       if self.MessageType == 'text':
@@ -5947,7 +5948,7 @@ class DLNAWebInterfaceServer:
     self.SlideshowDuration = None
     if self.Status == DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS:
       self.logger.log(2, 'rendererstart')
-      self.html_start = DLNAWebInterfaceServer.HTML_START_TEMPLATE.replace('##CONTROL-URL##', '/control.html').replace('##DISPLAY##', 'none').encode('utf-8')
+      self.html_start = DLNAWebInterfaceServer.HTML_START_TEMPLATE.replace('##CONTROL-URL##', '/control.html').replace('##DISPLAY##', 'none').replace('##STARTFROM##', '0:00:00').encode('utf-8')
     elif self.Status == DLNAWebInterfaceServer.INTERFACE_START:
       self.logger.log(2, 'launchrendererstart')
       self.html_start = DLNAWebInterfaceServer.HTML_START_TEMPLATE.replace('##CONTROL-URL##', '/control.html').replace('##UPNP-URL##', '/upnp.html').replace('##DISPLAY##', 'inline-block').replace('##URL##', html.escape(self.MediaSrc) + ('\r\n' + html.escape(self.MediaSubSrc) if self.MediaSubSrc else '')).replace('##STARTFROM##', self.MediaPosition).encode('utf-8')
