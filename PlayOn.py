@@ -685,6 +685,7 @@ class MediaProvider(threading.Thread):
         if not self.shutdown_requested:
           time.sleep(0.5)
           if self.FFmpeg_process.poll() in (None, 0):
+            media_feed.fp.raw._sock.settimeout(None)
             break
         if media_feed:
           try:
