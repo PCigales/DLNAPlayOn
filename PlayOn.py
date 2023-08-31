@@ -1,4 +1,4 @@
-# DLNAPlayOn v1.8.1 (https://github.com/PCigales/DLNAPlayOn)
+# DLNAPlayOn v1.8.2 (https://github.com/PCigales/DLNAPlayOn)
 # Copyright © 2022 PCigales
 # This program is licensed under the GNU GPLv3 copyleft license (see https://www.gnu.org/licenses)
 
@@ -585,6 +585,24 @@ class MediaProvider(threading.Thread):
       pass
     return rep
 
+  class HTTPConnectionTO(client.HTTPConnection):
+    def connect(self):
+      self.timeout = 1
+      try:
+        return super().connect()
+      finally:
+        self.timeout = None
+        try:
+          self.sock.settimeout(None)
+        except:
+          pass
+
+  class HTTPHandlerTO(urllib.request.HTTPHandler):
+    def http_open(self, req):
+      return self.do_open(MediaProvider.HTTPConnectionTO, req)
+
+  urlopento = urllib.request.build_opener(HTTPHandlerTO).open
+
   def __init__(self, ServerMode, MediaSrc, MediaSrcType=None, MediaStartFrom=None, MediaBuffer=None, MediaBufferAhead=None, MediaMuxContainer=None, MediaSubSrc=None, MediaSubSrcType=None, MediaSubLang=None, MediaSubBuffer=None, MediaProcessProfile=None, FFmpegPort=None, BuildFinishedEvent=None, verbosity=0):
     threading.Thread.__init__(self)
     self.logger = log_event('mediaprovider', verbosity)
@@ -679,13 +697,12 @@ class MediaProvider(threading.Thread):
         media_feed = None
         while not media_feed and self.FFmpeg_process.poll() == None and not self.shutdown_requested:
           try:
-            media_feed = urllib.request.urlopen(self.ffmpeg_server_url, timeout=1)
+            media_feed = MediaProvider.urlopento(self.ffmpeg_server_url)
           except:
             pass
         if not self.shutdown_requested:
           time.sleep(0.5)
           if self.FFmpeg_process.poll() in (None, 0):
-            media_feed.fp.raw._sock.settimeout(None)
             break
         if media_feed:
           try:
@@ -7017,7 +7034,7 @@ class DLNAWebInterfaceServer:
 
 if __name__ == '__main__':
 
-  print('DLNAPlayOn v1.8.1 (https://github.com/PCigales/DLNAPlayOn)    Copyright © 2022 PCigales')
+  print('DLNAPlayOn v1.8.2 (https://github.com/PCigales/DLNAPlayOn)    Copyright © 2022 PCigales')
   print(LSTRINGS['parser']['license'])
   print('');
 
