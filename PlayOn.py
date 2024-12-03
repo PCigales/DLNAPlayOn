@@ -1,4 +1,4 @@
-# DLNAPlayOn v1.8.2 (https://github.com/PCigales/DLNAPlayOn)
+# DLNAPlayOn v1.8.3 (https://github.com/PCigales/DLNAPlayOn)
 # Copyright © 2022 PCigales
 # This program is licensed under the GNU GPLv3 copyleft license (see https://www.gnu.org/licenses)
 
@@ -7055,7 +7055,7 @@ class DLNAWebInterfaceServer:
 
 if __name__ == '__main__':
 
-  print('DLNAPlayOn v1.8.2 (https://github.com/PCigales/DLNAPlayOn)    Copyright © 2022 PCigales')
+  print('DLNAPlayOn v1.8.3 (https://github.com/PCigales/DLNAPlayOn)    Copyright © 2022 PCigales')
   print(LSTRINGS['parser']['license'])
   print('');
 
