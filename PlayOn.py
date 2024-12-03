@@ -219,6 +219,7 @@ FR_STRINGS = {
     'rendereruuid': 'uuid du renderer [premier renderer sans sélection sur l\'uuid par défaut]',
     'renderername': 'nom du renderer [premier renderer sans sélection sur le nom par défaut]',
     'servertype': 'type de serveur (a:auto, s:séquentiel, r:aléatoire, g:sans-blanc/aléatoire, n:aucun) [a par défaut]',
+    'bufferquick': 'taille de bloc de tampon réduite pour un démarrage plus rapide [désactivé par défaut]',
     'buffersize': 'taille du tampon en blocs de 1 Mo [75 par défaut]',
     'bufferahead': 'taille du sous-tampon de chargement par anticipation en blocs de 1 Mo [25 par défaut]',
     'muxcontainer': 'type de conteneur de remuxage précédé de ! pour qu\'il soit systématique [MP4 par défaut]',
@@ -437,6 +438,7 @@ EN_STRINGS = {
     'rendereruuid': 'uuid of the renderer [first renderer without selection on the uuid by default]',
     'renderername': 'name of the renderer [first renderer without selection on the name by default]',
     'servertype': 'type of server (a:auto, s:sequential, r:random, g:gapless/random, n:none) [a by default]',
+    'bufferquick': 'reduced size of buffer block for faster startup [disabled by default]',
     'buffersize': 'size of the buffer in blocks of 1 MB [75 by default]',
     'bufferahead': 'size of the sub-buffer of loading in advance in blocks of 1 MB [25 by default]',
     'muxcontainer': 'type of remuxing container preceded by ! so that it is systematic [MP4 by default]',
@@ -734,11 +736,10 @@ class MediaProvider(threading.Thread):
     return media_feed
 
   @classmethod
-  def parse_playlist(cls, src, check=True, stop=None):
+  def parse_playlist(cls, src, check=True, stop=None, m3u_title=None):
     if not mimetypes.inited:
       mimetypes.init()
-    is_stop = lambda : False if stop == None else stop.is_set()
-    get_p_t = lambda j: (j['url'], j.get('title', j['url']))
+    is_stop = lambda : False if stop is None else stop.is_set()
     sh_str = lambda s: s if len(s) <= cls.TITLE_MAX_LENGTH else s[:cls.TITLE_MAX_LENGTH] + '…'
     playlist = False
     titles = []
@@ -757,10 +758,11 @@ class MediaProvider(threading.Thread):
         try:
           process_result = subprocess.run(r'"%s\%s" %s' % (cls.SCRIPT_PATH, 'youtube-dl.bat', 'playlist'), env={**os.environ, 'mediabuilder_url': '"%s"' % src, 'mediabuilder_profile': ''}, capture_output=True)
           if process_result.returncode == 0:
+            get_p_t = lambda j: (j['url'], j.get('title', j['url']))
             try:
               p_t = list(get_p_t(json.loads(e)) for e in process_result.stdout.splitlines() if not is_stop())
             except:
-              return (False, []) if check else ([src], [sh_str(src)])
+              return (False, []) if check else ([src], [sh_str(src if m3u_title is None else m3u_title)])
             if not is_stop():
               playlist = (e[0] for e in p_t)
               titles = (sh_str(e[1]) for e in p_t)
@@ -775,12 +777,14 @@ class MediaProvider(threading.Thread):
             else:
               playlist = []
               titles = []
+          else:
+            return (False, []) if check else ([src], [sh_str(src if m3u_title is None else m3u_title)])
         except:
           playlist = []
           titles = []
         return playlist, titles
       else:
-        return (False, []) if check else ([src], [sh_str(src)])
+        return (False, []) if check else ([src], [sh_str(src if m3u_title is None else m3u_title)])
     elif os.path.isdir(src):
       numb_exp = lambda t: '.'.join([(t[0].rstrip('0123456789') + t[0][len(t[0].rstrip('0123456789')):].rjust(5,'0')) if ('0' <= t[0][-1:] and t[0][-1:] <= '9') else t[0]] + t[1:2])
       try:
@@ -800,7 +804,7 @@ class MediaProvider(threading.Thread):
       except:
         playlist = []
       return playlist, list(map(sh_str, playlist))
-    elif '.' in src[-4:] and src.rsplit('.',1)[-1].lower() == 'wpl':
+    elif '.' in src[-4:] and src.rsplit('.', 1)[-1].lower() == 'wpl':
       try:
         wpl = minidom.parse(src)
         playlist = list((os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(src)), e.getAttribute('src'))) if not '://' in e.getAttribute('src') else e.getAttribute('src')) for e in wpl.getElementsByTagName('media') if not is_stop())
@@ -809,13 +813,24 @@ class MediaProvider(threading.Thread):
       if is_stop():
         playlist = []
       return playlist, list(map(sh_str, playlist))
-    elif '.' in src[-5:] and src.rsplit('.',1)[-1].lower() in ('m3u8', 'm3u'):
+    elif '.' in src[-5:] and src.rsplit('.', 1)[-1].lower() in ('m3u8', 'm3u'):
+      playlist = []
       try:
-        f = open(src, 'rt', encoding='utf-8' if src.rsplit('.',1)[-1].lower() == 'm3u8' else None)
-        p_t = list(zip(*(MediaProvider.parse_playlist(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(src)), e.rstrip('\r\n'))) if not '://' in e else e.rstrip('\r\n'), False, stop) for e in f.readlines() if not is_stop() and e[:1] != '#' and e.rstrip('\r\n'))))
-        if not is_stop():
-          playlist = list(e for p in p_t[0] for e in p)
-          titles = list(e for p in p_t[1] for e in p)
+        f = open(src, 'rt', encoding='utf-8' if src.rsplit('.', 1)[-1].lower() == 'm3u8' else None)
+        tit = None
+        for e in f.readlines():
+          if is_stop():
+            break
+          e = e.lstrip().rstrip('\r\n')
+          p_t = []
+          if e[:8].upper() == "#EXTINF:":
+            if ',' in e:
+              tit = e.rsplit(',', 1)[1]
+          elif e[:1] != '#':
+            p_t_ = MediaProvider.parse_playlist(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(src)), e)) if not '://' in e else e, False, stop, tit)
+            tit = None
+            playlist.extend(p_t_[0])
+            titles.extend(p_t_[1])
         f.close()
       except:
         playlist = []
@@ -823,7 +838,7 @@ class MediaProvider(threading.Thread):
         playlist = []
       return playlist, titles
     else:
-      return (False, False) if check else ([src], [sh_str(src)])
+      return (False, False) if check else ([src], [sh_str(src if m3u_title is None else m3u_title)])
 
   @classmethod
   def convert_to_smi(cls, MediaSubBuffer):
@@ -1292,9 +1307,11 @@ class MediaProvider(threading.Thread):
 
   def MediaFeederS(self):
     if not self.MediaBuffer:
+      self.BuildFinishedEvent.set()
       return
     self.logger.log(1, 'loadstart')
     self.MediaBuffer.w_index = 1
+    self.BuildFinishedEvent.set()
     while self.Status != MediaProvider.STATUS_ABORTED and not self.shutdown_requested and self.MediaBuffer.w_index > 0:
       while self.Status != MediaProvider.STATUS_ABORTED and not self.shutdown_requested and self.MediaBuffer.w_index <= max(max(self.MediaBuffer.r_indexes, default=0), 1) + self.MediaBufferAhead:
         bloc = None
@@ -1331,8 +1348,10 @@ class MediaProvider(threading.Thread):
 
   def MediaFeederR(self):
     if not self.MediaSize:
+      self.BuildFinishedEvent.set()
       return
     self.logger.log(1, 'loadstart')
+    self.BuildFinishedEvent.set()
     header = {'User-Agent': 'Lavf'}
     header['Range'] = 'bytes=0-'
     header['Connection'] = 'keep-alive'
@@ -1508,15 +1527,17 @@ class MediaProvider(threading.Thread):
         self.Status = MediaProvider.STATUS_ABORTED
         return
       self.Status = MediaProvider.STATUS_RUNNING
-      self.BuildFinishedEvent.set()
       if self.shutdown_requested:
         self.Status = MediaProvider.STATUS_ABORTED
+        self.BuildFinishedEvent.set()
         return
       if self.ServerMode == MediaProvider.SERVER_MODE_SEQUENTIAL:
         self.MediaFeederS()
       elif self.ServerMode == MediaProvider.SERVER_MODE_RANDOM:
         if self.MediaSrcType.lower() in ('ContentURL'.lower(), 'WebPageURL'.lower()):
           self.MediaFeederR()
+        else:
+          self.BuildFinishedEvent.set()
       else:
         self.Status = MediaProvider.STATUS_ABORTED
         self.BuildFinishedEvent.set()
@@ -2029,9 +2050,7 @@ class MediaRequestHandlerR(server.SimpleHTTPRequestHandler):
 
 class MediaServer(threading.Thread):
 
-  MediaBufferBlocSize = 1024 * 1024
-
-  def __init__(self, MediaServerMode, MediaServerAddress, MediaSrc, MediaSrcType=None, MediaStartFrom=0, MediaBufferSize=75, MediaBufferAhead=25, MediaMuxContainer=None, MediaSubSrc=None, MediaSubSrcType=None, MediaSubLang=None, MediaSubBuffer=None, MediaProcessProfile=None, verbosity=0, auth_ip=None):
+  def __init__(self, MediaServerMode, MediaServerAddress, MediaSrc, MediaSrcType=None, MediaStartFrom=0, MediaBufferBlocSize=1048576, MediaBufferSize=75, MediaBufferAhead=25, MediaMuxContainer=None, MediaSubSrc=None, MediaSubSrcType=None, MediaSubLang=None, MediaSubBuffer=None, MediaProcessProfile=None, verbosity=0, auth_ip=None):
     threading.Thread.__init__(self)
     self.verbosity = verbosity
     self.auth_ip = auth_ip
@@ -2041,10 +2060,10 @@ class MediaServer(threading.Thread):
     self.MediaSrc = MediaSrc
     self.MediaSrcType = MediaSrcType
     self.MediaStartFrom = MediaStartFrom
-    self.MediaBufferAhead = MediaBufferAhead
+    self.MediaBufferAhead = MediaBufferAhead * 1048576 // MediaBufferBlocSize
     self.MediaBufferSize = max(MediaBufferSize, self.MediaBufferAhead + 2)
     self.MediaMuxContainer = MediaMuxContainer
-    self.MediaBufferInstance = MediaBuffer(self.MediaBufferSize, MediaServer.MediaBufferBlocSize)
+    self.MediaBufferInstance = MediaBuffer(self.MediaBufferSize * 1048576 // MediaBufferBlocSize, MediaBufferBlocSize)
     self.MediaSubSrc = MediaSubSrc
     self.MediaSubSrcType = MediaSubSrcType
     self.MediaSubLang = MediaSubLang
@@ -5856,7 +5875,7 @@ class DLNAWebInterfaceServer:
   '</html>'
   HTML_CONTROL_TEMPLATE = HTML_CONTROL_TEMPLATE.replace('{', '{{').replace('}', '}}').replace('{{#', '{').replace('#}}', '}').format_map(LSTRINGS['webinterface']).replace('{{', '{').replace('}}', '}')
 
-  def __init__(self, DLNAWebInterfaceServerAddress=None, DLNAJoinIp=None, Launch=INTERFACE_NOT_RUNNING, Renderer_uuid=None, Renderer_name=None, MediaServerMode=None, MediaSrc='', MediaStartFrom='0:00:00', MediaBufferSize=75, MediaBufferAhead=25, MediaMuxContainer=None, OnReadyPlay=False, MediaSubSrc='', MediaSubLang=None, SlideshowDuration=None, EndLess=False, verbosity=0):
+  def __init__(self, DLNAWebInterfaceServerAddress=None, DLNAJoinIp=None, Launch=INTERFACE_NOT_RUNNING, Renderer_uuid=None, Renderer_name=None, MediaServerMode=None, MediaSrc='', MediaStartFrom='0:00:00', MediaBufferBlocSize=1048576, MediaBufferSize=75, MediaBufferAhead=25, MediaMuxContainer=None, OnReadyPlay=False, MediaSubSrc='', MediaSubLang=None, SlideshowDuration=None, EndLess=False, verbosity=0):
     self.verbosity = verbosity
     self.logger = log_event('webinterface', verbosity)
     if not DLNAWebInterfaceServerAddress:
@@ -5896,6 +5915,7 @@ class DLNAWebInterfaceServer:
         self.MediaPosition = '0:00:00'
     else:
       self.MediaPosition = '0:00:00'
+    self.MediaBufferBlocSize = MediaBufferBlocSize
     self.MediaBufferSize = MediaBufferSize
     self.MediaBufferAhead = MediaBufferAhead
     self.MediaMuxContainer = MediaMuxContainer
@@ -6226,6 +6246,7 @@ class DLNAWebInterfaceServer:
       gapless_status = -1
     self.NextMediaServerInstance = None
     incoming_event_setter = partial(self.ControlDataStore.__setattr__, 'IncomingEvent')
+    check_renderer = False
     while (ind < (len(playlist) - 1 if playlist != False else 0)) or jump_ind is not None or self.ControlDataStore.Shuffle or self.EndLess:
       if self.shutdown_requested or playlist_stop:
         break
@@ -6307,7 +6328,7 @@ class DLNAWebInterfaceServer:
           else:
             nind = None
         if not self.MediaServerInstance:
-          self.MediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+3), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
+          self.MediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+3), media_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom=media_start_from, MediaBufferBlocSize=self.MediaBufferBlocSize, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=media_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
           self.MediaServerInstance.start()
         if not self.shutdown_requested:
           prep_success = self.MediaServerInstance.wait(InterruptSetter=incoming_event_setter)
@@ -6323,7 +6344,7 @@ class DLNAWebInterfaceServer:
           if playlist and self.MediaServerInstance.MediaProviderInstance.MediaSrcType == 'WebPageURL' and playlist[order[ind]][:MediaProvider.TITLE_MAX_LENGTH] == titles[order[ind]][:MediaProvider.TITLE_MAX_LENGTH]:
             titles[order[ind]] = self.MediaServerInstance.MediaProviderInstance.MediaTitle if len(self.MediaServerInstance.MediaProviderInstance.MediaTitle) <= MediaProvider.TITLE_MAX_LENGTH else self.MediaServerInstance.MediaProviderInstance.MediaTitle[:MediaProvider.TITLE_MAX_LENGTH] + '…'
             self.ControlDataStore.Playlist = titles
-          if self.MediaSrc[:7].lower() == 'upnp://':
+          if self.MediaSrc[:7].lower() == 'upnp://' or (playlist and '.' in self.MediaSrc[-5:] and self.MediaSrc.rsplit('.', 1)[-1].lower() in ('m3u8', 'm3u')):
             media_title = titles[order[ind]]
           else:
             media_title = self.MediaServerInstance.MediaProviderInstance.MediaTitle
@@ -6364,7 +6385,7 @@ class DLNAWebInterfaceServer:
                   nmedia_sub_src = nmedia_src if self.MediaSubSrc == self.MediaSrc else ''
               else:
                 nmedia_sub_src = self.MediaSubSrc
-              self.NextMediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+(self.MediaServerInstance.MediaServerAddress[1]-self.DLNAWebInterfaceServerAddress[1])%4+2), nmedia_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom='0:00:00', MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=nmedia_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
+              self.NextMediaServerInstance = MediaServer(self.MediaServerMode, (renderer_hip, self.DLNAWebInterfaceServerAddress[1]+(self.MediaServerInstance.MediaServerAddress[1]-self.DLNAWebInterfaceServerAddress[1])%4+2), nmedia_src, MediaSrcType=('ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None), MediaStartFrom='0:00:00', MediaBufferBlocSize=self.MediaBufferBlocSize, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaMuxContainer=self.MediaMuxContainer, MediaSubSrc=nmedia_sub_src, MediaSubSrcType='ContentURL' if self.MediaSrc[:7].lower()=='upnp://' else None, MediaSubLang=self.MediaSubLang, MediaProcessProfile=renderer.FriendlyName, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
               self.NextMediaServerInstance.start()
       else:
         suburi = media_sub_src
@@ -6379,10 +6400,10 @@ class DLNAWebInterfaceServer:
         else:
           media_ip = ''
         self.DLNAControllerInstance.wait_for_warning(warning, 0, True)
-        if self.MediaSrc[:7].lower() == 'upnp://':
+        if self.MediaSrc[:7].lower() == 'upnp://' or (playlist and '.' in self.MediaSrc[-5:] and self.MediaSrc.rsplit('.', 1)[-1].lower() in ('m3u8', 'm3u')):
           media_title = titles[order[ind]]
         else:
-          media_title = media_src
+          media_title = media_src[:501]
         spare_event.clear()
         self.ControlDataStore.IncomingEvent = spare_event
         try:
@@ -6653,7 +6674,7 @@ class DLNAWebInterfaceServer:
                     media_type = self.MediaServerInstance.MediaProviderInstance.MediaSrcType.replace('WebPageURL', 'ContentURL')
                     media_sub = self.MediaServerInstance.MediaSubBufferInstance
                     server_address = self.MediaServerInstance.MediaServerAddress
-                    self.MediaServerInstance = MediaServer(MediaProvider.SERVER_MODE_RANDOM, server_address, media_feed, MediaSrcType=media_type, MediaStartFrom='', MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaSubBuffer=media_sub, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
+                    self.MediaServerInstance = MediaServer(MediaProvider.SERVER_MODE_RANDOM, server_address, media_feed, MediaSrcType=media_type, MediaStartFrom='', MediaBufferBlocSize=self.MediaBufferBlocSize, MediaBufferSize=self.MediaBufferSize, MediaBufferAhead=self.MediaBufferAhead, MediaSubBuffer=media_sub, verbosity=self.verbosity, auth_ip=(renderer.Ip, *self.DLNAControllerInstance.ips))
                     self.MediaServerInstance.start()
                     incoming_event = self.ControlDataStore.IncomingEvent
                     if not self.shutdown_requested:
@@ -6824,7 +6845,7 @@ class DLNAWebInterfaceServer:
             if self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer:
               if self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer[0]:
                 nsuburi = 'http://%s:%s/mediasub%s' % (*self.NextMediaServerInstance.MediaServerAddress, self.NextMediaServerInstance.MediaProviderInstance.MediaSubBuffer[1])
-            if self.MediaSrc[:7].lower() == 'upnp://':
+            if self.MediaSrc[:7].lower() == 'upnp://' or (playlist and '.' in self.MediaSrc[-5:] and self.MediaSrc.rsplit('.', 1)[-1].lower() in ('m3u8', 'm3u')):
               nmedia_title = titles[order[nind]]
             else:
               nmedia_title = self.NextMediaServerInstance.MediaProviderInstance.MediaTitle
@@ -7054,6 +7075,7 @@ if __name__ == '__main__':
   
   server_parser = CustomArgumentParser()
   server_parser.add_argument('--typeserver', '-t', metavar='TYPE_SERVER', help=LSTRINGS['parser']['servertype'], choices=['a', 's', 'r', 'g', 'n'], default='a')
+  server_parser.add_argument('--bufferquick', '-q', help=LSTRINGS['parser']['bufferquick'], action='store_true')
   server_parser.add_argument('--buffersize', '-b', metavar='BUFFER_SIZE', help=LSTRINGS['parser']['buffersize'], default=75, type=int)
   server_parser.add_argument('--bufferahead', '-a', metavar='BUFFER_AHEAD', help=LSTRINGS['parser']['bufferahead'], default=25, type=int)
   server_parser.add_argument('--muxcontainer', '-m', metavar='MUX_CONTAINER', help=LSTRINGS['parser']['muxcontainer'], choices=['MP4', 'MPEGTS', '!MP4', '!MPEGTS'], default='MP4', type=str.upper)
@@ -7087,9 +7109,9 @@ if __name__ == '__main__':
   if args.command in ('display_renderers', 'r'):
     DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), DLNAJoinIp=args.join, Launch=DLNAWebInterfaceServer.INTERFACE_DISPLAY_RENDERERS, Renderer_uuid=args.uuid, Renderer_name=args.name, verbosity=args.verbosity)
   elif args.command in ('start', 's'):
-    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), DLNAJoinIp=args.join, Launch=DLNAWebInterfaceServer.INTERFACE_START, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'g':DLNAWebInterfaceServer.SERVER_MODE_GAPLESS, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None) , MediaSrc=os.path.abspath(args.mediasrc) if args.mediasrc and not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if (args.mediasublang and args.mediasublang != '.') else ('' if args.mediasublang == '.' else LSTRINGS['parser'].get('mediasublangcode', '')), verbosity=args.verbosity)
+    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), DLNAJoinIp=args.join, Launch=DLNAWebInterfaceServer.INTERFACE_START, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'g':DLNAWebInterfaceServer.SERVER_MODE_GAPLESS, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None) , MediaSrc=os.path.abspath(args.mediasrc) if args.mediasrc and not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferBlocSize=1024 if args.bufferquick else 1048576, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if (args.mediasublang and args.mediasublang != '.') else ('' if args.mediasublang == '.' else LSTRINGS['parser'].get('mediasublangcode', '')), verbosity=args.verbosity)
   elif args.command in ('control', 'c'):
-    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), DLNAJoinIp=args.join, Launch=DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'g':DLNAWebInterfaceServer.SERVER_MODE_GAPLESS, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None), MediaSrc=os.path.abspath(args.mediasrc) if not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if (args.mediasublang and args.mediasublang != '.') else ('' if args.mediasublang == '.' else LSTRINGS['parser'].get('mediasublangcode', '')), SlideshowDuration=args.slideshowduration, EndLess=args.endless, verbosity=args.verbosity)
+    DLNAWebInterfaceServerInstance = DLNAWebInterfaceServer((args.ip, args.port), DLNAJoinIp=args.join, Launch=DLNAWebInterfaceServer.INTERFACE_CONTROL, Renderer_uuid=args.uuid, Renderer_name=args.name, MediaServerMode={'a':MediaProvider.SERVER_MODE_AUTO, 's':MediaProvider.SERVER_MODE_SEQUENTIAL, 'r':MediaProvider.SERVER_MODE_RANDOM, 'g':DLNAWebInterfaceServer.SERVER_MODE_GAPLESS, 'n':DLNAWebInterfaceServer.SERVER_MODE_NONE}.get(args.typeserver,None), MediaSrc=os.path.abspath(args.mediasrc) if not '://' in args.mediasrc else args.mediasrc, MediaStartFrom=args.mediastartfrom, MediaBufferBlocSize=1024 if args.bufferquick else 1048576, MediaBufferSize=args.buffersize, MediaBufferAhead=args.bufferahead, MediaMuxContainer=args.muxcontainer, OnReadyPlay=args.onreadyplay, MediaSubSrc=os.path.abspath(args.mediasubsrc) if args.mediasubsrc and not '://' in args.mediasubsrc else args.mediasubsrc, MediaSubLang=args.mediasublang if (args.mediasublang and args.mediasublang != '.') else ('' if args.mediasublang == '.' else LSTRINGS['parser'].get('mediasublangcode', '')), SlideshowDuration=args.slideshowduration, EndLess=args.endless, verbosity=args.verbosity)
 
   if DLNAWebInterfaceServerInstance.start():
     if socket.inet_aton(DLNAWebInterfaceServerInstance.DLNAWebInterfaceServerAddress[0]) == b'\x00\x00\x00\x00':
