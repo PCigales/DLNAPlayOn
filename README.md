@@ -30,13 +30,14 @@ The play session can be controlled from any device on the same network by openin
 
 To launch the application with more options (PlayOn -h to display the complete syntax of command line and abbreviated commands):
 - to only diplay the available renderers: PlayOn.py display_renderers [-h] [--ip [INTERFACE_IP]] [--port INTERFACE_PORT] [--join [HANDLER_IP]] [--verbosity VERBOSE]
-- to open the web launch page to select the renderer, enter the content address and start playing: PlayOn.py start [-h] [--ip [INTERFACE_IP]] [--port INTERFACE_PORT] [--join [HANDLER_IP]] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--onreadyplay] [--mediasrc MEDIA_ADDRESS] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--verbosity VERBOSE]
-- to directly start playing a content and open the web control page: PlayOn.py control [-h] [--ip [INTERFACE_IP]] [--port INTERFACE_PORT] [--join [HANDLER_IP]] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--typeserver TYPE_SERVER] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--onreadyplay] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--slideshowduration SLIDESHOW_DURATION] [--endless] [--verbosity VERBOSE] MEDIA_ADDRESS  
+- to open the web launch page to select the renderer, enter the content address and start playing: PlayOn.py start [-h] [--ip [INTERFACE_IP]] [--port INTERFACE_PORT] [--join [HANDLER_IP]] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--typeserver TYPE_SERVER] [--bufferquick] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--onreadyplay] [--mediasrc MEDIA_ADDRESS] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--verbosity VERBOSE]
+- to directly start playing a content and open the web control page: PlayOn.py control [-h] [--ip [INTERFACE_IP]] [--port INTERFACE_PORT] [--join [HANDLER_IP]] [--uuid RENDERER_UUID] [--name RENDERER_NAME] [--typeserver TYPE_SERVER] [--bufferquick] [--buffersize BUFFER_SIZE] [--bufferahead BUFFER_AHEAD] [--muxcontainer MUX_CONTAINER] [--onreadyplay] [--mediasubsrc MEDIA_SUBADDRESS] [--mediasublang MEDIA_SUBLANG] [--mediastartfrom MEDIA_START_FROM] [--slideshowduration SLIDESHOW_DURATION] [--endless] [--verbosity VERBOSE] MEDIA_ADDRESS  
 where:  
   --ip INTERFACE_IP, -i INTERFACE_IP                            IP address to be used for the web server or blank to operate on all interfaces [default: set by system]  
   --port SERVER_TCP_PORT, -p SERVER_TCP_PORT                    TCP port to be used for the web server [default: 8000]  
   --join [HANDLER_IP], -j [HANDLER_IP]                          IP address to be used for the DLNA controller/client or blank to operate on all interfaces [default: set by system]  
   --typeserver TYPE_SERVER, -t TYPE_SERVER                      server type (a:auto, s:sequential, r:random, g:gapless/random, n:none) [default: a]  
+  --bufferquick, -q                                             reduced size of buffer block for faster startup [default: not]  
   --buffersize BUFFER_SIZE, -b BUFFER_SIZE                      buffer size in MB [default: 75]  
   --bufferahead BUFFER_AHEAD, -a BUFFER_AHEAD                   load ahead buffer size in MB [default: 25]  
   --muxcontainer MUX_CONTAINER, -m MUX_CONTAINER                remux container type, preceded by ! for systematic remux [default: MP4]  
@@ -61,9 +62,10 @@ Exemples (let's suppose the IP address of the computer is 192.168.1.10):
 - PlayOn c https://www.youtube.com/watch?v=XXXXXXX -s https://www.youtube.com/watch?v=XXXXXXX -l en: will play the YT video with its subtitles in English
 - PlayOn c C:\videos\holidays -d 0:00:05: will play the content of the folder and its subfolders, displaying pictures during 5s
 - PlayOn c C:\videos\holidays.m3u8 -d 0:00:08: will play the content of the playlist (and its subfolders or subplaylists), displaying pictures during 8s
-- PlayOn c https://vimeo.com/channels/XXXXX -s https://vimeo.com/channels/XXXXX -l en: will play the content of playlist with substitles if any
+- PlayOn c https://vimeo.com/channels/XXXXX -s https://vimeo.com/channels/XXXXX -l en: will play the content of playlist with subtitles if any
 - PlayOn c C:\videos\movies -s c:\videos\st: will play the content of the movies folder and subfolders, loading subtitles from the st folder and identical subfolders
 - PlayOn c C:\videos\movies -s c:\videos\st -t g: will play the content of the movies folder and subfolders, loading subtitles from the st folder and identical subfolders, in random mode trying to achieve gapless playback
+- PlayOn c C:\radios\radios.m3u8 -t s -q -a 70: will play the radios
 - PlayOn r -i -j: will display the renderers accessible from all the interfaces, and the web interface can be reached on any interface (including 127.0.0.1 on the host)
 
 Tips to make the application easier to use:
