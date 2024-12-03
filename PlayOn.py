@@ -287,7 +287,7 @@ EN_STRINGS = {
     'deliverystop': 'Connection %d -> end of the delivery of the content',
     'subdelivery': 'Delivery of the subtitles to %s:%s',
     'subfailure': 'Failure of the delivery of the subtitles to %s:%s',
-    'start': 'Start, on the interrface %s, of the delivery server in %s mode%s',
+    'start': 'Start, on the interface %s, of the delivery server in %s mode%s',
     'sequential': 'sequential',
     'random': 'random',
     'unsupported': ' unsupported by the source',
@@ -560,7 +560,6 @@ class MediaProvider(threading.Thread):
   SERVER_MODE_AUTO = 0
   SERVER_MODE_SEQUENTIAL = 1
   SERVER_MODE_RANDOM = 2
-  SERVER_MODES = ("auto", "séquentiel", "aléatoire")
 
   TITLE_MAX_LENGTH = 200
 
@@ -1233,7 +1232,7 @@ class MediaProvider(threading.Thread):
         pass
     if not self.shutdown_requested:
       if self.MediaFeed:
-        self.logger.log(1, 'opening', self.MediaSrc, LSTRINGS['mediaprovider'].get(self.MediaSrcType.lower(), self.MediaSrcType), MediaProvider.SERVER_MODES[self.ServerMode], self.MediaTitle)
+        self.logger.log(1, 'opening', self.MediaSrc, LSTRINGS['mediaprovider'].get(self.MediaSrcType.lower(), self.MediaSrcType), LSTRINGS['mediaserver'].get({MediaProvider.SERVER_MODE_SEQUENTIAL: 'sequential', MediaProvider.SERVER_MODE_RANDOM: 'random'}.get(self.ServerMode, ''), ''), self.MediaTitle)
         if self.MediaFeedExt:
           media_mime = mimetypes.guess_type('f' + self.MediaFeedExt)[0]
           if media_mime:
