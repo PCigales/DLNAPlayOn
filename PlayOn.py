@@ -826,7 +826,7 @@ class MediaProvider(threading.Thread):
           if e[:8].upper() == "#EXTINF:":
             if ',' in e:
               tit = e.rsplit(',', 1)[1].strip()
-          elif e[:1] != '#':
+          elif e and e[:1] != '#':
             p_t_ = MediaProvider.parse_playlist(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(src)), e)) if not '://' in e else e, False, stop, tit)
             tit = None
             playlist.extend(p_t_[0])
