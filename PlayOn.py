@@ -529,6 +529,11 @@ class ThreadedDualStackServer(socketserver.ThreadingMixIn, server.HTTPServer):
   def shutdown(self):
     self.socket.close()
     super().shutdown()
+    for sock in self.conn_sockets:
+      try:
+        sock.shutdown(socket.SHUT_RDWR)
+      except:
+        pass
 
   def server_close(self):
     pass
@@ -604,7 +609,7 @@ class MediaProvider(threading.Thread):
   urlopento = urllib.request.build_opener(HTTPHandlerTO).open
 
   def __init__(self, ServerMode, MediaSrc, MediaSrcType=None, MediaStartFrom=None, MediaBuffer=None, MediaBufferAhead=None, MediaMuxContainer=None, MediaSubSrc=None, MediaSubSrcType=None, MediaSubLang=None, MediaSubBuffer=None, MediaProcessProfile=None, FFmpegPort=None, BuildFinishedEvent=None, verbosity=0):
-    threading.Thread.__init__(self)
+    threading.Thread.__init__(self, daemon=True)
     self.logger = log_event('mediaprovider', verbosity)
     self.ServerMode = ServerMode if ServerMode in (MediaProvider.SERVER_MODE_SEQUENTIAL, MediaProvider.SERVER_MODE_RANDOM) else MediaProvider.SERVER_MODE_AUTO
     self.MediaSrc = MediaSrc
@@ -2152,18 +2157,12 @@ class MediaServer(threading.Thread):
     try:
       self.MediaServerInstance.shutdown()
       self.logger.log(1, 'shutdown')
-      for sock in self.MediaServerInstance.conn_sockets:
-        try:
-          sock.shutdown(socket.SHUT_RDWR)
-        except:
-          pass
     except:
       pass
     self.MediaBufferInstance.r_event.set()
     self.MediaBufferInstance.w_condition.acquire()
     self.MediaBufferInstance.w_condition.notify_all()
     self.MediaBufferInstance.w_condition.release()
-
 
 def _XMLGetNodeText(node):
   text = []
@@ -7042,11 +7041,6 @@ class DLNAWebInterfaceServer:
       self.Status = DLNAWebInterfaceServer.INTERFACE_NOT_RUNNING
       try:
         self.DLNAWebInterfaceServerInstance.shutdown()
-        for sock in self.DLNAWebInterfaceServerInstance.conn_sockets:
-          try:
-            sock.shutdown(socket.SHUT_RDWR)
-          except:
-            pass
       except:
         pass
 
