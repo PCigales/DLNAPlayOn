@@ -7,7 +7,6 @@ import threading
 import selectors
 import argparse
 import os
-import shutil
 import msvcrt
 import subprocess
 import time
