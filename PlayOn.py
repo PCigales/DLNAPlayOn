@@ -2164,6 +2164,7 @@ class MediaServer(threading.Thread):
     self.MediaBufferInstance.w_condition.notify_all()
     self.MediaBufferInstance.w_condition.release()
 
+
 def _XMLGetNodeText(node):
   text = []
   for childNode in node.childNodes:
