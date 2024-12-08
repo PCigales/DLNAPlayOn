@@ -1,4 +1,4 @@
-# DLNAPlayOn v1.8.3 (https://github.com/PCigales/DLNAPlayOn)
+# DLNAPlayOn v1.8.4 (https://github.com/PCigales/DLNAPlayOn)
 # Copyright © 2022 PCigales
 # This program is licensed under the GNU GPLv3 copyleft license (see https://www.gnu.org/licenses)
 
@@ -3926,7 +3926,8 @@ class DLNAController(DLNAHandler):
 
   def new_event_subscription(self, *args, **kwargs):
     EventListener = super().new_event_subscription(*args, **kwargs)
-    EventListener.Renderer = EventListener.Device
+    if EventListener:
+      EventListener.Renderer = EventListener.Device
     return EventListener
 
 
@@ -7048,7 +7049,7 @@ class DLNAWebInterfaceServer:
 
 if __name__ == '__main__':
 
-  print('DLNAPlayOn v1.8.3 (https://github.com/PCigales/DLNAPlayOn)    Copyright © 2022 PCigales')
+  print('DLNAPlayOn v1.8.4 (https://github.com/PCigales/DLNAPlayOn)    Copyright © 2022 PCigales')
   print(LSTRINGS['parser']['license'])
   print('');
 
